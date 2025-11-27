@@ -1,0 +1,30 @@
+# docker-compose.prod.yml (Un archivo separado para producción)
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod # Usa la imagen de producción
+    ports:
+      - "9000:9000"
+    environment:
+      NODE_ENV: production
+    # Sin 'volumes' y sin 'nodemon'
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod # Usa la imagen con Nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    # Sin 'volumes' y sin 'dev server'
+
+
+    # ---------------- PARA FAUSTO Y JOAQUIN ----------------------
+    # Comando para construir y levantar los contenedores de producción:
+    
+    # PARA LEVANTARLO: docker compose -f docker-compose.prod.yml up -d --build
+    # PARA FRENARLO: docker compose -f docker-compose.prod.yml down

@@ -1,0 +1,15 @@
+# 1. ETAPA BASE: Usamos la imagen oficial de Node.js
+FROM node:22
+
+# 2. DEFINIMOS EL DIRECTORIO DE TRABAJO
+WORKDIR /app
+
+# 3. COPIAMOS E INSTALAMOS TODAS LAS DEPENDENCIAS (incluyendo devDependencies)
+COPY package*.json ./
+RUN npm install
+
+# 4. PUERTO (El puerto que usa tu servidor de desarrollo, ej: Vite usa 5173)
+EXPOSE 3000
+
+# Nota: El comando de inicio ('npm run dev') y la copia de código
+# se harán con volumes en Docker Compose para habilitar el Hot Reload.
