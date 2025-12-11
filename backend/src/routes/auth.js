@@ -2,43 +2,44 @@ const express = require('express');
 const router = express.Router();
 const connection = require('../helpers/conexion-mysql')
 const db = require('../models/authModel.js')
+const {addLog} = require('../helpers/addLog.js')
 
 router.post('/login', login);
 
 async function login(req, res) {
     connection.pool.getConnection(async (errConn, conn) => {
-
+        
         let response = {}
         let status = 400
         let errMsg = "Authentication error."
         let connSuccess = false
-
+        
         try {
             if (errConn) throw errConn
-
+            
             connSuccess = true
-
+            
             let params = {
                 username: req.body.username && req.body.username != null ? req.body.username : null,
                 password: req.body.password && req.body.password != null ? req.body.password : null
             }
-
+            
             if (!params.username || !params.password) {
                 errMsg = "Invalid username or password. Please, verify your credentials and try again."
-                throw new Error("No se envio usuario y/o contraseña")
+                throw "No se envio usuario y/o contraseña"
             }
-
+            
             if (process.env.UTILIZAR_CAPTCHA == 'true') {
-                if (!req.body.captchaToken) {
-                    throw "Internal error."
-                }
-                //Validación de captcha
-                const captchaResults = await getCaptcha(req.body.captchaToken);
+                // if (!req.body.captchaToken) {
+                    //     throw "Internal error."
+                    // }
+                    //Validación de captcha
+                    // const captchaResults = await getCaptcha(req.body.captchaToken);
 
-                if (!captchaResults.success || captchaResults.score < process.env.CAPTCHA_SCORE_MINIMO) {
-                    errMsg = "Authentication error. The system detected suspicious activity."
-                    throw Error("Sos un robot.")
-                }
+                // if (!captchaResults.success || captchaResults.score < process.env.CAPTCHA_SCORE_MINIMO) {
+                //     errMsg = "Authentication error. The system detected suspicious activity."
+                //     throw Error("Sos un robot.")
+                // }
             }
 
             let userData = await db.getUserByUsername(conn, params) 
@@ -79,42 +80,30 @@ async function login(req, res) {
             } else {
                 status = 200
                 response = {
-                    mensaje: "Welcome!", data: {
-                        apellido: payload.apellido,
-                        cuil: payload.cuil,
-                        email: payload.email,
-                        reestablecerPassword: payload.reestablecerPassword,
-                        idPersona: payload.idPersona,
-                        idUsuario: payload.idUsuario,
-                        nombre: payload.nombre,
-                        usuario: payload.usuario,
-                        idPerfil: payload.idPerfil,
-                        codigoPerfil: payload.codigoPerfil,
-                        idFilial: payload.idFilial
-                    }
+                    mensaje: "Welcome!", data: {}
                 }
             }
 
             await addLog({
-                idUsuario: payload.idUsuario,
-                seccion: "AUTH",
+                idUser: payload.idUsuario,
+                section: "AUTH",
                 logLevel: "INFO",
-                funcion: "login"
+                funct: "login",
+                msg: "LOGIN SUCCESS"
             })
         }
         catch (e) {
-            console.log('login error:', e);
-            let msg = e;
+            let msg = "An internal error has ocurred, please try again or contact support.";
             if (msg.message) { msg = msg.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }
             await addLog({
                 seccion: "AUTH",
                 logLevel: "ERROR",
                 funcion: "login",
-                msg
+                msg: msg
             })
-            status = 400
-            response = { status: "err", mensaje: errMsg }
+            status = 500
+            response = { status: "err", mensaje: msg }
         }
         finally {
             if (connSuccess) conn.release()

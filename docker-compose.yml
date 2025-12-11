@@ -10,7 +10,7 @@ services:
       context: ./backend             # Directorio donde está el código
       dockerfile: Dockerfile.prod    # Usamos la imagen de producción como base
     ports:
-      - "9000:9000"                  # Mapeo de puertos: host:contenedor
+      - "8000:8000"                  # Mapeo de puertos: host:contenedor
     volumes:
       - ./backend:/usr/src/app       # Sincroniza el código local con el contenedor
       # - /usr/src/app/node_modules    # Excluye la carpeta node_modules (para no sobreescribir las dependencias instaladas)

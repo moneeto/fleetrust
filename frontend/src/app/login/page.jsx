@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { Badge, Card, CardBody, Button, ButtonGroup, Col, Form, Input, Label, Row, FormGroup, Modal, ModalHeader, ModalBody, ModalFooter, Alert, Progress, Container } from "reactstrap";
 import { FaArrow } from "react-icons/fa"
+import { ApiComunicator } from "@/helpers/ApiComunicator";
 
 export default function Login() {
   const [form, setForm] = useState({
-    user: "",
+    username: "",
     password: "",
   });
 
@@ -25,13 +26,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const resp = await fetch("http://localhost:8000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
+      console.log("que onda lagarto");
+      const resp = await ApiComunicator("/auth/login", "POST", form)
+      console.log(resp)
     } catch (err) {
+      console.log(err)
       setError(err.message);
     } finally {
       setLoading(false);
