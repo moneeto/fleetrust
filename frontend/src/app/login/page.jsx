@@ -44,16 +44,16 @@ export default function Login() {
 
         <Input
           type="text"
-          name="user"
-          placeholder="Usuario"
-          value={form.user}
+          name="username"
+          placeholder="User"
+          value={form.username}
           onChange={handleChange}
         />
 
         <Input
           type="password"
           name="password"
-          placeholder="Contraseña"
+          placeholder="Password"
           value={form.password}
           onChange={handleChange}
         />

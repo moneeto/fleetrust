@@ -22,17 +22,7 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
     }
 
     try {
-        
-        console.log("-----------------PRE FETCH-----------------");
-        console.log(url, params);
-        console.log("-----------------PRE FETCH-----------------");
-        
         const response = await fetch(url, params);
-        
-        console.log("-----------------POST FETCH-----------------");
-        console.log(response);
-        console.log("-----------------POST FETCH-----------------");
-
         if (!response.ok) {
 
             if (response.status === 401) {

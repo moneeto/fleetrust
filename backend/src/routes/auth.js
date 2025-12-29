@@ -3,6 +3,9 @@ const router = express.Router();
 const connection = require('../helpers/conexion-mysql')
 const db = require('../models/authModel.js')
 const {addLog} = require('../helpers/addLog.js')
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const moment = require('moment');
 
 router.post('/login', login);
 
@@ -16,14 +19,14 @@ async function login(req, res) {
         
         try {
             if (errConn) throw errConn
-            
+
             connSuccess = true
             
             let params = {
                 username: req.body.username && req.body.username != null ? req.body.username : null,
                 password: req.body.password && req.body.password != null ? req.body.password : null
             }
-            
+
             if (!params.username || !params.password) {
                 errMsg = "Invalid username or password. Please, verify your credentials and try again."
                 throw "No se envio usuario y/o contraseña"
@@ -43,7 +46,7 @@ async function login(req, res) {
             }
 
             let userData = await db.getUserByUsername(conn, params) 
-            
+
             if (!userData || !userData[0] || !userData[0].idUser) { 
                 errMsg = "Invalid username or password. Please, verify your credentials and try again."
                 throw `No se ha encontrado el usuario ${params.username}`
@@ -93,6 +96,7 @@ async function login(req, res) {
             })
         }
         catch (e) {
+            console.log(e);
             let msg = "An internal error has ocurred, please try again or contact support.";
             if (msg.message) { msg = msg.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }
