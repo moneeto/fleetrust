@@ -87,25 +87,12 @@ async function login(req, res) {
                 }
             }
 
-            await addLog({
-                idUser: payload.idUsuario,
-                section: "AUTH",
-                logLevel: "INFO",
-                funct: "login",
-                msg: "LOGIN SUCCESS"
-            })
         }
         catch (e) {
             console.log(e);
             let msg = "An internal error has ocurred, please try again or contact support.";
             if (msg.message) { msg = msg.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }
-            await addLog({
-                seccion: "AUTH",
-                logLevel: "ERROR",
-                funcion: "login",
-                msg: msg
-            })
             status = 500
             response = { status: "err", mensaje: msg }
         }

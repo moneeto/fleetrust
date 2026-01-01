@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Badge, Card, CardBody, Button, ButtonGroup, Col, Form, Input, Label, Row, FormGroup, Modal, ModalHeader, ModalBody, ModalFooter, Alert, Progress, Container } from "reactstrap";
 import { FaArrow } from "react-icons/fa"
 import { ApiComunicator } from "@/helpers/ApiComunicator";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -12,6 +13,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleChange = (e) => {
     setForm({
@@ -28,7 +30,7 @@ export default function Login() {
     try {
       console.log("que onda lagarto");
       const resp = await ApiComunicator("/auth/login", "POST", form)
-      console.log(resp)
+      router.push("/tours");
     } catch (err) {
       console.log(err)
       setError(err.message);
