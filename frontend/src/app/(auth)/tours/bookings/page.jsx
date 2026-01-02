@@ -83,7 +83,7 @@ export default function ToursPage() {
         </style>
       </head>
       <body>
-        <h1>Reservations</h1>
+        <h1>Bookings for ${moment(date).format("MMMM DD, YYYY")}</h1>
         <div class="subtitle">
           Generated on ${new Date().toLocaleDateString()}
         </div>

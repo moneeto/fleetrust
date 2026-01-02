@@ -1,7 +1,21 @@
-"use client"
+"use client";
+
 import { useState } from "react";
-import { Badge, Card, CardBody, Button, ButtonGroup, Col, Form, Input, Label, Row, FormGroup, Modal, ModalHeader, ModalBody, ModalFooter, Alert, Progress, Container } from "reactstrap";
-import { FaArrow } from "react-icons/fa"
+import {
+  Badge,
+  Card,
+  CardBody,
+  Button,
+  Form,
+  Input,
+  Label,
+  FormGroup,
+  Alert,
+  Spinner,
+  Container,
+  Row,
+  Col
+} from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { useRouter } from "next/navigation";
 
@@ -28,48 +42,83 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const resp = await ApiComunicator("/auth/login", "POST", form);
+      await ApiComunicator("/auth/login", "POST", form);
       router.refresh();
       router.replace("/tours/bookings");
     } catch (err) {
-      // console.log(err)
-      setError(err.message);
+      setError(err.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <Form onSubmit={handleSubmit}>
-        <h2 >Log in</h2>
+    <Container fluid className="vh-100 bg-light">
+      <Row className="h-100 justify-content-center align-items-center">
+        <Col xs="12" sm="10" md="6" lg="4">
+          <Card className="shadow-md" style={{ border: '0px' }}>
+            <CardBody className="p-4">
+              <img src="/images/logo-bw.svg" alt="Logo" className="mb-4 d-block mx-auto" style={{ maxWidth: '150px' }} />
 
-        <Input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={form.username}
-          onChange={handleChange}
-        />
+              <Form onSubmit={handleSubmit}>
+                <FormGroup className="mb-3" floating>
+                  <Input
+                    id="username"
+                    type="text"
+                    name="username"
+                    placeholder="Enter your username"
+                    value={form.username}
+                    onChange={handleChange}
+                    disabled={loading}
+                    required
+                  />
+                  <Label for="username">
+                    Username
+                  </Label>
+                </FormGroup>
 
-        <Input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-        />
+                <FormGroup className="mb-4" floating>
+                  <Input
+                    id="password"
+                    type="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    value={form.password}
+                    onChange={handleChange}
+                    disabled={loading}
+                    required
+                  />
+                  <Label for="password">
+                    Password
+                  </Label>
+                </FormGroup>
 
-        {error && <Badge color="danger">{error}</Badge>}
+                {error && (
+                  <Alert color="danger" className="py-2">
+                    {error}
+                  </Alert>
+                )}
 
-        <Button
-          type="submit"
-          disabled={loading}
-          color="primary"
-        >
-          {loading ? "Logging in..." : "Login"}
-        </Button>
-      </Form>
-    </div>
+                <Button
+                  type="submit"
+                  className="w-100"
+                  style={{backgroundColor: "black"}}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Spinner size="sm" className="me-2" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login"
+                  )}
+                </Button>
+              </Form>
+            </CardBody>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 }
