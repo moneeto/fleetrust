@@ -28,11 +28,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      console.log("que onda lagarto");
-      const resp = await ApiComunicator("/auth/login", "POST", form)
-      router.push("/tours");
+      const resp = await ApiComunicator("/auth/login", "POST", form);
+      router.refresh();
+      router.replace("/tours/bookings");
     } catch (err) {
-      console.log(err)
+      // console.log(err)
       setError(err.message);
     } finally {
       setLoading(false);
@@ -42,12 +42,12 @@ export default function Login() {
   return (
     <div>
       <Form onSubmit={handleSubmit}>
-        <h2 >Iniciar Sesión</h2>
+        <h2 >Log in</h2>
 
         <Input
           type="text"
           name="username"
-          placeholder="User"
+          placeholder="Username"
           value={form.username}
           onChange={handleChange}
         />
@@ -67,7 +67,7 @@ export default function Login() {
           disabled={loading}
           color="primary"
         >
-          {loading ? "Ingresando..." : "Ingresar"}
+          {loading ? "Logging in..." : "Login"}
         </Button>
       </Form>
     </div>

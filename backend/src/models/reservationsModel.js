@@ -3,14 +3,23 @@ async function createReservation(conn, params) {
     // passengers, idStatus, totalValue, deposit, remainingBalance }
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO reservations (reservationDate, 
-        reservationTime, idStatus)
-        VALUES (?, ?, ?)
+        INSERT INTO reservations (
+            reservationDate, 
+            reservationTime, 
+            name,
+            lastname,
+            idStatus,
+            idTourType
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
             params.reservationDate,
             params.reservationTime,
-            params.idStatus
+            params.name,
+            params.lastname,
+            params.idStatus,
+            5
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);

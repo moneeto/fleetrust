@@ -36,6 +36,8 @@ async function createReservation(req, res) {
             const insertResult = await db.createReservation(conn, {
                 reservationDate,
                 reservationTime,
+                name: req.name,
+                lastname: req.surname,
                 idStatus: 3
             })
 
