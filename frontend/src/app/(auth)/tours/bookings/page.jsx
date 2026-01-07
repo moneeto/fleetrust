@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { Form, FormGroup, Label, Input, Button } from "reactstrap";
+import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { FaPrint } from "react-icons/fa";
 import moment from "moment";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function ToursPage() {
     let today = moment().format("YYYY-MM-DD");
@@ -12,11 +13,16 @@ export default function ToursPage() {
     const [reservations, setReservations] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [modalDetail, setModalDetail] = useState({ show: false, reservation: null });
     const tableRef = useRef(null);
+    const toast = useToast();
+
+    const [reservation, setReservation] = useState(null);
 
     function handlePrint() {
         if (!tableRef.current) return;
 
+        // Clonamos la tabla para no afectar la original en la UI
         const tableHTML = tableRef.current.outerHTML;
         const printWindow = window.open("", "_blank", "width=900,height=650");
 
@@ -26,11 +32,13 @@ export default function ToursPage() {
     <html>
       <head>
         <title>Reservations</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
         <style>
           body {
             font-family: Arial, Helvetica, sans-serif;
             padding: 24px;
             color: #111;
+            background-color: white !important;
           }
 
           h1 {
@@ -44,14 +52,17 @@ export default function ToursPage() {
             margin-bottom: 20px;
           }
 
+          /* Tu diseño actual de tabla para asegurar que se vea bien */
           table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            margin-top: 10px;
           }
 
           thead {
-            background-color: #f3f4f6;
+            background-color: #f3f4f6 !important;
+            -webkit-print-color-adjust: exact; /* Para que el color de fondo se imprima */
           }
 
           th, td {
@@ -67,18 +78,19 @@ export default function ToursPage() {
             letter-spacing: 0.03em;
           }
 
-          tbody tr:nth-child(even) {
-            background-color: #fafafa;
+          /* Ocultar la columna de 'Actions' en la impresión */
+          th:last-child, td:last-child {
+            display: none;
           }
 
-          td:last-child, th:last-child {
-            text-align: right;
+          tbody tr:nth-child(even) {
+            background-color: #fafafa !important;
+            -webkit-print-color-adjust: exact;
           }
 
           @media print {
-            body {
-              padding: 0;
-            }
+            body { padding: 0; }
+            .no-print { display: none; }
           }
         </style>
       </head>
@@ -88,13 +100,21 @@ export default function ToursPage() {
           Generated on ${new Date().toLocaleDateString()}
         </div>
         ${tableHTML}
+        <script>
+          // Esperar a que cargue el CSS de Bootstrap antes de imprimir
+          window.onload = function() {
+            setTimeout(() => {
+                window.focus();
+                window.print();
+                // window.close(); // Opcional: cerrar ventana tras imprimir
+            }, 250);
+          };
+        </script>
       </body>
     </html>
   `);
 
         printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
     }
 
 
@@ -110,9 +130,9 @@ export default function ToursPage() {
                     `/reservations/reservationsByDate?date=${date}`
                 );
 
-                setReservations(res.reservations || []);
+                setReservations(res.reservations);
             } catch (err) {
-                setError(err.message || "Error inesperado");
+                setError(err.message);
                 setReservations([]);
             } finally {
                 setLoading(false);
@@ -121,6 +141,24 @@ export default function ToursPage() {
 
         fetchReservations();
     }, [date]);
+
+    const getReservationById = async (id) => {
+        try {
+            setLoading(true)
+            let reserv = await ApiComunicator(`/reservations/getReservationById`, "POST", { id });
+            setReservation(reserv)
+        } catch (error) {
+            let message = "An error occurred while getting the reservation details.";
+            if (error.message) { message = error.message }
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: message
+            });
+        } finally {
+            setLoading(false)
+        }
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -151,13 +189,6 @@ export default function ToursPage() {
                     </FormGroup>}
             </Form>
 
-            {/* Estados */}
-            {loading && (
-                <p className="text-sm text-gray-500">
-                    Loading bookings...
-                </p>
-            )}
-
             {error && (
                 <p className="text-sm text-red-600">
                     {error}
@@ -167,20 +198,20 @@ export default function ToursPage() {
             {/* Tabla */}
             {!loading && reservations.length > 0 && (
                 <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
-                    <table className="min-w-full border-collapse" ref={tableRef}>
-                        <thead className="bg-gray-50 border-b">
+                    <Table innerRef={tableRef}>
+                        <thead style={{ background: '#f3f4f6' }} className="border-b">
                             <tr>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
-                                    Time
+                                    Code
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
-                                    Client
+                                    Time
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
                                     Passengers
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
-                                    Code
+                                    Client
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
                                     Email
@@ -189,7 +220,7 @@ export default function ToursPage() {
                                     Phone
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-right">
-                                    Total
+                                    Actions
                                 </th>
                             </tr>
                         </thead>
@@ -201,30 +232,36 @@ export default function ToursPage() {
                                     className="hover:bg-gray-50 transition-colors"
                                 >
                                     <td className="px-4 py-3 text-sm">
+                                        #{r.codeReservation}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
                                         {r.reservationTime.slice(0, 5)}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.name} {r.lastname}
+                                        {r.passengers ? r.passengers : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.passengers}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        #{r.codeReservation}
+                                        {r.name && r.lastname ? `${r.name} ${r.lastname}`: `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600">
-                                        {r.email}
+                                        {r.email ? r.email : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.phoneNumber}
+                                        {r.phoneNumber ? r.phoneNumber : `-`}
                                     </td>
-                                    <td className="px-4 py-3 text-sm font-medium text-right">
-                                        ${r.totalValue}
+                                    <td>
+                                        <Button
+                                            color="secondary"
+                                            size="sm"
+                                            onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
+                                        >
+                                            View Details
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </Table>
                 </div>
             )}
 
@@ -234,6 +271,124 @@ export default function ToursPage() {
                     No bookings for selected date.
                 </div>
             )}
+            {loading && (
+                <div className="bg-white rounded-lg border p-4 text-sm text-gray-500">
+                    Loading bookings...
+                </div>
+            )}
+            <Modal isOpen={modalDetail.show} size="md" centered>
+                {/* Header with dark background to match your table */}
+                <ModalHeader
+                    toggle={() => setModalDetail({ ...modalDetail, show: false, reservation: null })}
+                    style={{ backgroundColor: '#1e1e1e', color: 'white' }}
+                >
+                    <span style={{ color: 'white' }}>Reservation Details</span>
+                </ModalHeader>
+
+                <ModalBody style={{ padding: '0' }}>
+                    {reservation ? (
+                        <div style={{ padding: '24px', fontFamily: 'sans-serif' }}>
+
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                marginBottom: '20px',
+                                borderBottom: '1px solid #f0f0f0',
+                                paddingBottom: '15px'
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Code</span>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#333', fontFamily: 'monospace' }}>#{reservation?.codeReservation}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Date & Time</span>
+                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                        {moment(reservation?.reservationDate).format("MMM DD, YYYY")} - {reservation?.reservationTime?.slice(0, 5)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Tour Type</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.tourTitle || reservation?.title}</span>
+                                </div>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation.passengers} passengers` : ` - `}</span>
+                                </div>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.name} {reservation?.lastname}</span>
+                                </div>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
+                                </div>
+                                <div style={{ flex: '1 1 100%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
+                                </div>
+                            </div>
+
+                            {reservation?.notes && (
+                                <>
+                                    <div style={{ borderBottom: '1px solid #f0f0f0', marginBottom: '20px' }}></div>
+                                    <div style={{
+                                        backgroundColor: '#b8d1ffff',
+                                        borderLeft: '5px solid #007bff',
+                                        padding: '16px',
+                                        borderRadius: '4px',
+                                        marginTop: '20px',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '8px',
+                                            fontWeight: 'bold',
+                                            color: "#000000ff",
+                                            fontSize: '11px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px'
+                                        }}>
+                                            CUSTOMER NOTES
+                                        </div>
+                                        <p style={{
+                                            margin: 0,
+                                            fontSize: '14px',
+                                            color: '#000000',
+                                            lineHeight: '1.5',
+                                            fontStyle: 'italic',
+                                            fontWeight: '500'
+                                        }}>
+                                            "{reservation.notes}"
+                                        </p>
+                                    </div>
+                                </>
+
+                            )}
+
+                        </div>
+                    ) : (
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+                            <p>Loading reservation details...</p>
+                        </div>
+                    )}
+                </ModalBody>
+
+                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
+                    <Button
+                        style={{ fontSize: '13px', fontWeight: '600' }}
+                        color="secondary"
+                        outline
+                        onClick={() => setModalDetail({ ...modalDetail, show: false, reservation: null })}
+                    >
+                        Close
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </div>
 
     );

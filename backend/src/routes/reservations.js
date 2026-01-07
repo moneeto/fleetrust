@@ -8,6 +8,8 @@ const withAuth = require('../middleware/withAuth.js')
 router.post('/createReservation', withAuth, createReservation);
 router.get('/availableHours', withAuth, getAvailableHours);
 router.get('/reservationsByDate', withAuth, getReservationsByDate);
+router.post('/getReservationById', withAuth, getReservationById);
+
 
 async function createReservation(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
@@ -21,7 +23,7 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { reservationDate, reservationTime } = req.body;
+            const { reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder } = req.body;
 
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
@@ -33,23 +35,40 @@ async function createReservation(req, res) {
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
             // create reservation with idStatus = 3 (Confirmed)
+
+            // JOAKO 7/1 => CORREGIR EL TEMA DEL GUARDADO DE NOMBRES.
+            const name = reservationHolder ? reservationHolder.firstName : req.name;
+            const lastname = reservationHolder ? reservationHolder.lastName : req.surname;
             const insertResult = await db.createReservation(conn, {
                 reservationDate,
                 reservationTime,
-                name: req.name,
-                lastname: req.surname,
-                idStatus: 3
+                name,
+                lastname,
+                idStatus: 3,
+                notes: notes ? notes : null
             })
 
-            response = { id: insertResult.insertId }
+            if(reservationHolder && Object.keys(reservationHolder).length > 0) {
+                await db.updateReservationHolder(conn, {...reservationHolder, idReservation: insertResult.insertId})
+            }
+
+            if (passengers && passengers.length > 0) {
+                let ps = []
+                for (let i = 0; i < passengers.length; i++) {
+                    let passenger = passengers[i];
+                    ps.push([passenger.firstName, passenger.lastName, insertResult.insertId]);
+                }
+                await db.insertPassengers(conn, {passengers: ps})
+            }
+
+            response = { id: insertResult.insertId, success: true }
             status = 200
         }
         catch (e) {
-            console.log(e);
-            let mensaje = "Error creating reservation.";
-            if (typeof e == "string") { mensaje = e }
+            let message = "Error creating reservation.";
+            if (typeof e == "string") { message = e }
             status = 400
-            response = { mensaje }
+            response = { message: message, success: false }
         }
         finally {
             if (connSuccess) conn.release()
@@ -84,7 +103,6 @@ async function getAvailableHours(req, res) {
             status = 200
         }
         catch (e) {
-            console.log(e);
             let mensaje = "Error.";
             if (typeof e == "string") { mensaje = e }
             status = 400
@@ -124,11 +142,47 @@ async function getReservationsByDate(req, res) {
             status = 200
         }
         catch (e) {
-            console.log(e);
-            let mensaje = "Error.";
-            if (typeof e == "string") { mensaje = e }
+            let message = "Error has occurred while retrieving reservations.";
+            if (typeof e == "string") { message = e }
             status = 400
-            response = { mensaje }
+            response = { message }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
+
+async function getReservationById(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const id = req.body.id;
+
+            if (!id) {
+                throw 'Missing id.'
+            }
+
+            // lookup idTourType by code
+            const [reservation] = await db.getReservationById(conn, id)
+            response = reservation
+
+            status = 200
+        }
+        catch (e) {
+            let message = "An error has occurred while retrieving the reservation.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { message }
         }
         finally {
             if (connSuccess) conn.release()

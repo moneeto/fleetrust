@@ -98,7 +98,6 @@ async function login(req, res) {
 
         }
         catch (e) {
-            console.log(e);
             let msg = "An internal error has ocurred, please try again or contact support.";
             if (msg.message) { msg = msg.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }

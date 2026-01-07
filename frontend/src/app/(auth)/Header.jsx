@@ -4,18 +4,18 @@ import { usePathname } from "next/navigation";
 
 const titleMap = {
   "/tours": "Tours",
-  "/tours/book-dates": "Book dates",
+  "/tours/book-dates": "Book Dates",
   "/tours/bookings": "Bookings",
-  "/tours/users": "Usuarios",
+  "/tours/users": "Users",
 };
 
 export default function Header() {
   const pathname = usePathname();
-  const title = titleMap[pathname] ?? "Panel administrativo";
+  const title = titleMap[pathname] ?? "Admin Panel";
 
   return (
-    <header className="border-bottom p-3">
-      <h5 className="mb-0">{title}</h5>
+    <header className="p-3">
+      <h3 className="mb-0">{title}</h3>
     </header>
   );
 }

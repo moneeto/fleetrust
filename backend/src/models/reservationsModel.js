@@ -9,9 +9,12 @@ async function createReservation(conn, params) {
             name,
             lastname,
             idStatus,
-            idTourType
+            idTourType,
+            notes,
+            acceptedTerms,
+            acceptedTermsTimestamp
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW())
         `;
         const qParams = [
             params.reservationDate,
@@ -19,8 +22,10 @@ async function createReservation(conn, params) {
             params.name,
             params.lastname,
             params.idStatus,
-            5
+            5,
+            params.notes
         ];
+
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -79,9 +84,42 @@ async function getReservationById(conn, id) {
     });
 }
 
+async function updateReservationHolder(conn, p) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        UPDATE reservations SET name = ?, lastname = ?, email=?, phoneNumber=? WHERE idReservation = ?
+        `;
+
+        let params = [p.firstName, p.lastName, p.email, p.phone, p.idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    })
+}
+async function insertPassengers(conn, p) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        INSERT INTO passengers (name, lastName, idReservation) VALUES ?
+        `;
+        let params = [p.passengers];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    })
+}
+
+
 module.exports = {
     getReservationsByDate,
     createReservation,
     getAvailableHours,
     getReservationById,
+    updateReservationHolder,
+    insertPassengers
 }
