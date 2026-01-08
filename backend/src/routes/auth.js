@@ -99,10 +99,11 @@ async function login(req, res) {
         }
         catch (e) {
             let msg = "An internal error has ocurred, please try again or contact support.";
-            if (msg.message) { msg = msg.message }
+            if (typeof e == String) { msg = e }
+            if (e.message) { msg = e.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }
             status = 500
-            response = { status: "err", mensaje: msg }
+            response = { status: "err", message: msg }
         }
         finally {
             if (connSuccess) conn.release()

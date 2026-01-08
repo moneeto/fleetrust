@@ -169,7 +169,6 @@ const isStep3Valid =
                         (bookingType === 'me' && step === 1) ||
                         (bookingType === 'others' && step === 3);
 
-                    // Si estamos en el paso 0, no mostramos botón (porque SelectBookingType ya dispara el cambio)
                     if (step === 0) return null;
 
                     if (isLastStep) {
@@ -192,8 +191,7 @@ const isStep3Valid =
                                 className="btn btn-primary px-5"
                                 onClick={nextStep}
                                 disabled={
-                                    (step === 1 && bookingType === 'others' && !passengers) || // Validación num pasajeros
-                                    (step === 2 && bookingType === 'others' && (!date || !time)) // Validación fecha/hora
+                                    (step === 1 && bookingType === 'others' && !passengers) || (step === 2 && bookingType === 'others' && (!date || !time)) 
                                 }
                             >
                                 Next
@@ -226,7 +224,7 @@ const isStep3Valid =
                         className="w-100 py-2 fw-bold rounded-xl"
                         onClick={handleCloseSuccess}
                     >
-                        Close & View Bookings
+                        Finish
                     </Button>
                 </ModalBody>
             </Modal>
