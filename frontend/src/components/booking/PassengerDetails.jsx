@@ -43,7 +43,7 @@ const PassengerDetails = ({ count, passengersData, setPassengersData, notes, set
                                 type="text"
                                 className="form-control"
                                 placeholder="John"
-                                value={reservationHolder?.firstName || ''}
+                                value={reservationHolder?.firstName}
                                 onChange={(e) => handleHolderChange('firstName', e.target.value)}
                             />
                         </div>
@@ -53,7 +53,7 @@ const PassengerDetails = ({ count, passengersData, setPassengersData, notes, set
                                 type="text"
                                 className="form-control"
                                 placeholder="Doe"
-                                value={reservationHolder?.lastName || ''}
+                                value={reservationHolder?.lastName}
                                 onChange={(e) => handleHolderChange('lastName', e.target.value)}
                             />
                         </div>
@@ -67,7 +67,7 @@ const PassengerDetails = ({ count, passengersData, setPassengersData, notes, set
                                 type="email"
                                 className="form-control"
                                 placeholder="john.doe@example.com"
-                                value={reservationHolder?.email || ''}
+                                value={reservationHolder?.email}
                                 onChange={(e) => handleHolderChange('email', e.target.value)}
                             />
                         </div>
@@ -77,7 +77,7 @@ const PassengerDetails = ({ count, passengersData, setPassengersData, notes, set
                                 type="tel"
                                 className="form-control"
                                 placeholder="+1 (555) 123-4567"
-                                value={reservationHolder?.phone || ''}
+                                value={reservationHolder?.phone}
                                 onChange={(e) => handleHolderChange('phone', e.target.value)}
                             />
                         </div>

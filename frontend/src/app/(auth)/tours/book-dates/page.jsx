@@ -60,7 +60,7 @@ const isStep3Valid =
                 passengerCount: bookingType === 'me' ? 1 : passengers,
                 passengers: bookingType === 'me' ? [] : passengersData,
                 notes: notes,
-                reservationHolder: bookingType === 'others' ? passengersData[0] : null
+                reservationHolder: reservationHolder
             };
 
             const res = await ApiComunicator(

@@ -34,9 +34,6 @@ async function createReservation(req, res) {
             const isAvailable = availableHours.some(item => item.hour.substring(0, 5) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
-            // create reservation with idStatus = 3 (Confirmed)
-
-            // JOAKO 7/1 => CORREGIR EL TEMA DEL GUARDADO DE NOMBRES.
             const name = reservationHolder ? reservationHolder.firstName : req.name;
             const lastname = reservationHolder ? reservationHolder.lastName : req.surname;
             const insertResult = await db.createReservation(conn, {
@@ -45,7 +42,8 @@ async function createReservation(req, res) {
                 name,
                 lastname,
                 idStatus: 3,
-                notes: notes ? notes : null
+                notes: notes ? notes : null,
+                passengers: passengerCount
             })
 
             if(reservationHolder && Object.keys(reservationHolder).length > 0) {

@@ -1,7 +1,7 @@
 // Step2DateTime.jsx
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -58,12 +58,9 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
           />
         </div>
 
-        {/* Time */}
         <div className="time-wrapper">
-          <Label>Select Time Slot</Label>
-
           <div className="time-grid">
-            {timeSlots.map((slot) => (
+            {timeSlots && timeSlots?.length > 0 ? timeSlots?.map((slot) => (
               <motion.button
                 key={slot}
                 whileHover={{ scale: 1.05 }}
@@ -71,20 +68,34 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
                 onClick={() => onTimeChange(slot)}
                 disabled={!selectedDate}
                 className={`time-slot ${time === slot
-                    ? 'time-slot-selected'
-                    : selectedDate
-                      ? 'time-slot-enabled'
-                      : 'time-slot-disabled'
+                  ? 'time-slot-selected'
+                  : selectedDate
+                    ? 'time-slot-enabled'
+                    : 'time-slot-disabled'
                   }`}
               >
                 {slot}
               </motion.button>
-            ))}
+            ))
+              :
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="no-slots-container d-flex flex-column align-items-center justify-content-center p-5 text-center"
+              >
+                <div className="icon-container mb-3">
+                  <AlertCircle size={48} className="text-muted opacity-50" />
+                </div>
+                <h5 className="text-muted fw-normal">No timeslots available</h5>
+                <p className="text-secondary small">
+                  All timeslots has been already taken for this day. Please select another day.
+                </p>
+              </motion.div>
+            }
           </div>
         </div>
       </div>
 
-      {/* Summary */}
       {date && time && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}

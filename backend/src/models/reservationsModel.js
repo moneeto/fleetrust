@@ -12,9 +12,10 @@ async function createReservation(conn, params) {
             idTourType,
             notes,
             acceptedTerms,
-            acceptedTermsTimestamp
+            acceptedTermsTimestamp,
+            passengers
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)
         `;
         const qParams = [
             params.reservationDate,
@@ -23,7 +24,8 @@ async function createReservation(conn, params) {
             params.lastname,
             params.idStatus,
             5,
-            params.notes
+            params.notes,
+            params.passengers
         ];
 
         conn.query(query, qParams, (err, results) => {

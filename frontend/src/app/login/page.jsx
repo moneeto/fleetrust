@@ -18,7 +18,6 @@ import {
 } from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { useRouter } from "next/navigation";
-import frassiAviationLogo from "../../../public/images/logo-bw.svg"
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -59,7 +58,7 @@ export default function Login() {
         <Col xs="12" sm="10" md="6" lg="4">
           <Card className="shadow-md" style={{ border: '0px' }}>
             <CardBody className="p-4">
-              <img src={frassiAviationLogo} alt="Logo" className="mb-4 d-block mx-auto" style={{ maxWidth: '150px' }} />
+              <img src="/images/logo-bw.svg" alt="Logo" className="mb-4 d-block mx-auto" style={{ maxWidth: '250px' }} />
 
               <Form onSubmit={handleSubmit}>
                 <FormGroup className="mb-3" floating>

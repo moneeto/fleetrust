@@ -23,6 +23,6 @@ export const config = {
     /*
      * Match todas las rutas excepto las estáticas y API
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|images).*)",
   ],
 };

@@ -15,7 +15,8 @@ const SelectBookingType = ({ onSelect }) => {
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="btn btn-outline-primary d-flex flex-column align-items-center gap-2 p-4"
+                    className="btn btn-outline-primary d-flex flex-column align-items-center justify-content-center gap-2 p-4"
+                    style={{ minWidth: '160px', height: '120px' }} 
                     onClick={() => onSelect('me')}
                 >
                     <User size={32} />
@@ -25,7 +26,8 @@ const SelectBookingType = ({ onSelect }) => {
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="btn btn-outline-primary d-flex flex-column align-items-center gap-2 p-4"
+                    className="btn btn-outline-primary d-flex flex-column align-items-center justify-content-center gap-2 p-4"
+                    style={{ minWidth: '160px', height: '120px' }}
                     onClick={() => onSelect('others')}
                 >
                     <Users size={32} />
