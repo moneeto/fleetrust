@@ -15,11 +15,11 @@ const pool = mysql.createPool({
     dateStrings: true
 });
 
-const poolArchivos = mysql.createPool({
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    database: process.env.MYSQL_DATABASE_ARCHIVOS,
-    password: process.env.MYSQL_PASSWORD,
+const poolTours = mysql.createPool({
+    host: process.env.MYSQL_HOST_TOURS,
+    user: process.env.MYSQL_USER_TOURS,
+    database: process.env.MYSQL_DATABASE_TOURS,
+    password: process.env.MYSQL_PASSWORD_TOURS,
     waitForConnections: true,
     connectionLimit: 10,
     maxIdle: 10, // max idle connections, the default value is the same as `connectionLimit`
@@ -32,5 +32,5 @@ const poolArchivos = mysql.createPool({
 
 module.exports = {
     pool,
-    poolArchivos
+    poolTours
 }
