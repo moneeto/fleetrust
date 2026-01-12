@@ -27,7 +27,6 @@ async function createReservation(conn, params) {
             params.notes,
             params.passengers
         ];
-
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

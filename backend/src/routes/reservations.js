@@ -34,8 +34,9 @@ async function createReservation(req, res) {
             const isAvailable = availableHours.some(item => item.hour.substring(0, 5) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
-            const name = reservationHolder ? reservationHolder.firstName : req.name;
-            const lastname = reservationHolder ? reservationHolder.lastName : req.surname;
+            const name = reservationHolder.firstName && reservationHolder.firstName != null ? reservationHolder.firstName : req.name;
+            const lastname = reservationHolder.lastName && reservationHolder.lastName != null ? reservationHolder.lastName : req.surname;
+
             const insertResult = await db.createReservation(conn, {
                 reservationDate,
                 reservationTime,
@@ -46,7 +47,8 @@ async function createReservation(req, res) {
                 passengers: passengerCount
             })
 
-            if(reservationHolder && Object.keys(reservationHolder).length > 0) {
+            // ---Solo si estamos haciendo la reserva para tours---
+            if(reservationHolder && Object.keys(reservationHolder).length > 0 && reservationHolder.firstName != "" && reservationHolder.lastName != ""  && reservationHolder.email != "" && reservationHolder.phone != "") {
                 await db.updateReservationHolder(conn, {...reservationHolder, idReservation: insertResult.insertId})
             }
 
@@ -58,7 +60,7 @@ async function createReservation(req, res) {
                 }
                 await db.insertPassengers(conn, {passengers: ps})
             }
-
+            // ----------------------------------------------------
             response = { id: insertResult.insertId, success: true }
             status = 200
         }
