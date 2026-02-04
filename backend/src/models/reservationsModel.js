@@ -4,8 +4,8 @@ async function createReservation(conn, params) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO reservations (
-            reservationDate, 
-            reservationTime, 
+            startDate, 
+            endDate, 
             name,
             lastname,
             idStatus,
@@ -37,14 +37,23 @@ async function createReservation(conn, params) {
 async function getAvailableHours(conn, date) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.hour, SUM(CASE WHEN r.idReservation IS NULL THEN 0 ELSE 1 END) AS reservationsCount
-        FROM availableHours a
-        LEFT JOIN reservations r ON r.reservationDate = ? AND a.hour = r.reservationTime
-        GROUP BY a.hour
-        HAVING reservationsCount < (SELECT COUNT(1) FROM aircrafts WHERE available = 1)
-        ORDER BY a.hour ASC
+            SELECT 
+                a.hour,
+                COUNT(r.idReservation) AS reservationsCount
+            FROM availableHours a
+            LEFT JOIN reservations r
+                ON TIMESTAMP(?, a.hour) >= r.startDate
+            AND TIMESTAMP(?, a.hour) <  r.endDate
+            GROUP BY a.hour
+            HAVING reservationsCount < (
+                SELECT COUNT(1)
+                FROM aircrafts
+                WHERE available = 1
+            )
+            ORDER BY a.hour ASC;
+
         `;
-        const qParams = [date];
+        const qParams = [date, date];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -55,13 +64,15 @@ async function getAvailableHours(conn, date) {
 async function getReservationsByDate(conn, date) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, b.title
+        SELECT a.*, b.title AS route, c.title AS experience
         from reservations a
-        left join tourTypes b on a.idTourType = b.idTourType
-        WHERE a.reservationDate = ?
+        LEFT JOIN routes b on a.idRoute = b.idRoute
+        LEFT JOIN experiences c on a.idExperience = c.idExperience
+        WHERE DATE(a.startDate) <= ?
+        AND DATE(a.endDate) >= ?
         AND a.idStatus = 3;
         `;
-        const qParams = [date];
+        const qParams = [date, date];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -72,9 +83,11 @@ async function getReservationsByDate(conn, date) {
 async function getReservationById(conn, id) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, b.title
+        SELECT a.*, b.title AS route, d.title AS experience, c.aircraft, c.registrationNumber
         from reservations a
-        left join tourTypes b on a.idTourType = b.idTourType
+        LEFT JOIN routes b on a.idRoute = b.idRoute
+        LEFT JOIN aircrafts c on a.idAircraft = c.idAircraft
+        LEFT JOIN experiences d ON d.idExperience=a.idExperience
         WHERE a.idReservation = ?
         `;
         const qParams = [id];
@@ -115,6 +128,21 @@ async function insertPassengers(conn, p) {
     })
 }
 
+async function getPassengersByReservationId(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        let query = `
+            SELECT *
+            FROM passengers
+            WHERE idReservation = ?
+
+        `;
+        let params = [idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    })
+}
 
 module.exports = {
     getReservationsByDate,
@@ -122,5 +150,6 @@ module.exports = {
     getAvailableHours,
     getReservationById,
     updateReservationHolder,
-    insertPassengers
+    insertPassengers,
+    getPassengersByReservationId,
 }

@@ -3,12 +3,38 @@ import { Plane } from 'lucide-react';
 
 const Spinner = () => {
   return (
-    <div className="flex flex-col justify-center items-center h-screen bg-slate-50/50">
-      <div className="relative w-24 h-24">
-        <div className="absolute inset-0 border-4 border-dashed border-sky-100 rounded-full"></div>
-        
+    <div
+      style={{
+        height: "80svh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          height: "100px",
+          width: "100px"
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            border: "4px dashed #93c5fd",
+            borderRadius: "50%"
+          }}
+        ></div>
+
         <motion.div
-          className="absolute inset-0 flex items-start justify-center"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center"
+          }}
           animate={{ rotate: 360 }}
           transition={{
             repeat: Infinity,
@@ -16,11 +42,18 @@ const Spinner = () => {
             ease: "linear"
           }}
         >
-          <motion.div 
-            animate={{ y: [0, -5, 0] }} 
+          <motion.div
+            animate={{ y: [0, -5, 0] }}
             transition={{ repeat: Infinity, duration: 1 }}
           >
-            <Plane className="text-sky-600 fill-sky-600 rotate-45" size={32} />
+            <Plane
+              size={32}
+              style={{
+                color: "#0284c7",
+                fill: "#0284c7",
+                transform: "rotate(45deg)"
+              }}
+            />
           </motion.div>
         </motion.div>
       </div>

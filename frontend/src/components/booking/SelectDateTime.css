@@ -92,12 +92,13 @@
 
 .time-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  gap: .5rem;
 }
 
 .time-slot {
-  padding: 1rem;
+  padding-inline: 10px;
+  padding-block: 5px;
   border: 2px solid #b3e5fc;
   border-radius: 0.5rem;
   background: #ffffff;
@@ -160,4 +161,9 @@
 .summary-separator {
   font-size: 1.5rem;
   color: #0288d1;
+}
+
+.rdp-range_middle > .rdp-day_button {
+  background-color: var(--rdp-range_middle-background-color) !important;
+  color: #0288d1
 }

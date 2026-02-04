@@ -32,6 +32,12 @@ export default async function AuthLayout({ children }) {
                                 <Link href="/tours/book-dates" className="nav-link">
                                     Book dates
                                 </Link>
+                                <Link href="/tours/aircrafts" className="nav-link">
+                                    Aircrafts
+                                </Link>
+                                {/* <Link href="/tours/schedule" className="nav-link">
+                                    Schedule
+                                </Link> */}
                             </nav>
                         </div>
                     </nav>

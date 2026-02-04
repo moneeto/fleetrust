@@ -6,6 +6,7 @@ import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFo
 import { FaPrint } from "react-icons/fa";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
+import { EditIcon } from "lucide-react";
 
 export default function ToursPage() {
     let today = moment().format("YYYY-MM-DD");
@@ -205,7 +206,10 @@ export default function ToursPage() {
                                     Code
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
-                                    Time
+                                    Starts at
+                                </th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
+                                    Ends
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
                                     Passengers
@@ -235,13 +239,20 @@ export default function ToursPage() {
                                         #{r.codeReservation}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.reservationTime.slice(0, 5)}
+                                        {moment(r.startDate).format('HH:mm')}
+                                        {moment(r.startDate).format('YYYY-MM-DD') !== date ?
+                                            ` ${moment(r.startDate).format('MMMM DD')}` : ``}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {moment(r.endDate).format('HH:mm')}
+                                        {moment(r.endDate).format('YYYY-MM-DD') !== moment(r.startDate).format('YYYY-MM-DD') ?
+                                            ` ${moment(r.endDate).format('MMMM DD')}` : ``}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                         {r.passengers ? r.passengers : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.name && r.lastname ? `${r.name} ${r.lastname}`: `-`}
+                                        {r.name && r.lastname ? `${r.name} ${r.lastname}` : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600">
                                         {r.email ? r.email : `-`}
@@ -250,13 +261,23 @@ export default function ToursPage() {
                                         {r.phoneNumber ? r.phoneNumber : `-`}
                                     </td>
                                     <td>
-                                        <Button
-                                            color="secondary"
-                                            size="sm"
-                                            onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
-                                        >
-                                            View Details
-                                        </Button>
+                                        <div className="d-flex gap-2">
+                                            <Button
+                                                color="secondary"
+                                                size="sm"
+                                                onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
+                                            >
+                                                View Details
+                                            </Button>
+                                            <Button
+                                                color="primary"
+                                                size="sm"
+                                                outline
+                                                onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
+                                            >
+                                                <EditIcon size={16} /> Edit
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -276,13 +297,13 @@ export default function ToursPage() {
                     Loading bookings...
                 </div>
             )}
-            <Modal isOpen={modalDetail.show} size="md" centered>
+            <Modal isOpen={modalDetail.show} centered>
                 {/* Header with dark background to match your table */}
                 <ModalHeader
                     toggle={() => setModalDetail({ ...modalDetail, show: false, reservation: null })}
                     style={{ backgroundColor: '#1e1e1e', color: 'white' }}
                 >
-                    <span style={{ color: 'white' }}>Reservation Details</span>
+                    <span style={{ color: 'white' }}>Booking #{reservation?.codeReservation}</span>
                 </ModalHeader>
 
                 <ModalBody style={{ padding: '0' }}>
@@ -296,27 +317,36 @@ export default function ToursPage() {
                                 borderBottom: '1px solid #f0f0f0',
                                 paddingBottom: '15px'
                             }}>
-                                <div>
-                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Code</span>
-                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#333', fontFamily: 'monospace' }}>#{reservation?.codeReservation}</div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Date & Time</span>
+                                <div style={{ textAlign: 'left' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
                                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                        {moment(reservation?.reservationDate).format("MMM DD, YYYY")} - {reservation?.reservationTime?.slice(0, 5)}
+                                        {moment(reservation?.startDate).format("MMM DD, YYYY - HH:mm")}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
+                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                        {moment(reservation?.endDate).format("MMM DD, YYYY - HH:mm")}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Details Grid */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
+                            <div style={{
+                                display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #f0f0f0',
+                                paddingBottom: '15px'
+                            }}>
                                 <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Tour Type</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.tourTitle || reservation?.title}</span>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.route}</span>
+                                </div>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.experience || "-"}</span>
                                 </div>
                                 <div style={{ flex: '1 1 40%' }}>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation.passengers} passengers` : ` - `}</span>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation?.passengers.length} passengers` : ` - `}</span>
                                 </div>
                                 <div style={{ flex: '1 1 40%' }}>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
@@ -326,10 +356,26 @@ export default function ToursPage() {
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
                                     <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
                                 </div>
+                                <div style={{ flex: '1 1 40%' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
+                                    <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
+                                </div>
                                 <div style={{ flex: '1 1 100%' }}>
                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
                                     <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
                                 </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                                {reservation?.passengers && reservation?.passengers?.length > 0 &&
+                                    reservation?.passengers.map((passenger, index) => (
+                                        <div key={'pssgr-' + index}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                Passenger #{index + 1}
+                                            </label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastname}</span>
+                                        </div>
+                                    ))
+                                }
                             </div>
 
                             {reservation?.notes && (

@@ -8,8 +8,11 @@ import PassengerDetails from '@/components/booking/PassengerDetails';
 import SelectBookingType from '@/components/booking/SelectBookingType';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import { useRouter } from "next/navigation";
-import { Modal, ModalBody, Button } from 'reactstrap';
-import { FaCheckCircle } from 'react-icons/fa';
+import { Modal, ModalBody, Button, Form, FormGroup, Label, Input, FormText } from 'reactstrap';
+import { FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
+import styles from "./page.module.css";
+import { InfoIcon } from 'lucide-react';
+import SelectDateRange from '@/components/booking/SelectDateRange';
 
 export default function BookDatesPage() {
     const router = useRouter();
@@ -24,11 +27,11 @@ export default function BookDatesPage() {
     const [passengersData, setPassengersData] = useState([]);
     const [notes, setNotes] = useState('');
     const [reservationHolder, setReservationHolder] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: ''
-});
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: ''
+    });
 
     useEffect(() => {
         if (bookingType === 'others') {
@@ -40,15 +43,17 @@ export default function BookDatesPage() {
         }
     }, [passengers, bookingType]);
 
+    const [customLength, setCustomLength] = useState(false);
+    const [dateRange, setDateRange] = useState({ from: null, to: null });
 
     const nextStep = () => setStep((prev) => prev + 1);
     const prevStep = () => setStep((prev) => prev - 1);
 
-const isStep3Valid = 
-    reservationHolder.firstName.trim() !== '' && 
-    reservationHolder.email.trim() !== '' && 
-    (bookingType === 'me' || passengersData.every(p => p.firstName?.trim() !== ''));
-    
+    const isStep3Valid =
+        reservationHolder.firstName.trim() !== '' &&
+        reservationHolder.email.trim() !== '' &&
+        (bookingType === 'me' || passengersData.every(p => p.firstName?.trim() !== ''));
+
     async function handleSubmit() {
         try {
             setLoading(true);
@@ -100,9 +105,23 @@ const isStep3Valid =
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-4 flex flex-column gap-4">
+        <div className="max-w-2xl mx-auto flex flex-column gap-4">
 
-            <h2 className="fw-bold mb-4">{setStepTitle()}</h2>
+            <h4 className="fw-bold mb-2">{setStepTitle()}</h4>
+
+            <div>
+                <FormGroup switch>
+                    <Input
+                        type="switch"
+                        id="switchMode"
+                        checked={customLength}
+                        onChange={e => setCustomLength(e.target.checked)}
+                    ></Input>
+                    <Label check className="d-flex align-items-center gap-2">
+                        <span className="fw-semibold">Custom length booking</span>
+                    </Label>
+                </FormGroup>
+            </div>
 
             <AnimatePresence mode="wait">
                 <motion.div
@@ -115,12 +134,38 @@ const isStep3Valid =
                     {step === 0 && <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />}
 
                     {bookingType === 'me' && step === 1 && (
-                        <SelectDateTime
-                            date={date}
-                            time={time}
-                            onDateChange={setDate}
-                            onTimeChange={setTime}
-                        />
+                        <div className={styles['selection-container']}>
+                            {customLength ? (
+                                <SelectDateRange
+                                    range={dateRange}
+                                    onDateChange={(range) => setDateRange(range)}
+                                />
+                            ) : (
+                                <SelectDateTime
+                                    date={date}
+                                    time={time}
+                                    onDateChange={setDate}
+                                    onTimeChange={setTime}
+                                />
+                            )}
+                            <div>
+                                <Form>
+                                    <FormGroup className="mb-3">
+                                        <Label for="firstName" className="fw-semibold">Aircraft</Label>
+                                        <Input
+                                            type="select"
+                                            id="idAircraft"
+                                            value={reservationHolder.idAircraft}
+                                            onChange={(e) => ({ ...reservationHolder, firstName: e.target.value })}
+                                            placeholder="Enter your full name"
+                                        >
+                                            <option value="">ANY</option>
+                                            <option value="">Avion 1</option>
+                                        </Input>
+                                    </FormGroup>
+                                </Form>
+                            </div>
+                        </div>
                     )}
 
                     {bookingType === 'others' && step === 1 && (
@@ -191,7 +236,7 @@ const isStep3Valid =
                                 className="btn btn-primary px-5"
                                 onClick={nextStep}
                                 disabled={
-                                    (step === 1 && bookingType === 'others' && !passengers) || (step === 2 && bookingType === 'others' && (!date || !time)) 
+                                    (step === 1 && bookingType === 'others' && !passengers) || (step === 2 && bookingType === 'others' && (!date || !time))
                                 }
                             >
                                 Next

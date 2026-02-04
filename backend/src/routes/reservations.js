@@ -8,6 +8,7 @@ const withAuth = require('../middleware/withAuth.js')
 router.post('/createReservation', withAuth, createReservation);
 router.get('/availableHours', withAuth, getAvailableHours);
 router.get('/reservationsByDate', withAuth, getReservationsByDate);
+router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
 router.post('/getReservationById', withAuth, getReservationById);
 
 
@@ -38,7 +39,7 @@ async function createReservation(req, res) {
             const lastname = reservationHolder.lastName && reservationHolder.lastName != null ? reservationHolder.lastName : req.surname;
 
             const insertResult = await db.createReservation(conn, {
-                reservationDate,
+                startDate: reservationDate + ' ' + reservationTime + ':00',
                 reservationTime,
                 name,
                 lastname,
@@ -103,6 +104,7 @@ async function getAvailableHours(req, res) {
             status = 200
         }
         catch (e) {
+            console.log(e)
             let mensaje = "Error.";
             if (typeof e == "string") { mensaje = e }
             status = 400
@@ -154,6 +156,54 @@ async function getReservationsByDate(req, res) {
     })
 }
 
+
+async function getReservationsByAircraft(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const date = req.query.date;
+
+            if (!date) {
+                throw 'Missing date.'
+            }
+
+            //Get aircrafts
+            let aircarfts = await db.getAircrafts(conn);
+
+            for (let i = 0; i < aircarfts.length; i++) {
+                let aircraft = aircarfts[i];
+                let reservations = await db.getReservationsByAircraft(conn, date, aircraft.idAircraft);
+                aircraft.flights = reservations;
+            }
+
+            // lookup idTourType by code
+            const reservations = await db.getReservationsByDate(conn, date)
+
+            response = { reservations }
+
+            status = 200
+        }
+        catch (e) {
+            let message = "Error has occurred while retrieving reservations.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { message }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
+
 async function getReservationById(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
 
@@ -174,6 +224,11 @@ async function getReservationById(req, res) {
 
             // lookup idTourType by code
             const [reservation] = await db.getReservationById(conn, id)
+
+            const passengers = await db.getPassengersByReservationId(conn, id);
+
+            reservation.passengers = passengers;
+
             response = reservation
 
             status = 200
@@ -190,5 +245,7 @@ async function getReservationById(req, res) {
         }
     })
 }
+
+
 
 module.exports = router;
