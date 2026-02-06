@@ -10,6 +10,7 @@ router.get('/availableHours', withAuth, getAvailableHours);
 router.get('/reservationsByDate', withAuth, getReservationsByDate);
 router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
 router.post('/getReservationById', withAuth, getReservationById);
+router.post('/updateReservation', withAuth, updateReservation);
 
 
 async function createReservation(req, res) {
@@ -246,6 +247,53 @@ async function getReservationById(req, res) {
     })
 }
 
+async function updateReservation(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft } = req.body;
+
+            if (!idReservation) {
+                throw 'Missing reservation ID.'
+            }
+
+            const updateResult = await db.updateReservation(conn, {
+                idReservation,
+                name,
+                lastname,
+                email,
+                phoneNumber,
+                notes,
+                startDate,
+                endDate,
+                idRoute,
+                idExperience,
+                idAircraft
+            })
+
+            response = { success: true, message: 'Reservation updated successfully' }
+            status = 200
+        }
+        catch (e) {
+            let message = "An error has occurred while updating the reservation.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { success: false, message }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
 
 
 module.exports = router;

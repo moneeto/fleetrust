@@ -144,6 +144,43 @@ async function getPassengersByReservationId(conn, idReservation) {
     })
 }
 
+async function updateReservation(conn, params) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        UPDATE reservations SET 
+            name = ?, 
+            lastname = ?, 
+            email = ?, 
+            phoneNumber = ?, 
+            notes = ?, 
+            startDate = ?, 
+            endDate = ?, 
+            idRoute = ?, 
+            idExperience = ?, 
+            idAircraft = ?
+        WHERE idReservation = ?
+        `;
+
+        let queryParams = [
+            params.name,
+            params.lastname,
+            params.email,
+            params.phoneNumber,
+            params.notes,
+            params.startDate,
+            params.endDate,
+            params.idRoute,
+            params.idExperience,
+            params.idAircraft,
+            params.idReservation
+        ];
+        conn.query(query, queryParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    })
+}
+
 module.exports = {
     getReservationsByDate,
     createReservation,
@@ -152,4 +189,5 @@ module.exports = {
     updateReservationHolder,
     insertPassengers,
     getPassengersByReservationId,
+    updateReservation,
 }

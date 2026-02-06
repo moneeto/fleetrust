@@ -19,6 +19,8 @@ export default function ToursPage() {
     const toast = useToast();
 
     const [reservation, setReservation] = useState(null);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editFormData, setEditFormData] = useState(null);
 
     function handlePrint() {
         if (!tableRef.current) return;
@@ -148,6 +150,7 @@ export default function ToursPage() {
             setLoading(true)
             let reserv = await ApiComunicator(`/reservations/getReservationById`, "POST", { id });
             setReservation(reserv)
+            setEditFormData(reserv)
         } catch (error) {
             let message = "An error occurred while getting the reservation details.";
             if (error.message) { message = error.message }
@@ -159,6 +162,56 @@ export default function ToursPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleSaveReservation = async () => {
+        try {
+            setLoading(true);
+            const updateData = {
+                idReservation: editFormData.idReservation,
+                name: editFormData.name,
+                lastname: editFormData.lastname,
+                email: editFormData.email,
+                phoneNumber: editFormData.phoneNumber,
+                notes: editFormData.notes,
+                startDate: editFormData.startDate,
+                endDate: editFormData.endDate,
+                idRoute: editFormData.idRoute,
+                idExperience: editFormData.idExperience,
+                idAircraft: editFormData.idAircraft
+            };
+
+            const response = await ApiComunicator(`/reservations/updateReservation`, "POST", updateData);
+            
+            if (response.success) {
+                setReservation(editFormData);
+                setIsEditMode(false);
+                toast({
+                    variant: "default",
+                    title: "Success",
+                    description: "Reservation updated successfully"
+                });
+                // Reload reservations
+                setDate(date);
+            }
+        } catch (error) {
+            let message = "An error occurred while updating the reservation.";
+            if (error.message) { message = error.message }
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: message
+            });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handleEditChange = (field, value) => {
+        setEditFormData(prev => ({
+            ...prev,
+            [field]: value
+        }));
     }
 
     return (
@@ -269,14 +322,6 @@ export default function ToursPage() {
                                             >
                                                 View Details
                                             </Button>
-                                            <Button
-                                                color="primary"
-                                                size="sm"
-                                                outline
-                                                onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
-                                            >
-                                                <EditIcon size={16} /> Edit
-                                            </Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -297,123 +342,249 @@ export default function ToursPage() {
                     Loading bookings...
                 </div>
             )}
-            <Modal isOpen={modalDetail.show} centered>
+            <Modal isOpen={modalDetail.show} centered size="lg">
                 {/* Header with dark background to match your table */}
                 <ModalHeader
-                    toggle={() => setModalDetail({ ...modalDetail, show: false, reservation: null })}
+                    toggle={() => {
+                        setModalDetail({ ...modalDetail, show: false, reservation: null });
+                        setIsEditMode(false);
+                        setEditFormData(null);
+                    }}
                     style={{ backgroundColor: '#1e1e1e', color: 'white' }}
                 >
                     <span style={{ color: 'white' }}>Booking #{reservation?.codeReservation}</span>
                 </ModalHeader>
 
                 <ModalBody style={{ padding: '0' }}>
-                    {reservation ? (
+                    {reservation && editFormData ? (
                         <div style={{ padding: '24px', fontFamily: 'sans-serif' }}>
 
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '20px',
-                                borderBottom: '1px solid #f0f0f0',
-                                paddingBottom: '15px'
-                            }}>
-                                <div style={{ textAlign: 'left' }}>
-                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                        {moment(reservation?.startDate).format("MMM DD, YYYY - HH:mm")}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'left' }}>
-                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                        {moment(reservation?.endDate).format("MMM DD, YYYY - HH:mm")}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Details Grid */}
-                            <div style={{
-                                display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #f0f0f0',
-                                paddingBottom: '15px'
-                            }}>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.route}</span>
-                                </div>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.experience || "-"}</span>
-                                </div>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation?.passengers.length} passengers` : ` - `}</span>
-                                </div>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.name} {reservation?.lastname}</span>
-                                </div>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
-                                </div>
-                                <div style={{ flex: '1 1 40%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
-                                </div>
-                                <div style={{ flex: '1 1 100%' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
-                                    <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
-                                {reservation?.passengers && reservation?.passengers?.length > 0 &&
-                                    reservation?.passengers.map((passenger, index) => (
-                                        <div key={'pssgr-' + index}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                                Passenger #{index + 1}
-                                            </label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastname}</span>
-                                        </div>
-                                    ))
-                                }
-                            </div>
-
-                            {reservation?.notes && (
+                            {!isEditMode ? (
                                 <>
-                                    <div style={{ borderBottom: '1px solid #f0f0f0', marginBottom: '20px' }}></div>
                                     <div style={{
-                                        backgroundColor: '#b8d1ffff',
-                                        borderLeft: '5px solid #007bff',
-                                        padding: '16px',
-                                        borderRadius: '4px',
-                                        marginTop: '20px',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '20px',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        paddingBottom: '15px'
                                     }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            marginBottom: '8px',
-                                            fontWeight: 'bold',
-                                            color: "#000000ff",
-                                            fontSize: '11px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px'
-                                        }}>
-                                            CUSTOMER NOTES
+                                        <div style={{ textAlign: 'left' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
+                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                                {moment(reservation?.startDate).format("MMM DD, YYYY - HH:mm")}
+                                            </div>
                                         </div>
-                                        <p style={{
-                                            margin: 0,
-                                            fontSize: '14px',
-                                            color: '#000000',
-                                            lineHeight: '1.5',
-                                            fontStyle: 'italic',
-                                            fontWeight: '500'
-                                        }}>
-                                            "{reservation.notes}"
-                                        </p>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
+                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                                {moment(reservation?.endDate).format("MMM DD, YYYY - HH:mm")}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Details Grid */}
+                                    <div style={{
+                                        display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #f0f0f0',
+                                        paddingBottom: '15px'
+                                    }}>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.route}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.experience || "-"}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation?.passengers.length} passengers` : ` - `}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.name} {reservation?.lastname}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 100%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                                        {reservation?.passengers && reservation?.passengers?.length > 0 &&
+                                            reservation?.passengers.map((passenger, index) => (
+                                                <div key={'pssgr-' + index}>
+                                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                        Passenger #{index + 1}
+                                                    </label>
+                                                    <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastName}</span>
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+
+                                    {reservation?.notes && (
+                                        <>
+                                            <div style={{ borderBottom: '1px solid #f0f0f0', marginBottom: '20px' }}></div>
+                                            <div style={{
+                                                backgroundColor: '#b8d1ffff',
+                                                borderLeft: '5px solid #007bff',
+                                                padding: '16px',
+                                                borderRadius: '4px',
+                                                marginTop: '20px',
+                                                boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                                            }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    marginBottom: '8px',
+                                                    fontWeight: 'bold',
+                                                    color: "#000000ff",
+                                                    fontSize: '11px',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.5px'
+                                                }}>
+                                                    CUSTOMER NOTES
+                                                </div>
+                                                <p style={{
+                                                    margin: 0,
+                                                    fontSize: '14px',
+                                                    color: '#000000',
+                                                    lineHeight: '1.5',
+                                                    fontStyle: 'italic',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    "{reservation.notes}"
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    {/* Edit Mode */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }}>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Start Date & Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editFormData?.startDate ? moment(editFormData.startDate).format('YYYY-MM-DDTHH:mm') : ''}
+                                                onChange={(e) => handleEditChange('startDate', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>End Date & Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editFormData?.endDate ? moment(editFormData.endDate).format('YYYY-MM-DDTHH:mm') : ''}
+                                                onChange={(e) => handleEditChange('endDate', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>First Name</label>
+                                            <input
+                                                type="text"
+                                                value={editFormData?.name || ''}
+                                                onChange={(e) => handleEditChange('name', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Last Name</label>
+                                            <input
+                                                type="text"
+                                                value={editFormData?.lastname || ''}
+                                                onChange={(e) => handleEditChange('lastname', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Email</label>
+                                            <input
+                                                type="email"
+                                                value={editFormData?.email || ''}
+                                                onChange={(e) => handleEditChange('email', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Phone Number</label>
+                                            <input
+                                                type="tel"
+                                                value={editFormData?.phoneNumber || ''}
+                                                onChange={(e) => handleEditChange('phoneNumber', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: '1 1 100%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
+                                            <textarea
+                                                value={editFormData?.notes || ''}
+                                                onChange={(e) => handleEditChange('notes', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit',
+                                                    minHeight: '80px',
+                                                    resize: 'vertical'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </>
-
                             )}
 
                         </div>
@@ -425,14 +596,52 @@ export default function ToursPage() {
                 </ModalBody>
 
                 <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => setModalDetail({ ...modalDetail, show: false, reservation: null })}
-                    >
-                        Close
-                    </Button>
+                    {!isEditMode ? (
+                        <>
+                            <Button
+                                style={{ fontSize: '13px', fontWeight: '600' }}
+                                color="primary"
+                                onClick={() => setIsEditMode(true)}
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                style={{ fontSize: '13px', fontWeight: '600' }}
+                                color="secondary"
+                                outline
+                                onClick={() => {
+                                    setModalDetail({ ...modalDetail, show: false, reservation: null });
+                                    setIsEditMode(false);
+                                    setEditFormData(null);
+                                }}
+                            >
+                                Close
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                style={{ fontSize: '13px', fontWeight: '600' }}
+                                color="success"
+                                onClick={handleSaveReservation}
+                                disabled={loading}
+                            >
+                                {loading ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                            <Button
+                                style={{ fontSize: '13px', fontWeight: '600' }}
+                                color="secondary"
+                                outline
+                                onClick={() => {
+                                    setIsEditMode(false);
+                                    setEditFormData(reservation);
+                                }}
+                                disabled={loading}
+                            >
+                                Cancel
+                            </Button>
+                        </>
+                    )}
                 </ModalFooter>
             </Modal>
         </div>
