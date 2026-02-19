@@ -5,11 +5,28 @@ import { Calendar, Clock, AlertCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { format } from 'date-fns';
+import { format, addHours, addDays } from 'date-fns';
 import './SelectDateTime.css';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
+import { toZonedTime } from 'date-fns-tz';
+
 
 const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
+    const TIMEZONE = 'America/New_York';
+
+  function getTodayInMiami() {
+    const now = new Date();
+    const miamiDate = toZonedTime(now, TIMEZONE);
+    const miamiPlus2Hours = addHours(miamiDate, 2);
+
+    return new Date(
+      miamiPlus2Hours.getFullYear(),
+      miamiPlus2Hours.getMonth(),
+      miamiPlus2Hours.getDate()
+    );
+  }
+  
+  const [initialDate, setInitialDate] = useState(getTodayInMiami());
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +42,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
 
       const data = await ApiComunicator(
         `/reservations/availableHours?date=${formattedDate}`,
-        'GET'
+        'GET' 
       );
 
       setTimeSlots(data.availableHours || []);
@@ -55,6 +72,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
               onDateChange(d ? formatLocalDate(d) : '')
             }
             className="custom-calendar"
+            disabled={{ before: initialDate, after: addDays(initialDate, 30) }}
           />
         </div>
 

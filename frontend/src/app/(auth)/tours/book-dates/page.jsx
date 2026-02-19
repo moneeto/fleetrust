@@ -32,6 +32,7 @@ export default function BookDatesPage() {
         email: '',
         phone: ''
     });
+    const [aircrafts, setAircrafts] = useState([]);
 
     useEffect(() => {
         if (bookingType === 'others') {
@@ -43,11 +44,20 @@ export default function BookDatesPage() {
         }
     }, [passengers, bookingType]);
 
+    useEffect(() => {
+        getAircrafts();
+    }, [])
+
     const [customLength, setCustomLength] = useState(false);
     const [dateRange, setDateRange] = useState({ from: null, to: null });
 
     const nextStep = () => setStep((prev) => prev + 1);
-    const prevStep = () => setStep((prev) => prev - 1);
+    const prevStep = () => {
+        if (bookingType == 'me' && step === 1) {
+            setBookingType(null);
+        }
+        setStep((prev) => prev - 1);
+    }
 
     const isStep3Valid =
         reservationHolder.firstName.trim() !== '' &&
@@ -104,24 +114,36 @@ export default function BookDatesPage() {
         return '';
     }
 
+    const getAircrafts = async () => {
+        try {
+            const res = await ApiComunicator(`/aircrafts/`, 'GET');
+            setAircrafts(res.aircrafts);
+        } catch (err) {
+
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto flex flex-column gap-4">
 
             <h4 className="fw-bold mb-2">{setStepTitle()}</h4>
 
-            <div>
-                <FormGroup switch>
-                    <Input
-                        type="switch"
-                        id="switchMode"
-                        checked={customLength}
-                        onChange={e => setCustomLength(e.target.checked)}
-                    ></Input>
-                    <Label check className="d-flex align-items-center gap-2">
-                        <span className="fw-semibold">Custom length booking</span>
-                    </Label>
-                </FormGroup>
-            </div>
+            {bookingType == 'me' &&
+                <div>
+                    <FormGroup switch>
+                        <Input
+                            type="switch"
+                            id="switchMode"
+                            checked={customLength}
+                            onChange={e => setCustomLength(e.target.checked)}
+                        ></Input>
+
+                        <Label check className="d-flex align-items-center gap-2">
+                            <span className="fw-semibold">Custom length booking</span>
+                        </Label>
+                    </FormGroup>
+                </div>
+            }
 
             <AnimatePresence mode="wait">
                 <motion.div
@@ -159,8 +181,11 @@ export default function BookDatesPage() {
                                             onChange={(e) => ({ ...reservationHolder, firstName: e.target.value })}
                                             placeholder="Enter your full name"
                                         >
-                                            <option value="">ANY</option>
-                                            <option value="">Avion 1</option>
+                                            {aircrafts && aircrafts.length > 0 && aircrafts.map((aircraft) => (
+                                                <option key={aircraft.idAircraft} value={aircraft.idAircraft}>
+                                                    {aircraft.aircraft} - {aircraft.registrationNumber}
+                                                </option>
+                                            ))}
                                         </Input>
                                     </FormGroup>
                                 </Form>

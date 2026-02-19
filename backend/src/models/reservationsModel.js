@@ -1,31 +1,23 @@
 async function createReservation(conn, params) {
-    // params: { reservationDate, reservationTime, idTourType, 
-    // passengers, idStatus, totalValue, deposit, remainingBalance }
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO reservations (
-            startDate, 
-            endDate, 
-            name,
-            lastname,
-            idStatus,
-            idTourType,
-            notes,
-            acceptedTerms,
-            acceptedTermsTimestamp,
-            passengers
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)
+        INSERT INTO reservations (passengers, startDate, endDate,
+         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
-            params.reservationDate,
-            params.reservationTime,
-            params.name,
-            params.lastname,
+            params.passengers,
+            params.startDate,
+            params.endDate,
+            params.idRoute,
+            params.idExperience,
             params.idStatus,
-            5,
-            params.notes,
-            params.passengers
+            params.totalValue,
+            params.deposit,
+            params.remainingBalance,
+            params.reservationExpiration,
+            params.idAircraft,
+            params.notes
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -181,6 +173,50 @@ async function updateReservation(conn, params) {
     })
 }
 
+async function getRouteByCode(conn, code) {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT idRoute, value2, value3 FROM routes WHERE code = ? LIMIT 1`;
+        const params = [code];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            if (!results || results.length === 0) return resolve(null);
+            resolve(results[0]);
+        });
+    });
+}
+
+async function getExperienceByCode(conn, code) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        SELECT code, title, description, value, (SELECT duration FROM routes WHERE code = 'PRE') as duration
+        FROM experiences 
+        WHERE code = ?
+        `
+        let params = [code]
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err)
+
+            resolve(results)
+        })
+
+    })
+}
+
+async function getPremiumRouteValue(conn) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        SELECT value2 FROM routes WHERE code = 'PRE'
+        `
+        let params = []
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err)
+
+            resolve(results)
+        })
+
+    })
+}
+
 module.exports = {
     getReservationsByDate,
     createReservation,
@@ -190,4 +226,7 @@ module.exports = {
     insertPassengers,
     getPassengersByReservationId,
     updateReservation,
+    getRouteByCode,
+    getExperienceByCode,
+    getPremiumRouteValue
 }

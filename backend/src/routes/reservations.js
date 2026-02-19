@@ -2,6 +2,7 @@ const express = require('express');
 const Currency = require('currency.js');
 const router = express.Router();
 const db = require('../models/reservationsModel.js')
+const dbAircrafts = require('../models/aircraftsModel.js')
 const { poolTours } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
@@ -25,7 +26,7 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder } = req.body;
+            const { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder } = req.body;
 
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
@@ -39,15 +40,58 @@ async function createReservation(req, res) {
             const name = reservationHolder.firstName && reservationHolder.firstName != null ? reservationHolder.firstName : req.name;
             const lastname = reservationHolder.lastName && reservationHolder.lastName != null ? reservationHolder.lastName : req.surname;
 
+            // const insertResult = await db.createReservation(conn, {
+            //     startDate: reservationDate + ' ' + reservationTime + ':00',
+            //     reservationTime,
+            //     name,
+            //     lastname,
+            //     idStatus: 3,
+            //     notes: notes ? notes : null,
+            //     passengers: passengerCount
+            // })
+
+            // Debemos guardar tanto la ruta como la experiencia si corresponde. Tambien cambiamos el formato de fecha desde-hasta de la reserva.
+
+            // lookup route data by code
+            if (experienceCode && experienceCode?.length > 0) {
+                routeCode = 'PRE'
+            }
+            const route = await db.getRouteByCode(conn, routeCode)
+            if (!route) throw 'Invalid route code'
+
+            // Get base value
+            let baseValue = 0;
+            let experienceValue = 0;
+            if (passengers == 2) {
+                baseValue = route.value2;
+            }
+            else {
+                baseValue = route.value3;
+            }
+
+            // Get special experience data
+            let experienceData;
+            if (experienceCode && experienceCode?.length > 0) {
+                experienceData = await db.getExperienceByCode(conn, experienceCode)
+                if (!experienceData || experienceData?.length === 0) throw 'Invalid experience code'
+                experienceValue = experienceData[0].value;
+            }
+
+            // create reservation with idStatus = 1 (In progress)
             const insertResult = await db.createReservation(conn, {
-                startDate: reservationDate + ' ' + reservationTime + ':00',
-                reservationTime,
-                name,
-                lastname,
-                idStatus: 3,
-                notes: notes ? notes : null,
-                passengers: passengerCount
+                startDate,
+                endDate,
+                idRoute: route.idRoute,
+                idExperience: experienceData ? experienceData.idExperience : null,
+                passengers,
+                idStatus: 1,
+                totalValue,
+                deposit,
+                remainingBalance,
+                reservationExpiration,
+                idAircraft: req.body.idAircraft
             })
+
 
             // ---Solo si estamos haciendo la reserva para tours---
             if(reservationHolder && Object.keys(reservationHolder).length > 0 && reservationHolder.firstName != "" && reservationHolder.lastName != ""  && reservationHolder.email != "" && reservationHolder.phone != "") {
@@ -67,6 +111,7 @@ async function createReservation(req, res) {
             status = 200
         }
         catch (e) {
+            console.log(e);
             let message = "Error creating reservation.";
             if (typeof e == "string") { message = e }
             status = 400
