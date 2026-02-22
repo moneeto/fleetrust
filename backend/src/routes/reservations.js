@@ -15,6 +15,7 @@ router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
 router.post('/getReservationById', withAuth, getReservationById);
 router.post('/updateReservation', withAuth, updateReservation);
 router.post('/createReservationRange', withAuth, createReservationRange);
+router.post('/deleteReservation', withAuth, deleteReservation);
 
 async function createReservation(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
@@ -457,6 +458,50 @@ async function createReservationRange(req, res) {
             if (typeof e === 'string') message = e;
             response = { success: false, message };
             status = 400;
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+
+async function deleteReservation(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            if(req.idRole != 1) {
+                throw "No authorized."
+            }
+
+            const { idReservation } = req.body;
+
+            if (!idReservation) {
+                throw 'Missing reservation ID.';
+            }
+
+            // Delete addons associated with the reservation
+            await db.deleteReservationAddons(conn, idReservation);
+
+            // Delete passengers associated with the reservation
+            await db.deleteReservationPassengers(conn, idReservation);
+
+            // Delete the reservation itself
+            await db.deleteReservation(conn, idReservation);
+
+            response = { success: true, message: 'Reservation deleted successfully' };
+            status = 200;
+        } catch (e) {
+            let message = 'An error occurred while deleting the reservation.';
+            if (typeof e === 'string') message = e;
+            status = 400;
+            response = { success: false, message };
         } finally {
             if (connSuccess) conn.release();
             res.status(status).send(response);

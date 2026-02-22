@@ -22,6 +22,7 @@ export default function ToursPage() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
+    const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
 
     function handlePrint() {
         if (!tableRef.current) return;
@@ -121,29 +122,30 @@ export default function ToursPage() {
         printWindow.document.close();
     }
 
+    async function fetchReservations() {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const res = await ApiComunicator(
+                `/reservations/reservationsByDate?date=${date}`
+            );
+
+            setReservations(res.reservations);
+        } catch (err) {
+            setError(err.message);
+            setReservations([]);
+        } finally {
+            setLoading(false);
+        }
+    }
+
 
     useEffect(() => {
-        if (!date) return;
-
-        async function fetchReservations() {
-            try {
-                setLoading(true);
-                setError(null);
-
-                const res = await ApiComunicator(
-                    `/reservations/reservationsByDate?date=${date}`
-                );
-
-                setReservations(res.reservations);
-            } catch (err) {
-                setError(err.message);
-                setReservations([]);
-            } finally {
-                setLoading(false);
-            }
+        if (!date) { return; } 
+        else {
+            fetchReservations();
         }
-
-        fetchReservations();
     }, [date]);
 
     const getReservationById = async (id) => {
@@ -219,6 +221,45 @@ export default function ToursPage() {
             ...prev,
             [field]: value
         }));
+    }
+
+    const cancel = () => {
+        setDeleteConfirmModal({ show: true, idReservation: reservation?.idReservation });
+    }
+
+    const confirmDelete = async () => {
+        try {
+            setLoading(true);
+            const response = await ApiComunicator(`/reservations/deleteReservation`, "POST", {
+                idReservation: deleteConfirmModal.idReservation
+            });
+
+            if (response.success) {
+                setDeleteConfirmModal({ show: false, idReservation: null });
+                setModalDetail({ show: false, reservation: null });
+                setIsEditMode(false);
+                setEditFormData(null);
+                toast({
+                    variant: "default",
+                    title: "Success",
+                    description: "Reservation deleted successfully"
+                });
+                fetchReservations()
+            }
+        } catch (error) {
+            console.log(error);
+            let errorMessage = "An error occurred while deleting the reservation.";
+            
+            if (error && error.message) {
+                errorMessage = error.message;
+            } else if (error && typeof error === 'string') {
+                errorMessage = error;
+            }
+            
+            setErrorModal({ show: true, message: errorMessage });
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -607,6 +648,13 @@ export default function ToursPage() {
                         <>
                             <Button
                                 style={{ fontSize: '13px', fontWeight: '600' }}
+                                color="danger"
+                                onClick={() => cancel()}
+                            >
+                                Cancel reservation
+                            </Button>
+                            <Button
+                                style={{ fontSize: '13px', fontWeight: '600' }}
                                 color="primary"
                                 onClick={() => setIsEditMode(true)}
                             >
@@ -673,6 +721,48 @@ export default function ToursPage() {
                         onClick={() => setErrorModal({ show: false, message: '' })}
                     >
                         Close
+                    </Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal isOpen={deleteConfirmModal.show} centered>
+                <ModalHeader 
+                    toggle={() => setDeleteConfirmModal({ show: false, idReservation: null })}
+                    style={{ backgroundColor: '#721c24', color: 'white' }}
+                >
+                    <span style={{ color: 'white' }}>Confirm Deletion</span>
+                </ModalHeader>
+                <ModalBody>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
+                        <div>
+                            <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
+                                Are you sure you want to delete this reservation?
+                            </p>
+                            <p style={{ marginBottom: '0', color: '#666', fontSize: '13px' }}>
+                                This action will permanently delete the reservation and all associated data (passengers, addons). This cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
+                    <Button
+                        style={{ fontSize: '13px', fontWeight: '600' }}
+                        color="secondary"
+                        outline
+                        onClick={() => setDeleteConfirmModal({ show: false, idReservation: null })}
+                        disabled={loading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        style={{ fontSize: '13px', fontWeight: '600' }}
+                        color="danger"
+                        onClick={confirmDelete}
+                        disabled={loading}
+                    >
+                        {loading ? 'Deleting...' : 'Delete Reservation'}
                     </Button>
                 </ModalFooter>
             </Modal>

@@ -313,6 +313,42 @@ async function getAircrafts(conn, startDate, endDate) {
     })
 }
 
+// Delete reservation addons
+async function deleteReservationAddons(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `DELETE FROM reservationsAddons WHERE idReservation = ?`;
+        const params = [idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+// Delete reservation passengers
+async function deleteReservationPassengers(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `DELETE FROM passengers WHERE idReservation = ?`;
+        const params = [idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+// Delete reservation
+async function deleteReservation(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `DELETE FROM reservations WHERE idReservation = ?`;
+        const params = [idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 module.exports = {
     getReservationsByDate,
     createReservation,
@@ -329,5 +365,8 @@ module.exports = {
     updateReservationStatus,
     getAircrafts,
     updateReservationNotes,
-    checkReservationOverlap
+    checkReservationOverlap,
+    deleteReservationAddons,
+    deleteReservationPassengers,
+    deleteReservation
 }
