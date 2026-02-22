@@ -11,7 +11,7 @@ import { ApiComunicator } from '@/helpers/ApiComunicator';
 import { toZonedTime } from 'date-fns-tz';
 
 
-const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
+const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) => {
     const TIMEZONE = 'America/New_York';
 
   function getTodayInMiami() {
@@ -39,9 +39,14 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
     setError(null);
     try {
       const formattedDate = formatLocalDate(dateObj);
+      let url = `/reservations/availableHours?date=${formattedDate}`;
+      
+      if (idAircraft) {
+        url += `&idAircraft=${idAircraft}`;
+      }
 
       const data = await ApiComunicator(
-        `/reservations/availableHours?date=${formattedDate}`,
+        url,
         'GET' 
       );
 
@@ -57,7 +62,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange }) => {
     if (selectedDate) {
       fetchAvailableHours(selectedDate);
     }
-  }, [date]);
+  }, [date, idAircraft]);
 
   return (
     <div className="step2-container">

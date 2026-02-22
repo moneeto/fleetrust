@@ -10,7 +10,7 @@ import './SelectDateTime.css';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import moment from 'moment';
 
-const SelectDateRange = ({ range, onDateChange, onTimeChange }) => {
+const SelectDateRange = ({ range, onDateChange, onTimeChange, idAircraft }) => {
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -22,9 +22,14 @@ const SelectDateRange = ({ range, onDateChange, onTimeChange }) => {
     setError(null);
     try {
       const formattedDate = formatLocalDate(dateObj);
+      let url = `/reservations/availableHours?date=${formattedDate}`;
+      
+      if (idAircraft) {
+        url += `&idAircraft=${idAircraft}`;
+      }
 
       const data = await ApiComunicator(
-        `/reservations/availableHours?date=${formattedDate}`,
+        url,
         'GET'
       );
 
@@ -40,7 +45,7 @@ const SelectDateRange = ({ range, onDateChange, onTimeChange }) => {
     if (selectedRange) {
       fetchAvailableHours(selectedRange);
     }
-  }, [range]);
+  }, [selectedRange, idAircraft]);
 
   return (
     <div className="step2-container">

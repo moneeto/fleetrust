@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FaPrint } from "react-icons/fa";
+import { FaExclamationCircle, FaPrint } from "react-icons/fa";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
 import { EditIcon } from "lucide-react";
@@ -16,11 +16,12 @@ export default function ToursPage() {
     const [error, setError] = useState(null);
     const [modalDetail, setModalDetail] = useState({ show: false, reservation: null });
     const tableRef = useRef(null);
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [reservation, setReservation] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
+    const [errorModal, setErrorModal] = useState({ show: false, message: '' });
 
     function handlePrint() {
         if (!tableRef.current) return;
@@ -182,7 +183,7 @@ export default function ToursPage() {
             };
 
             const response = await ApiComunicator(`/reservations/updateReservation`, "POST", updateData);
-            
+
             if (response.success) {
                 setReservation(editFormData);
                 setIsEditMode(false);
@@ -195,13 +196,19 @@ export default function ToursPage() {
                 setDate(date);
             }
         } catch (error) {
-            let message = "An error occurred while updating the reservation.";
-            if (error.message) { message = error.message }
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: message
-            });
+            let errorMessage = "An error occurred while updating the reservation.";
+
+            console.log(error);
+
+            if (error?.mensaje) {
+                errorMessage = error.mensaje;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            } else if (typeof error === "string") {
+                errorMessage = error;
+            }
+
+            setErrorModal({ show: true, message: errorMessage });
         } finally {
             setLoading(false);
         }
@@ -642,6 +649,31 @@ export default function ToursPage() {
                             </Button>
                         </>
                     )}
+                </ModalFooter>
+            </Modal>
+
+            {/* Error Modal */}
+            <Modal isOpen={errorModal.show} centered>
+                <ModalHeader
+                    toggle={() => setErrorModal({ show: false, message: '' })}
+                    style={{ backgroundColor: '#dc3545', color: 'white' }}
+                >
+                    <span style={{ color: 'white' }}>Error Updating Reservation</span>
+                </ModalHeader>
+                <ModalBody>
+                    <p style={{ marginBottom: '0', color: "#dc3545", fontSize: '16px' }}>
+                        <FaExclamationCircle /> Error: {errorModal.message}
+                    </p>
+                </ModalBody>
+                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
+                    <Button
+                        style={{ fontSize: '13px', fontWeight: '600' }}
+                        color="secondary"
+                        outline
+                        onClick={() => setErrorModal({ show: false, message: '' })}
+                    >
+                        Close
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

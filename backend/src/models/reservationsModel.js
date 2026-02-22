@@ -1,12 +1,28 @@
+// Returns reservations that overlap with a given date range for a specific aircraft
+async function getReservationsInRange(conn, startDate, endDate, idAircraft) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT * FROM reservations
+            WHERE idAircraft = ?
+            AND idStatus IN (3,2,1)
+            AND ((startDate < ? AND endDate > ?))
+        `;
+        const qParams = [idAircraft, endDate, startDate];
+        conn.query(query, qParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
 async function createReservation(conn, params) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO reservations (passengers, startDate, endDate,
-         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
-            params.passengers,
+            params.passengerCount,
             params.startDate,
             params.endDate,
             params.idRoute,
@@ -16,9 +32,9 @@ async function createReservation(conn, params) {
             params.deposit,
             params.remainingBalance,
             params.reservationExpiration,
-            params.idAircraft,
-            params.notes
+            params.idAircraft
         ];
+
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -26,9 +42,9 @@ async function createReservation(conn, params) {
     });
 }
 
-async function getAvailableHours(conn, date) {
+async function getAvailableHours(conn, p) {
     return new Promise((resolve, reject) => {
-        const query = `
+        let query = `
             SELECT 
                 a.hour,
                 COUNT(r.idReservation) AS reservationsCount
@@ -36,16 +52,28 @@ async function getAvailableHours(conn, date) {
             LEFT JOIN reservations r
                 ON TIMESTAMP(?, a.hour) >= r.startDate
             AND TIMESTAMP(?, a.hour) <  r.endDate
-            GROUP BY a.hour
+
+        `;
+        let qParams = [p.date, p.date]
+
+        if(p.idAircraft) {
+            query += ` AND r.idAircraft = ?`
+            qParams.push(p.idAircraft, p.idAircraft)
+        }
+
+        query+= `
+        GROUP BY a.hour
             HAVING reservationsCount < (
                 SELECT COUNT(1)
                 FROM aircrafts
                 WHERE available = 1
+                ${p.idAircraft ? 'AND idAircraft = ?' : ''}
             )
-            ORDER BY a.hour ASC;
+        ORDER BY a.hour ASC
+        `
 
-        `;
-        const qParams = [date, date];
+        console.log(query);
+        console.log(qParams);
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -109,10 +137,6 @@ async function insertPassengers(conn, p) {
         INSERT INTO passengers (name, lastName, idReservation) VALUES ?
         `;
         let params = [p.passengers];
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
         conn.query(query, params, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -217,6 +241,78 @@ async function getPremiumRouteValue(conn) {
     })
 }
 
+async function updateReservationStatus(conn, p) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        UPDATE reservations SET idStatus = ? where idReservation = ?
+        `
+        let params = [p.idStatus, p.idReservation]
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err)
+
+            resolve(results)
+        })
+
+    })
+}
+
+async function updateReservationNotes(conn, p) {
+    return new Promise((resolve, reject) => {
+        let query = `
+        UPDATE reservations SET notes = ? where idReservation = ?
+        `
+        let params = [p.notes, p.idReservation]
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err)
+
+            resolve(results)
+        })
+
+    })
+}
+
+// Check for overlapping reservations excluding the current reservation
+async function checkReservationOverlap(conn, startDate, endDate, idAircraft, excludeIdReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT * FROM reservations
+            WHERE idAircraft = ?
+            AND idStatus IN (3, 2, 1)
+            AND ((startDate < ? AND endDate > ?))
+            AND idReservation != ?
+        `;
+        const qParams = [idAircraft, endDate, startDate, excludeIdReservation];
+        conn.query(query, qParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function getAircrafts(conn, startDate, endDate) {
+    return new Promise((resolve, reject) => {
+        let query = `
+            SELECT a.*
+            FROM aircrafts a
+            WHERE a.available = 1
+            AND NOT EXISTS (
+                SELECT 1
+                FROM reservations r
+                WHERE r.idAircraft = a.idAircraft
+                AND r.startDate < ?
+                AND r.endDate > ?
+                AND r.idStatus <> 4
+            );
+
+        `;
+        let params = [endDate, startDate];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    })
+}
+
 module.exports = {
     getReservationsByDate,
     createReservation,
@@ -228,5 +324,10 @@ module.exports = {
     updateReservation,
     getRouteByCode,
     getExperienceByCode,
-    getPremiumRouteValue
+    getPremiumRouteValue,
+    getReservationsInRange,
+    updateReservationStatus,
+    getAircrafts,
+    updateReservationNotes,
+    checkReservationOverlap
 }
