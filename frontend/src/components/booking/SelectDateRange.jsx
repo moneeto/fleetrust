@@ -5,51 +5,38 @@ import { Calendar, Clock, AlertCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { format } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import './SelectDateTime.css';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import moment from 'moment';
+import { Form, FormGroup, Input, Row, Col } from 'reactstrap';
+import { toZonedTime } from 'date-fns-tz';
 
-const SelectDateRange = ({ range, onDateChange, onTimeChange, idAircraft }) => {
+const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
+  const TIMEZONE = 'America/New_York';
+
+  function getTodayInMiami() {
+    const now = new Date();
+    const miamiDate = toZonedTime(now, TIMEZONE);
+    const miamiPlus2Hours = addHours(miamiDate, 2);
+
+    return new Date(
+      miamiPlus2Hours.getFullYear(),
+      miamiPlus2Hours.getMonth(),
+      miamiPlus2Hours.getDate()
+    );
+  }
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [initialDate, setInitialDate] = useState(getTodayInMiami());
 
   const selectedRange = { from: range?.from, to: range?.to };
-
-  const fetchAvailableHours = async (dateObj) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const formattedDate = formatLocalDate(dateObj);
-      let url = `/reservations/availableHours?date=${formattedDate}`;
-      
-      if (idAircraft) {
-        url += `&idAircraft=${idAircraft}`;
-      }
-
-      const data = await ApiComunicator(
-        url,
-        'GET'
-      );
-
-      setTimeSlots(data.availableHours || []);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedRange) {
-      fetchAvailableHours(selectedRange);
-    }
-  }, [selectedRange, idAircraft]);
+  const selectedTimeRange = { start: timeRange?.start, end: timeRange?.end };
 
   return (
     <div className="step2-container">
-      <div className="content">
+      <div className="content-range">
 
         {/* Calendar */}
         <div className="calendar-wrapper">
@@ -59,57 +46,65 @@ const SelectDateRange = ({ range, onDateChange, onTimeChange, idAircraft }) => {
             onSelect={(d) => {
               let auxDate = { from: null, to: null };
               if (d?.from) {
-                auxDate.from = moment(d.from).format('YYYY-MM-DD');
+                auxDate.from = d.from;
               }
               if (d?.to) {
-                auxDate.to = moment(d.to).format('YYYY-MM-DD');
+                auxDate.to = d.to
               }
               onDateChange(d ? auxDate : '');
-            }
-            }
+            }}
+            numberOfMonths={2}
             className="custom-calendar"
+            disabled={{ before: initialDate }}
           />
         </div>
 
-        <div className="time-wrapper">
-          <div className="time-grid">
-            {timeSlots && timeSlots?.length > 0 ? timeSlots?.map((slot) => (
-              <motion.button
-                key={slot}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onTimeChange(slot)}
-                disabled={!selectedDate}
-                className={`time-slot ${time === slot
-                  ? 'time-slot-selected'
-                  : selectedDate
-                    ? 'time-slot-enabled'
-                    : 'time-slot-disabled'
-                  }`}
-              >
-                {slot}
-              </motion.button>
-            ))
-              :
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="no-slots-container d-flex flex-column align-items-center justify-content-center p-5 text-center"
-              >
-                <div className="icon-container mb-3">
-                  <AlertCircle size={48} className="text-muted opacity-50" />
+        {selectedRange?.from && selectedRange?.to && (
+          <div className="time-wrapper">
+            <Row style={{ justifyContent: "center", display: "flex" }}>
+              <Form onSubmit={(e) => { e.preventDefault(); }} className="d-flex flex-row gap-5 justify-content-center">
+                <div>
+                  <Label className="fw-semibold" htmlFor="startTime">Start time</Label>
+                  <input
+                    type="time"
+                    id="startTime"
+                    name="startTime"
+                    value={selectedTimeRange.start || ''}
+                    onChange={e => {
+                      onTimeChange({ ...timeRange, start: e.target.value });
+                    }}
+                    className="form-control"
+                  />
                 </div>
-                <h5 className="text-muted fw-normal">No timeslots available</h5>
-                <p className="text-secondary small">
-                  All timeslots has been already taken for this day. Please select another day.
-                </p>
-              </motion.div>
-            }
+                <div>
+                  <Label className="fw-semibold" htmlFor="endTime">End time</Label>
+                  <input
+                    type="time"
+                    id="endTime"
+                    name="endTime"
+                    value={selectedTimeRange.end || ''}
+                    onChange={e => {
+                      onTimeChange({ ...timeRange, end: e.target.value });
+                    }}
+                    className="form-control"
+                  />
+                </div>
+              </Form>
+            </Row>
           </div>
-        </div>
+        )}
       </div>
 
       {error && <p className="text-danger mt-2">{error}</p>}
+
+      {/* Resumen de selección */}
+      {range?.from && range?.to && timeRange?.start && timeRange?.end && (
+        <div className="alert alert-info mt-3 text-center">
+          <strong>Booking from </strong>&nbsp;
+          <span>{format(range.from, 'MM/dd/yyyy')}</span> at <span>{timeRange.start}</span>
+          &nbsp;<b>to</b> <span>{format(range.to, 'MM/dd/yyyy')}</span> at <span>{timeRange.end}</span>
+        </div>
+      )}
     </div>
   );
 };

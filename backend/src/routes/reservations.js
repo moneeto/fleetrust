@@ -36,7 +36,7 @@ async function createReservation(req, res) {
                 throw 'Missing required fields'
             }
             //Check if booking is available
-            const availableHours = await db.getAvailableHours(conn, {date: reservationDate})
+            const availableHours = await db.getAvailableHours(conn, { date: reservationDate })
             const isAvailable = availableHours.some(item => item.hour.substring(0, 5) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
@@ -51,7 +51,7 @@ async function createReservation(req, res) {
                 idAircraft = aircrafts[0].idAircraft;
             }
 
-            
+
             // const insertResult = await db.createReservation(conn, {
             //     startDate: reservationDate + ' ' + reservationTime + ':00',
             //     reservationTime,
@@ -93,7 +93,7 @@ async function createReservation(req, res) {
                 if (!experienceData || experienceData?.length === 0) throw 'Invalid experience code'
                 experienceValue = experienceData[0].value;
             }
-            
+
             // reservation expiration (+ 15 minutes)
             const reservationExpiration = moment().utc().add(15, 'minutes').format('YYYY-MM-DD HH:mm:ss');
 
@@ -149,10 +149,10 @@ async function confirmBooking(req, res) {
 
 
             console.log(req.body);
-            await db.updateReservationStatus(conn, {idStatus: 3, idReservation: idReservation})
-            
+            await db.updateReservationStatus(conn, { idStatus: 3, idReservation: idReservation })
+
             if (notes && String(notes).trim() != "") {
-                await db.updateReservationNotes(conn, {notes: notes, idReservation: idReservation})
+                await db.updateReservationNotes(conn, { notes: notes, idReservation: idReservation })
             }
             // Update reservation holder if provided
             if (reservationHolder && Object.keys(reservationHolder).length > 0) {
@@ -202,7 +202,7 @@ async function getAvailableHours(req, res) {
             const date = req.query.date;
             const idAircraft = req.query.idAircraft && req.query.idAircraft != null && req.query.idAircraft != "all" ? req.query.idAircraft : null
 
-            params = {date, idAircraft}
+            params = { date, idAircraft }
 
             if (!date) {
                 throw 'Missing date.'
@@ -476,45 +476,72 @@ async function checkAvailability(req, res) {
 }
 
 async function createReservationRange(req, res) {
-     poolTours.getConnection(async (errConn, conn) => {
+    poolTours.getConnection(async (errConn, conn) => {
         let response = {};
         let status = 400;
         let connSuccess = false;
         try {
             if (errConn) throw errConn;
             connSuccess = true;
-            const { startDate, endDate, idAircraft } = req.body;
+            let { startDate, endDate, idAircraft, notes } = req.body;
             if (!startDate || !endDate || !idAircraft) {
                 throw 'Missing required fields';
             }
             // Verificar solapamiento
             const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
-            if (overlapping && overlapping.length > 0) {
-                response = { success: false, message: 'There are already reservations in this range.' };
-                status = 409;
-            } else {
-                // Crear reserva de bloqueo
-                const insertResult = await db.createReservation(conn, {
-                    passengers: 0,
-                    startDate,
-                    endDate,
-                    idRoute: null,
-                    idExperience: null,
-                    idStatus: 3, // Confirmed
-                    totalValue: 0,
-                    deposit: 0,
-                    remainingBalance: 0,
-                    reservationExpiration: null,
-                    idAircraft,
-                    notes: 'Blocked range by admin/user.'
+            if (idAircraft == "all") {
+                // Si es para "all", con que haya 1 avion que 
+                // no aparezca entre las reservas solapadas, es suficiente para crear la reserva.
+                const aircrafts = await dbAircrafts.getAircrafts(conn);
+                let availableAircrafts = aircrafts.filter(n => n.available == 1).map(n => n.idAircraft);
+                let avionesReservados = new Set();
+                overlapping.forEach(r => {
+                    if (r.idAircraft) avionesReservados.add(r.idAircraft);
                 });
-                response = { success: true, id: insertResult.insertId };
-                status = 200;
+                if (availableAircrafts.length == avionesReservados.size) {
+                    throw { overlapping, message: 'There are already reservations in this range for all available aircraft.' }
+                }
+
+                // Tengo avion disponible, selecciono el primero que encuentre
+                for (let i = 0; i < availableAircrafts.length; i++) {
+                    if (!avionesReservados.has(availableAircrafts[i])) {
+                        idAircraft = availableAircrafts[i];
+                        break;
+                    }
+                }
             }
+            else {
+                if (overlapping && overlapping.length > 0) {
+                    throw { overlapping, message: 'There are already reservations in this range.' };
+                }
+            }
+            
+            // Crear reserva de bloqueo
+            const insertResult = await db.createReservation(conn, {
+                passengers: 0,
+                startDate,
+                endDate,
+                idRoute: null,
+                idExperience: null,
+                idStatus: 3, // Confirmed
+                totalValue: 0,
+                deposit: 0,
+                remainingBalance: 0,
+                reservationExpiration: null,
+                idAircraft,
+                notes
+            });
+            response = { success: true, id: insertResult.insertId };
+            status = 200;
+
         } catch (e) {
+            console.log(e)
             let message = 'Error blocking aircraft range.';
             if (typeof e === 'string') message = e;
-            response = { success: false, message };
+            response.message = message;
+            if (e.overlapping) {
+                response = { ...e }
+            }
             status = 400;
         } finally {
             if (connSuccess) conn.release();
@@ -534,7 +561,7 @@ async function deleteReservation(req, res) {
             if (errConn) throw errConn;
             connSuccess = true;
 
-            if(req.idRole != 1) {
+            if (req.idRole != 1) {
                 throw "No authorized."
             }
 

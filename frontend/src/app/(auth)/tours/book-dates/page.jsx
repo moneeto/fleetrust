@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SelectDateTime from '@/components/booking/SelectDateTime';
+import SelectDateRange from '@/components/booking/SelectDateRange';
 import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
 import SelectBookingType from '@/components/booking/SelectBookingType';
@@ -12,6 +13,7 @@ import { Modal, ModalBody, Button, Form, FormGroup, Label, Input, FormText } fro
 import { FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
 import styles from "./page.module.css";
 import { InfoIcon } from 'lucide-react';
+import moment from 'moment';
 // SelectDateRange removed: using two datetime inputs for range selection
 
 export default function BookDatesPage() {
@@ -26,6 +28,8 @@ export default function BookDatesPage() {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [overlappingData, setOverlappingData] = useState(null);
     const [passengersData, setPassengersData] = useState([]);
     const [notes, setNotes] = useState('');
     const [reservationHolder, setReservationHolder] = useState({
@@ -35,7 +39,7 @@ export default function BookDatesPage() {
         phone: ''
     });
     const [aircrafts, setAircrafts] = useState([]);
-    const [idAircraft, setIdAircraft] = useState(null)
+    const [idAircraft, setIdAircraft] = useState("all")
     const [reservationId, setReservationId] = useState(null);
 
     useEffect(() => {
@@ -64,6 +68,7 @@ export default function BookDatesPage() {
 
     const [customLength, setCustomLength] = useState(false);
     const [dateRange, setDateRange] = useState({ from: null, to: null });
+    const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
 
     const nextStep = () => setStep((prev) => prev + 1);
     const prevStep = () => {
@@ -197,26 +202,25 @@ export default function BookDatesPage() {
         try {
             setLoading(true);
             setError(null);
+            setOverlappingData(null);
+            setShowErrorModal(false);
             if (!dateRange.from || !dateRange.to || !idAircraft) {
-                setError('Please select aircraft and both start/end date and time.');
+                setError('Please select start/end date and time.');
                 setLoading(false);
                 return;
             }
 
-            // Verify availability before creating the range
-            const available = await checkAvailability(dateRange.from, dateRange.to, idAircraft);
-            if (!available) {
-                setLoading(false);
-                return;
-            }
+            let startDate = moment(dateRange.from).format('YYYY-MM-DD') + 'T' + timeRange.start + ':00';
+            let endDate = moment(dateRange.to).format('YYYY-MM-DD') + 'T' + timeRange.end + ':00';
 
             const res = await ApiComunicator(
                 `/reservations/createReservationRange`,
                 'POST',
                 {
-                    startDate: new Date(dateRange.from).toISOString(),
-                    endDate: new Date(dateRange.to).toISOString(),
-                    idAircraft: idAircraft
+                    startDate,
+                    endDate,
+                    idAircraft: idAircraft,
+                    notes: notes
                 }
             );
             if (res.success) {
@@ -225,7 +229,13 @@ export default function BookDatesPage() {
                 setError(res.message || 'Could not block range.');
             }
         } catch (err) {
-            setError(err.message);
+            console.log(err)
+            if (err.overlapping) {
+                setOverlappingData(err);
+                setShowErrorModal(true);
+            } else {
+                setError(err.message || String(err));
+            }
         } finally {
             setLoading(false);
         }
@@ -337,42 +347,32 @@ export default function BookDatesPage() {
                     {/* Step 1 or 2: If 'me', select date/time. If 'others', select passengers */}
                     {(bookingType === 'me' && step === 1) && (
                         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 2 }}>
-                            <div>
-                                <Input type='checkbox' name='toggleCustomLength' id="toggleCustomLength" onChange={(e) => setCustomLength(e.target.checked)}/>
-                                <Label check for="toggleCustomLength">Select date range</Label>
-                            </div>
+                            <>
                                 {customLength ? (
-                                    <div className="d-flex flex-column gap-2">
-                                        <FormGroup>
-                                            <Label className="fw-semibold">Start date & time</Label>
-                                            <Input
-                                                type="datetime-local"
-                                                value={dateRange.from || ''}
-                                                onChange={e => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-                                            />
-                                        </FormGroup>
-                                        <FormGroup>
-                                            <Label className="fw-semibold">End date & time</Label>
-                                            <Input
-                                                type="datetime-local"
-                                                value={dateRange.to || ''}
-                                                onChange={e => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-                                            />
-                                        </FormGroup>
-                                    </div>
-                                ) : (
-                                    <SelectDateTime
-                                        date={date}
-                                        time={time}
-                                        onDateChange={setDate}
-                                        onTimeChange={setTime}
-                                        idAircraft={idAircraft}
+                                    <SelectDateRange
+                                        range={dateRange}
+                                        timeRange={timeRange}
+                                        onDateChange={setDateRange}
+                                        onTimeChange={setTimeRange}
                                     />
+                                ) : (
+                                    <div style={{ flex: 2 }}>
+                                        <SelectDateTime
+                                            date={date}
+                                            time={time}
+                                            onDateChange={setDate}
+                                            onTimeChange={setTime}
+                                            idAircraft={idAircraft}
+                                        />
+                                    </div>
                                 )}
-                            </div>
+                            </>
                             <div style={{ flex: 1, minWidth: 220 }}>
                                 <Form>
+                                    <FormGroup check className="mb-2">
+                                        <Input type='checkbox' name='toggleCustomLength' id="toggleCustomLength" onChange={(e) => setCustomLength(e.target.checked)} />
+                                        <Label check for="toggleCustomLength">Select date range</Label>
+                                    </FormGroup>
                                     <FormGroup className="mb-2">
                                         <Label for="firstName" className="fw-semibold">Aircraft</Label>
                                         <Input
@@ -389,6 +389,16 @@ export default function BookDatesPage() {
                                                 </option>
                                             ))}
                                         </Input>
+                                    </FormGroup>
+                                    <FormGroup className="mb-2">
+                                        <Label>Notes</Label>
+                                        <Input
+                                            type="textarea"
+                                            value={notes}
+                                            rows={10}
+                                            onChange={e => setNotes(e.target.value)}
+                                            placeholder=""
+                                        />
                                     </FormGroup>
                                 </Form>
                             </div>
@@ -513,6 +523,38 @@ export default function BookDatesPage() {
             </div>
 
             {error && <p className="text-danger mt-3 text-center font-bold">{error}</p>}
+            <Modal
+                isOpen={showErrorModal}
+                centered
+                contentClassName="border-0 rounded-2xl shadow-lg"
+                toggle={() => setShowErrorModal(false)}
+            >
+                <ModalBody className="p-5 text-center">
+                    <div className="mb-4 d-flex justify-content-center">
+                        <p className="mb-4"><strong>
+                            {overlappingData?.message || 'No se puede realizar la reserva porque se superpone con otra existente.'}
+                        </strong></p>
+                    </div>
+                    {overlappingData?.overlapping && Array.isArray(overlappingData.overlapping) && (
+                        <div className="mb-3">
+                            <ul className="text-start mt-2">
+                                {overlappingData.overlapping.map((item, idx) => (
+                                    <li key={idx}>
+                                        {item.startDate ? `From: ${item.startDate}` : ''} {item.endDate ? `, To: ${item.endDate}` : ''}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    <Button
+                        color="danger"
+                        className="w-100 py-2 fw-bold rounded-xl"
+                        onClick={() => setShowErrorModal(false)}
+                    >
+                        Close
+                    </Button>
+                </ModalBody>
+            </Modal>
             <Modal
                 isOpen={showSuccessModal}
                 centered

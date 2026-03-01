@@ -34,7 +34,7 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
                 const errorBody = await response.clone().json(); 
                 throw errorBody;
             } catch (e) {
-                throw response; 
+                throw e; 
             }
         }
         
@@ -46,9 +46,9 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
 
     } catch (error) {
         let mensaje = "Error al comunicarse con el servidor "
-        console.error(mensaje, error);
+        // console.error(mensaje, error);
         if (error instanceof Response) {
-             throw { status: error.status, message: error.statusText || mensaje };
+             throw { status: error.status, message: error.statusText || mensaje, ...error };
         }
     
         throw error;
