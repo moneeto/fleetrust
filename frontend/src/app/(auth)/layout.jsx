@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Header from "./Header";
+import LogoutButton from "./components/LogoutButton";
 import './layout.css';
 
 export default async function AuthLayout({ children }) {
@@ -45,14 +46,7 @@ export default async function AuthLayout({ children }) {
 
                 {/* Bottom */}
                 <div className="auth-sidebar-footer">
-                    <form action="/logout" method="post">
-                        <button
-                            type="submit"
-                            className="btn btn-outline-light btn-sm w-100"
-                        >
-                            Log out
-                        </button>
-                    </form>
+                    <LogoutButton />
                 </div>
             </aside>
 

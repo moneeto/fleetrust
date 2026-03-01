@@ -248,6 +248,20 @@ async function getReservationsByDate(req, res) {
                 throw 'Missing date.'
             }
 
+            // Validate date format (strict) and reasonable range
+            // Expected format: YYYY-MM-DD
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !moment(date, 'YYYY-MM-DD', true).isValid()) {
+                throw 'Invalid date format. Please use YYYY-MM-DD.';
+            }
+
+            const minDate = moment('2000-01-01', 'YYYY-MM-DD');
+            const maxDate = moment().add(1, 'years'); // allow up to one year in the future
+            const mDate = moment(date, 'YYYY-MM-DD');
+
+            if (mDate.isBefore(minDate) || mDate.isAfter(maxDate)) {
+                throw `Date out of allowed range. Use between ${minDate.format('YYYY-MM-DD')} and ${maxDate.format('YYYY-MM-DD')}`;
+            }
+
             // lookup idTourType by code
             const reservations = await db.getReservationsByDate(conn, date)
 
@@ -256,6 +270,7 @@ async function getReservationsByDate(req, res) {
             status = 200
         }
         catch (e) {
+            console.log(e);
             let message = "Error has occurred while retrieving reservations.";
             if (typeof e == "string") { message = e }
             status = 400

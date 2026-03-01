@@ -3,21 +3,23 @@
 import { useEffect, useState, useRef, use } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FaExclamationCircle, FaPrint } from "react-icons/fa";
+import { FaArrowAltCircleRight, FaExclamationCircle, FaPrint } from "react-icons/fa";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
 import { EditIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Spinner from "@/components/ui/Spinner";
 
 export default function ToursPage() {
     let today = moment().format("YYYY-MM-DD");
     const [date, setDate] = useState(today);
     const [reservations, setReservations] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalDetail, setModalDetail] = useState({ show: false, reservation: null });
     const tableRef = useRef(null);
     const { toast } = useToast();
-
+    const router = useRouter();
     const [reservation, setReservation] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
@@ -142,7 +144,7 @@ export default function ToursPage() {
 
 
     useEffect(() => {
-        if (!date) { return; } 
+        if (!date) { return; }
         else {
             fetchReservations();
         }
@@ -249,13 +251,13 @@ export default function ToursPage() {
         } catch (error) {
             console.log(error);
             let errorMessage = "An error occurred while deleting the reservation.";
-            
+
             if (error && error.message) {
                 errorMessage = error.message;
             } else if (error && typeof error === 'string') {
                 errorMessage = error;
             }
-            
+
             setErrorModal({ show: true, message: errorMessage });
         } finally {
             setLoading(false);
@@ -264,7 +266,11 @@ export default function ToursPage() {
 
     return (
         <div className="p-6 space-y-6">
-
+        {loading && (
+                
+                    <Spinner />
+                
+            )}
             {/* Filtro */}
             <Form className="bg-white rounded-lg shadow-sm border p-4 d-flex gap-3 align-items-end">
                 <FormGroup style={{ maxWidth: '250px' }}>
@@ -381,13 +387,45 @@ export default function ToursPage() {
 
             {/* Sin resultados */}
             {!loading && date && reservations.length === 0 && (
-                <div className="bg-white rounded-lg border p-4 text-sm text-gray-500">
-                    No bookings for selected date.
-                </div>
-            )}
-            {loading && (
-                <div className="bg-white rounded-lg border p-4 text-sm text-gray-500">
-                    Loading bookings...
+                <div className="bg-white rounded-lg shadow-sm border">
+                    <div
+                        style={{
+                            minHeight: "220px",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            textAlign: "center",
+                            padding: "40px 20px",
+                            gap: "18px"
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: "14px",
+                                color: "#6b7280",
+                                fontWeight: 500
+                            }}
+                        >
+                            No bookings for selected date
+                        </div>
+
+                        <Button
+                            color="primary"
+                            size="lg"
+                            style={{
+                                fontWeight: 600,
+                                padding: "12px 28px",
+                                borderRadius: "999px",
+                                boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+                            }}
+                            onClick={() => {
+                                router.push("/tours/book-dates");
+                            }}
+                        >
+                            Start booking 
+                        </Button>
+                    </div>
                 </div>
             )}
             <Modal isOpen={modalDetail.show} centered size="lg">
@@ -727,7 +765,7 @@ export default function ToursPage() {
 
             {/* Delete Confirmation Modal */}
             <Modal isOpen={deleteConfirmModal.show} centered>
-                <ModalHeader 
+                <ModalHeader
                     toggle={() => setDeleteConfirmModal({ show: false, idReservation: null })}
                     style={{ backgroundColor: '#721c24', color: 'white' }}
                 >
