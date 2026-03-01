@@ -1,13 +1,20 @@
 // Returns reservations that overlap with a given date range for a specific aircraft
 async function getReservationsInRange(conn, startDate, endDate, idAircraft) {
     return new Promise((resolve, reject) => {
-        const query = `
-            SELECT * FROM reservations
-            WHERE idAircraft = ?
+        let query = `
+            SELECT idReservation, idAircraft, startDate, endDate 
+            FROM reservations
+            WHERE 1 = 1
             AND idStatus IN (3,2,1)
             AND ((startDate < ? AND endDate > ?))
         `;
-        const qParams = [idAircraft, endDate, startDate];
+        const qParams = [endDate, startDate];
+        
+        if (idAircraft != 'all') {
+            query += ` AND idAircraft = ?`
+            qParams.push(idAircraft)
+        }
+        
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -56,12 +63,12 @@ async function getAvailableHours(conn, p) {
         `;
         let qParams = [p.date, p.date]
 
-        if(p.idAircraft) {
+        if (p.idAircraft) {
             query += ` AND r.idAircraft = ?`
             qParams.push(p.idAircraft)
         }
 
-        query+= `
+        query += `
         GROUP BY a.hour
             HAVING reservationsCount < (
                 SELECT COUNT(1)
@@ -72,7 +79,7 @@ async function getAvailableHours(conn, p) {
         ORDER BY a.hour ASC
         `
 
-        if(p.idAircraft) {
+        if (p.idAircraft) {
             qParams.push(p.idAircraft)
         }
 

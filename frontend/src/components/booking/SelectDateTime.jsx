@@ -12,7 +12,7 @@ import { toZonedTime } from 'date-fns-tz';
 
 
 const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) => {
-    const TIMEZONE = 'America/New_York';
+  const TIMEZONE = 'America/New_York';
 
   function getTodayInMiami() {
     const now = new Date();
@@ -25,7 +25,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
       miamiPlus2Hours.getDate()
     );
   }
-  
+
   const [initialDate, setInitialDate] = useState(getTodayInMiami());
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,14 +40,14 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
     try {
       const formattedDate = formatLocalDate(dateObj);
       let url = `/reservations/availableHours?date=${formattedDate}`;
-      
+
       if (idAircraft) {
         url += `&idAircraft=${idAircraft}`;
       }
 
       const data = await ApiComunicator(
         url,
-        'GET' 
+        'GET'
       );
 
       setTimeSlots(data.availableHours || []);
@@ -77,7 +77,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
               onDateChange(d ? formatLocalDate(d) : '')
             }
             className="custom-calendar"
-            disabled={{ before: initialDate, after: addDays(initialDate, 30) }}
+            disabled={{ before: initialDate }}
           />
         </div>
 

@@ -44,6 +44,12 @@
   gap: 2rem;
 }
 
+.content-range {
+  display: flex;
+  flex-direction: column; /* Cambiado a disposición horizontal */
+  gap: 1rem;
+}
+
 .calendar-wrapper {
   flex: 1; /* Ocupa la mitad izquierda */
   background: #ffffff;
