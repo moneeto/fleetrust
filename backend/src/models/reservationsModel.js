@@ -58,7 +58,7 @@ async function getAvailableHours(conn, p) {
 
         if(p.idAircraft) {
             query += ` AND r.idAircraft = ?`
-            qParams.push(p.idAircraft, p.idAircraft)
+            qParams.push(p.idAircraft)
         }
 
         query+= `
@@ -72,8 +72,10 @@ async function getAvailableHours(conn, p) {
         ORDER BY a.hour ASC
         `
 
-        console.log(query);
-        console.log(qParams);
+        if(p.idAircraft) {
+            qParams.push(p.idAircraft)
+        }
+
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

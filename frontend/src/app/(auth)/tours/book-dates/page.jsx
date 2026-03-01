@@ -12,7 +12,7 @@ import { Modal, ModalBody, Button, Form, FormGroup, Label, Input, FormText } fro
 import { FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
 import styles from "./page.module.css";
 import { InfoIcon } from 'lucide-react';
-import SelectDateRange from '@/components/booking/SelectDateRange';
+// SelectDateRange removed: using two datetime inputs for range selection
 
 export default function BookDatesPage() {
     const router = useRouter();
@@ -202,12 +202,20 @@ export default function BookDatesPage() {
                 setLoading(false);
                 return;
             }
+
+            // Verify availability before creating the range
+            const available = await checkAvailability(dateRange.from, dateRange.to, idAircraft);
+            if (!available) {
+                setLoading(false);
+                return;
+            }
+
             const res = await ApiComunicator(
                 `/reservations/createReservationRange`,
                 'POST',
                 {
-                    startDate: dateRange.from,
-                    endDate: dateRange.to,
+                    startDate: new Date(dateRange.from).toISOString(),
+                    endDate: new Date(dateRange.to).toISOString(),
                     idAircraft: idAircraft
                 }
             );
@@ -250,6 +258,29 @@ export default function BookDatesPage() {
             setAircrafts(res.aircrafts);
         } catch (err) {
 
+        }
+    }
+
+    // Check if there are existing reservations in the provided range for the aircraft
+    const checkAvailability = async (start, end, aircraftId) => {
+        try {
+            if (!start || !end || !aircraftId) {
+                setError('Please select aircraft and both start/end date and time.');
+                return false;
+            }
+            const res = await ApiComunicator('/reservations/checkAvailability', 'POST', {
+                startDate: new Date(start).toISOString(),
+                endDate: new Date(end).toISOString(),
+                idAircraft: aircraftId
+            });
+            if (res && res.conflict) {
+                setError('There is an existing reservation in that range.');
+                return false;
+            }
+            return true;
+        } catch (err) {
+            setError(err.message || String(err));
+            return false;
         }
     }
 
@@ -307,12 +338,29 @@ export default function BookDatesPage() {
                     {(bookingType === 'me' && step === 1) && (
                         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
                             <div style={{ flex: 2 }}>
+                            <div>
+                                <Input type='checkbox' name='toggleCustomLength' id="toggleCustomLength" onChange={(e) => setCustomLength(e.target.checked)}/>
+                                <Label check for="toggleCustomLength">Select date range</Label>
+                            </div>
                                 {customLength ? (
-                                    <SelectDateRange
-                                        range={dateRange}
-                                        onDateChange={(range) => setDateRange(range)}
-                                        idAircraft={idAircraft}
-                                    />
+                                    <div className="d-flex flex-column gap-2">
+                                        <FormGroup>
+                                            <Label className="fw-semibold">Start date & time</Label>
+                                            <Input
+                                                type="datetime-local"
+                                                value={dateRange.from || ''}
+                                                onChange={e => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                                            />
+                                        </FormGroup>
+                                        <FormGroup>
+                                            <Label className="fw-semibold">End date & time</Label>
+                                            <Input
+                                                type="datetime-local"
+                                                value={dateRange.to || ''}
+                                                onChange={e => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                                            />
+                                        </FormGroup>
+                                    </div>
                                 ) : (
                                     <SelectDateTime
                                         date={date}

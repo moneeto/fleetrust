@@ -14,6 +14,7 @@ router.get('/reservationsByDate', withAuth, getReservationsByDate);
 router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
 router.post('/getReservationById', withAuth, getReservationById);
 router.post('/updateReservation', withAuth, updateReservation);
+router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
 
@@ -31,9 +32,6 @@ async function createReservation(req, res) {
             console.log(req.body);
             let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft } = req.body;
 
-            console.log("estas son las notas perri:");
-            console.log(notes);
-            console.log("-----------------------");
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
             }
@@ -409,6 +407,51 @@ async function updateReservation(req, res) {
             if (typeof e == "string") { message = String(e) }
             status = 400
             response = { success: false, message: message }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
+
+async function checkAvailability(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const { startDate, endDate, idAircraft } = req.body;
+
+            if (!startDate || !endDate || !idAircraft) {
+                throw 'Missing required fields (startDate, endDate, idAircraft)'
+            }
+
+            // Check for overlapping reservations
+            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
+
+            const hasConflict = overlapping && overlapping.length > 0;
+
+            response = {
+                available: !hasConflict,
+                conflict: hasConflict,
+                conflictCount: overlapping ? overlapping.length : 0
+            }
+
+            status = 200
+        }
+        catch (e) {
+            console.log(e)
+            let message = "Error checking availability.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { message, available: false, conflict: true }
         }
         finally {
             if (connSuccess) conn.release()
