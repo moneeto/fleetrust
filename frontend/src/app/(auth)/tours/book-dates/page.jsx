@@ -2,19 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from "next/navigation";
+import { Modal, ModalBody, Button, FormGroup, Label, Input } from 'reactstrap';
+import { FaCheckCircle, FaRegCalendarAlt, FaUserFriends, FaPlaneDeparture, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
+import moment from 'moment';
+
+// Componentes locales (Asumo que ya existen según tu código original)
 import SelectDateTime from '@/components/booking/SelectDateTime';
 import SelectDateRange from '@/components/booking/SelectDateRange';
 import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
 import SelectBookingType from '@/components/booking/SelectBookingType';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
-import { useRouter } from "next/navigation";
-import { Modal, ModalBody, Button, Form, FormGroup, Label, Input, FormText } from 'reactstrap';
-import { FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
-import styles from "./page.module.css";
-import { InfoIcon } from 'lucide-react';
-import moment from 'moment';
-// SelectDateRange removed: using two datetime inputs for range selection
 
 export default function BookDatesPage() {
     const router = useRouter();
@@ -33,21 +32,20 @@ export default function BookDatesPage() {
     const [passengersData, setPassengersData] = useState([]);
     const [notes, setNotes] = useState('');
     const [reservationHolder, setReservationHolder] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: ''
+        firstName: '', lastName: '', email: '', phone: ''
     });
     const [aircrafts, setAircrafts] = useState([]);
-    const [idAircraft, setIdAircraft] = useState("all")
+    const [idAircraft, setIdAircraft] = useState("all");
     const [reservationId, setReservationId] = useState(null);
+    const [customLength, setCustomLength] = useState(false);
+    const [dateRange, setDateRange] = useState({ from: null, to: null });
+    const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
 
+    // --- LÓGICA DE DATOS ---
     useEffect(() => {
         if (bookingType === 'others') {
-            setPassengersData(
-                Array.from({ length: passengers }, (_, i) =>
-                    passengersData[i] || { firstName: '', lastName: '' }
-                )
+            setPassengersData(prev =>
+                Array.from({ length: passengers }, (_, i) => prev[i] || { firstName: '', lastName: '' })
             );
         }
     }, [passengers, bookingType]);
@@ -56,529 +54,305 @@ export default function BookDatesPage() {
         getAircrafts();
         getRoutes();
     }, []);
-    // Obtener listado de tours/routes
+
     const getRoutes = async () => {
         try {
             const res = await ApiComunicator(`/routes/getRoutes`, 'GET');
             setRoutes(res.routes);
-        } catch (err) {
-            // Opcional: setError(err.message);
-        }
+        } catch (err) { console.error(err); }
     };
 
-    const [customLength, setCustomLength] = useState(false);
-    const [dateRange, setDateRange] = useState({ from: null, to: null });
-    const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
+    const getAircrafts = async () => {
+        try {
+            const res = await ApiComunicator(`/aircrafts/`, 'GET');
+            setAircrafts(res.aircrafts);
+        } catch (err) { console.error(err); }
+    };
 
-    const nextStep = () => setStep((prev) => prev + 1);
-    const prevStep = () => {
-        if (bookingType == 'me' && step === 1) {
+    // --- NAVEGACIÓN Y ACTIONS ---
+    const handleBack = () => {
+        // Si estamos en el primer paso después de elegir tipo, reseteamos todo al volver al menú principal
+        if (step === 1) {
             setBookingType(null);
+            resetPilotFlow();
+            setSelectedRoute(null);
+            setPassengers(2);
         }
         setStep((prev) => prev - 1);
-    }
+    };
 
-    const handleBack = () => {
-        prevStep();
-    }
+    const handleNext = async () => {
+        setError(null);
+        if (bookingType === 'others' && step === 3) {
+            const draft = await createDraftReservation();
+            if (draft && draft.id) setStep((s) => s + 1);
+            return;
+        }
+        setStep((s) => s + 1);
+    };
 
     const createDraftReservation = async () => {
         try {
             setLoading(true);
-            setError(null);
             const data = {
                 reservationDate: date,
                 reservationTime: time,
                 passengerCount: bookingType === 'me' ? 1 : passengers,
                 passengers: [],
                 routeCode: bookingType === 'me' ? "BAS" : selectedRoute,
-                notes: notes,
+                notes,
                 reservationHolder: {},
-                idAircraft: idAircraft
+                idAircraft
             };
-            const res = await ApiComunicator(
-                `/reservations/createReservation`,
-                'POST',
-                data
-            );
-            if (res && res.id) {
-                setReservationId(res.id);
-            } else {
-                throw new Error(res.message || 'Could not create draft reservation.');
-            }
+            const res = await ApiComunicator(`/reservations/createReservation`, 'POST', data);
+            if (res?.id) setReservationId(res.id);
             return res;
         } catch (err) {
-            setError(err.message || String(err));
+            setError(err.message || "Error creating draft");
             return null;
-        } finally {
-            setLoading(false);
-        }
-    }
+        } finally { setLoading(false); }
+    };
 
     const confirmBooking = async () => {
         try {
             setLoading(true);
-            setError(null);
             let targetId = reservationId;
             if (!targetId) {
-                // If no draft exists, create it first (handles 'me' flow)
                 const draft = await createDraftReservation();
-                if (!draft || !draft.id) {
-                    setError('No draft reservation to confirm.');
-                    return;
-                }
-                setReservationId(draft.id);
+                if (!draft?.id) return;
                 targetId = draft.id;
             }
             const data = {
                 idReservation: targetId,
                 passengers: bookingType === 'me' ? [] : passengersData,
-                reservationHolder: reservationHolder,
-                notes: notes
+                reservationHolder,
+                notes
             };
             const res = await ApiComunicator(`/reservations/confirmBooking`, 'POST', data);
-            if (res.success) {
-                setShowSuccessModal(true);
-            } else {
-                setError(res.message || 'Could not confirm reservation.');
-            }
+            if (res.success) setShowSuccessModal(true);
+            else setError(res.message || 'Could not confirm.');
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
+    };
+
+    const handleSubmitRange = async () => {
+        try {
+            setLoading(true);
+            if (!dateRange.from || !dateRange.to) return setError('Select date range');
+            const res = await ApiComunicator(`/reservations/createReservationRange`, 'POST', {
+                startDate: moment(dateRange.from).format('YYYY-MM-DD') + 'T' + timeRange.start + ':00',
+                endDate: moment(dateRange.to).format('YYYY-MM-DD') + 'T' + timeRange.end + ':00',
+                idAircraft, notes
+            });
+            if (res.success) setShowSuccessModal(true);
         } catch (err) {
-            setError(err.message || String(err));
-        } finally {
-            setLoading(false);
-        }
-    }
+            if (err.overlapping) { setOverlappingData(err); setShowErrorModal(true); }
+            else setError(err.message);
+        } finally { setLoading(false); }
+    };
 
-    const handleNext = async () => {
-        setError(null);
-        // If we're on the 'others' date/time step (step 3) and advancing, create draft reservation
-        if (bookingType === 'others' && step === 3) {
-            const draft = await createDraftReservation();
-            if (draft && draft.id) {
-                setStep((s) => s + 1);
-            }
-            return;
-        }
-        setStep((s) => s + 1);
-    }
-
-    const isStep3Valid =
-        reservationHolder.firstName.trim() !== '' &&
+    // --- RENDER HELPERS ---
+    const isStep3Valid = reservationHolder.firstName.trim() !== '' &&
         reservationHolder.email.trim() !== '' &&
         (bookingType === 'me' || passengersData.every(p => p.firstName?.trim() !== ''));
 
-    async function handleSubmit() {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = {
-                reservationDate: date,
-                reservationTime: time,
-                passengerCount: bookingType === 'me' ? 1 : passengers,
-                passengers: bookingType === 'me' ? [] : passengersData,
-                routeCode: bookingType === 'me' ? "BAS" : selectedRoute,
-                notes: notes,
-                reservationHolder: reservationHolder,
-                idAircraft: idAircraft
-            };
-            const res = await ApiComunicator(
-                `/reservations/createReservation`,
-                'POST',
-                data
-            );
-            if (res.success) {
-                setShowSuccessModal(true);
-            } else {
-                setError(res.message || 'Could not create reservation.');
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleSubmitRange() {
-        try {
-            setLoading(true);
-            setError(null);
-            setOverlappingData(null);
-            setShowErrorModal(false);
-            if (!dateRange.from || !dateRange.to || !idAircraft) {
-                setError('Please select start/end date and time.');
-                setLoading(false);
-                return;
-            }
-
-            let startDate = moment(dateRange.from).format('YYYY-MM-DD') + 'T' + timeRange.start + ':00';
-            let endDate = moment(dateRange.to).format('YYYY-MM-DD') + 'T' + timeRange.end + ':00';
-
-            const res = await ApiComunicator(
-                `/reservations/createReservationRange`,
-                'POST',
-                {
-                    startDate,
-                    endDate,
-                    idAircraft: idAircraft,
-                    notes: notes
-                }
-            );
-            if (res.success) {
-                setShowSuccessModal(true);
-            } else {
-                setError(res.message || 'Could not block range.');
-            }
-        } catch (err) {
-            console.log(err)
-            if (err.overlapping) {
-                setOverlappingData(err);
-                setShowErrorModal(true);
-            } else {
-                setError(err.message || String(err));
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const handleCloseSuccess = () => {
-        setShowSuccessModal(false);
-        router.push('/tours/bookings');
+    const setStepTitle = () => {
+        if (step === 0) return 'Booking Experience';
+        if (bookingType === 'me') return 'Schedule your Flight';
+        const titles = ['Select Tour', 'Passengers', 'Flight Schedule', 'Confirm Details'];
+        return titles[step - 1] || '';
+    };
+  
+    // --- NAVEGACIÓN Y LIMPIEZA ---
+    const resetPilotFlow = () => {
+        setCustomLength(false);
+        setDateRange({ from: null, to: null });
+        setTimeRange({ start: "07:00", end: "07:00" });
+        setDate('');
+        setTime('');
+        setIdAircraft("all");
     };
 
-    const setStepTitle = () => {
-        if (step === 0) return 'Select Booking Type';
-        if (bookingType === 'me') {
-            if (step === 1) return 'Select Date & Time';
-        } else if (bookingType === 'others') {
-            switch (step) {
-                case 1: return 'Select Tour';
-                case 2: return 'Select the passenger number';
-                case 3: return 'Select Date & Time';
-                case 4: return 'Details';
-                default: return '';
-            }
-        }
-        return '';
-    }
-
-    const getAircrafts = async () => {
-        try {
-            const res = await ApiComunicator(`/aircrafts/`, 'GET');
-            setAircrafts(res.aircrafts);
-        } catch (err) {
-
-        }
-    }
-
-    // Check if there are existing reservations in the provided range for the aircraft
-    const checkAvailability = async (start, end, aircraftId) => {
-        try {
-            if (!start || !end || !aircraftId) {
-                setError('Please select aircraft and both start/end date and time.');
-                return false;
-            }
-            const res = await ApiComunicator('/reservations/checkAvailability', 'POST', {
-                startDate: new Date(start).toISOString(),
-                endDate: new Date(end).toISOString(),
-                idAircraft: aircraftId
-            });
-            if (res && res.conflict) {
-                setError('There is an existing reservation in that range.');
-                return false;
-            }
-            return true;
-        } catch (err) {
-            setError(err.message || String(err));
-            return false;
-        }
-    }
-
-
     return (
-        <div className="max-w-2xl mx-auto flex flex-column gap-4">
-            <h4 className="fw-bold mb-2">{setStepTitle()}</h4>
+        <div className="container py-5" style={{ maxWidth: '1200px', fontFamily: 'Inter, sans-serif' }}>
 
-
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={step}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                >
-                    {/* Step 0: Select Booking Type */}
-                    {step === 0 && (
-                        <SelectBookingType onSelect={(type) => {
-                            setBookingType(type);
-                            if (type === 'me') {
-                                setStep(1);
-                            } else {
-                                setStep(1);
-                            }
-                        }} />
-                    )}
-
-                    {/* Step 1: If 'others', select tour */}
-                    {bookingType === 'others' && step === 1 && (
-                        <div className="mb-4">
-                            <Label className="fw-semibold mb-2">Select a tour</Label>
-                            <div className="d-flex flex-column gap-3">
-                                {routes && routes.length > 0 ? (
-                                    routes.map((route) => (
-                                        <div
-                                            key={route.idRoute || route.code}
-                                            className={`border rounded p-3 ${selectedRoute === route.code ? 'border-primary bg-light' : ''}`}
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => setSelectedRoute(route.code)}
-                                        >
-                                            <div className="fw-bold">{route.title}</div>
-                                            <div className="text-muted small">{route.description}</div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-muted">No tours available.</div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 1 or 2: If 'me', select date/time. If 'others', select passengers */}
-                    {(bookingType === 'me' && step === 1) && (
-                        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-                            <>
-                                {customLength ? (
-                                    <SelectDateRange
-                                        range={dateRange}
-                                        timeRange={timeRange}
-                                        onDateChange={setDateRange}
-                                        onTimeChange={setTimeRange}
-                                    />
-                                ) : (
-                                    <div style={{ flex: 2 }}>
-                                        <SelectDateTime
-                                            date={date}
-                                            time={time}
-                                            onDateChange={setDate}
-                                            onTimeChange={setTime}
-                                            idAircraft={idAircraft}
-                                        />
-                                    </div>
-                                )}
-                            </>
-                            <div style={{ flex: 1, minWidth: 220 }}>
-                                <Form>
-                                    <FormGroup check className="mb-2">
-                                        <Input type='checkbox' name='toggleCustomLength' id="toggleCustomLength" onChange={(e) => setCustomLength(e.target.checked)} />
-                                        <Label check for="toggleCustomLength">Select date range</Label>
-                                    </FormGroup>
-                                    <FormGroup className="mb-2">
-                                        <Label for="firstName" className="fw-semibold">Aircraft</Label>
-                                        <Input
-                                            type="select"
-                                            id="idAircraft"
-                                            value={idAircraft}
-                                            onChange={e => setIdAircraft(e.target.value)}
-                                            placeholder="Select aircraft"
-                                        >
-                                            <option value="all">ALL</option>
-                                            {aircrafts && aircrafts.length > 0 && aircrafts.map((aircraft) => (
-                                                <option key={aircraft.idAircraft} value={aircraft.idAircraft}>
-                                                    {aircraft.aircraft} - {aircraft.registrationNumber}
-                                                </option>
-                                            ))}
-                                        </Input>
-                                    </FormGroup>
-                                    <FormGroup className="mb-2">
-                                        <Label>Notes</Label>
-                                        <Input
-                                            type="textarea"
-                                            value={notes}
-                                            rows={10}
-                                            onChange={e => setNotes(e.target.value)}
-                                            placeholder=""
-                                        />
-                                    </FormGroup>
-                                </Form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* For 'others', show aircraft selector in the date/time step only ONCE */}
-                    {bookingType === 'others' && step === 3 && (
-                        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 2 }}>
-                                <SelectDateTime
-                                    date={date}
-                                    time={time}
-                                    onDateChange={setDate}
-                                    onTimeChange={setTime}
-                                    idAircraft={idAircraft}
-                                />
-                            </div>
-                            <div style={{ flex: 1, minWidth: 220 }}>
-                                <Form>
-                                    <FormGroup className="mb-2">
-                                        <Label for="firstName" className="fw-semibold">Aircraft</Label>
-                                        <Input
-                                            type="select"
-                                            id="idAircraft"
-                                            value={idAircraft}
-                                            onChange={e => setIdAircraft(e.target.value)}
-                                            placeholder="Select aircraft"
-                                        >
-                                            <option value="all">ALL</option>
-                                            {aircrafts && aircrafts.length > 0 && aircrafts.map((aircraft) => (
-                                                <option key={aircraft.idAircraft} value={aircraft.idAircraft}>
-                                                    {aircraft.aircraft} - {aircraft.registrationNumber}
-                                                </option>
-                                            ))}
-                                        </Input>
-                                    </FormGroup>
-                                </Form>
-                            </div>
-                        </div>
-                    )}
-
-                    {bookingType === 'others' && step === 2 && (
-                        <SelectPassengersNumber
-                            count={passengers}
-                            onCountChange={setPassengers}
-                        />
-                    )}
-
-                    {bookingType === 'others' && step === 4 && (
-                        <PassengerDetails
-                            count={passengers}
-                            passengersData={passengersData}
-                            setPassengersData={setPassengersData}
-                            notes={notes}
-                            setNotes={setNotes}
-                            reservationHolder={reservationHolder}
-                            setReservationHolder={setReservationHolder}
-                        />
-                    )}
-                </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation buttons */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
-                {step > 0 && (
-                    <button
-                        className="btn btn-outline-secondary px-5 me-auto"
-                        onClick={handleBack}
-                        disabled={loading}
-                    >
-                        Back
-                    </button>
-                )}
-
-                {(() => {
-                    let isLastStep = false;
-                    if (bookingType === 'me' && step === 1) isLastStep = true;
-                    if (bookingType === 'others' && step === 4) isLastStep = true;
-                    if (step === 0) return null;
-                    if (isLastStep) {
-                        // Si es 'me' y toggle de rango, usar handleSubmitRange
-                        if (bookingType === 'me' && customLength) {
-                            return (
-                                <button
-                                    className="btn btn-success px-5"
-                                    disabled={loading || !dateRange.from || !dateRange.to || !idAircraft}
-                                    onClick={handleSubmitRange}
-                                >
-                                    {loading ? 'Loading...' : 'Confirm'}
-                                </button>
-                            );
-                        } else {
-                            return (
-                                <button
-                                    className="btn btn-success px-5"
-                                    disabled={
-                                        loading ||
-                                        (bookingType === 'me' && (!date || !time)) ||
-                                        (bookingType === 'others' && !isStep3Valid)
-                                    }
-                                    onClick={confirmBooking}
-                                >
-                                    {loading ? 'Loading...' : 'Confirm'}
-                                </button>
-                            );
-                        }
-                    } else {
-                        return (
-                            <button
-                                className="btn btn-primary px-5"
-                                onClick={handleNext}
-                                disabled={
-                                    (step === 2 && bookingType === 'others' && !passengers) || (step === 3 && bookingType === 'others' && (!date || !time))
-                                }
-                            >
-                                Next
-                            </button>
-                        );
-                    }
-                })()}
+            {/* Header & Progress */}
+            <div className="text-center mb-5">
+                <h2 className="fw-bold text-dark">{setStepTitle()}</h2>
+                <div className="d-flex justify-content-center gap-2 mt-3">
+                    {[0, 1, 2, 3, 4].slice(0, bookingType === 'me' ? 2 : 5).map((s) => (
+                        <div key={s} className={`rounded-pill ${step >= s ? 'bg-primary' : 'bg-light'}`}
+                            style={{ width: '40px', height: '6px', transition: '0.3s' }} />
+                    ))}
+                </div>
             </div>
 
-            {error && <p className="text-danger mt-3 text-center font-bold">{error}</p>}
-            <Modal
-                isOpen={showErrorModal}
-                centered
-                contentClassName="border-0 rounded-2xl shadow-lg"
-                toggle={() => setShowErrorModal(false)}
-            >
-                <ModalBody className="p-5 text-center">
-                    <div className="mb-4 d-flex justify-content-center">
-                        <p className="mb-4"><strong>
-                            {overlappingData?.message || 'No se puede realizar la reserva porque se superpone con otra existente.'}
-                        </strong></p>
-                    </div>
-                    {overlappingData?.overlapping && Array.isArray(overlappingData.overlapping) && (
-                        <div className="mb-3">
-                            <ul className="text-start mt-2">
-                                {overlappingData.overlapping.map((item, idx) => (
-                                    <li key={idx}>
-                                        {item.startDate ? `From: ${item.startDate}` : ''} {item.endDate ? `, To: ${item.endDate}` : ''}
-                                    </li>
-                                ))}
-                            </ul>
+            <div className="bg-white shadow-lg border-0 rounded-4 overflow-hidden">
+                <div className="p-4 p-md-5">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={step}
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            transition={{ duration: 0.25 }}
+                        >
+                            {/* STEP 0: Tipo de Reserva */}
+                            {step === 0 && (
+                                <div className="py-4">
+                                    <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
+                                </div>
+                            )}
+
+                            {/* STEP 1 (Others): Selección de Tour */}
+                            {bookingType === 'others' && step === 1 && (
+                                <div className="row g-3">
+                                    {routes.map((route) => (
+                                        <div key={route.code} className="col-12" onClick={() => setSelectedRoute(route.code)}>
+                                            <div className={`p-4 border rounded-4 cursor-pointer transition-all ${selectedRoute === route.code ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'hover-bg-light'}`}
+                                                style={{ cursor: 'pointer', border: '2px solid transparent' }}>
+                                                <div className="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <h6 className="fw-bold mb-1">{route.title}</h6>
+                                                        <p className="text-muted small mb-0">{route.description}</p>
+                                                    </div>
+                                                    {selectedRoute === route.code && <FaCheckCircle className="text-primary" size={20} />}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* STEP 2 (Others): Pasajeros */}
+                            {bookingType === 'others' && step === 2 && (
+                                <div className="text-center py-4">
+                                    <SelectPassengersNumber count={passengers} onCountChange={setPassengers} />
+                                </div>
+                            )}
+
+                            {/* STEP 1 (Me) o STEP 3 (Others): Fecha y Hora */}
+                            {((bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 3)) && (
+                                <div className="row g-4">
+                                    <div className="col-lg-8 border-end pe-lg-4">
+                                        {customLength ? (
+                                            <SelectDateRange range={dateRange} timeRange={timeRange} onDateChange={setDateRange} onTimeChange={setTimeRange} />
+                                        ) : (
+                                            <SelectDateTime date={date} time={time} onDateChange={setDate} onTimeChange={setTime} idAircraft={idAircraft} />
+                                        )}
+                                    </div>
+                                    <div className="col-lg-4">
+                                        <div className="bg-light p-4 rounded-4">
+                                            {bookingType === 'me' ? <Label className="fw-bold small text-uppercase text-muted mb-3">Settings</Label> : <></>}
+
+                                            {bookingType === 'me' && (
+                                                <FormGroup check className="mb-4">
+                                                    <Input type='checkbox' id="toggleRange" onChange={(e) => setCustomLength(e.target.checked)} />
+                                                    <Label check for="toggleRange" className="small">Select date range</Label>
+                                                </FormGroup>
+                                            )}
+
+                                            <FormGroup className="mb-4">
+                                                <Label className="small fw-bold">Select Aircraft {customLength ? '(*)' : ''}</Label>
+                                                <Input type="select" className="form-select-sm rounded-3" value={idAircraft} onChange={e => setIdAircraft(e.target.value)}>
+                                                    <option value="all">Any Available</option>
+                                                    {aircrafts.map(a => <option key={a.idAircraft} value={a.idAircraft}>{a.aircraft}</option>)}
+                                                </Input>
+                                            </FormGroup>
+
+                                            <FormGroup className="mb-0">
+                                                <Label className="small fw-bold">Notes (optional)</Label>
+                                                <Input type="textarea" className="rounded-3" rows={4} value={notes} onChange={e => setNotes(e.target.value)} placeholder="" />
+                                            </FormGroup>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 4: Detalles Finales */}
+                            {bookingType === 'others' && step === 4 && (
+                                <PassengerDetails
+                                    count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
+                                    notes={notes} setNotes={setNotes} reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
+                                />
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+
+                {/* Navigation Bar */}
+                {step > 0 && (
+                    <div className="bg-light p-4 d-flex justify-content-between align-items-center">
+                        <Button color="link" className="text-decoration-none text-muted fw-bold" onClick={handleBack} disabled={loading}>
+                            <FaChevronLeft className="me-2" /> Back
+                        </Button>
+
+                        <div className="d-flex gap-3">
+                            {(() => {
+                                let isLast = (bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 4);
+                                if (!isLast) {
+                                    return (
+                                        <Button color="primary" className="px-5 py-2 rounded-pill fw-bold shadow-sm" onClick={handleNext}
+                                            disabled={(step === 1 && bookingType === 'others' && !selectedRoute) || (step === 3 && !date)}>
+                                            Next <FaChevronRight className="ms-2" />
+                                        </Button>
+                                    );
+                                }
+                                return (
+                                    <Button color="success" className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                        onClick={customLength ? handleSubmitRange : confirmBooking}
+                                        disabled={loading || (bookingType === 'others' && !isStep3Valid)}>
+                                        {loading ? 'Processing...' : 'Complete Booking'}
+                                    </Button>
+                                );
+                            })()}
                         </div>
-                    )}
-                    <Button
-                        color="danger"
-                        className="w-100 py-2 fw-bold rounded-xl"
-                        onClick={() => setShowErrorModal(false)}
-                    >
-                        Close
-                    </Button>
+                    </div>
+                )}
+            </div>
+
+            {error && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="alert alert-danger mt-4 rounded-4 shadow-sm border-0 d-flex align-items-center justify-content-between"
+                >
+                    <div className="d-flex align-items-center">
+                        <FaInfoCircle className="me-2" />
+                        <span>{error}</span>
+                    </div>
+
+                    {/* Botón de cierre (la cruz) */}
+                    <button
+                        type="button"
+                        className="btn-close ms-3"
+                        aria-label="Close"
+                        onClick={() => setError(null)}
+                        style={{ fontSize: '0.8rem', filter: 'invert(0.5)' }} // Ajuste estético opcional
+                    ></button>
+                </motion.div>
+            )}
+
+            {/* MODALS (Success & Error) */}
+            <Modal isOpen={showSuccessModal} centered contentClassName="border-0 rounded-4 shadow-lg text-center p-4">
+                <ModalBody>
+                    <div className="mb-4"><FaCheckCircle className="text-success" size={60} /></div>
+                    <h3 className="fw-bold">Reservation Confirmed!</h3>
+                    <p className="text-muted">Your flight for <strong>{date}</strong> is ready.</p>
+                    <Button color="success" className="w-100 py-2 rounded-pill fw-bold mt-3" onClick={() => router.push('/tours/bookings')}>Finish</Button>
                 </ModalBody>
             </Modal>
-            <Modal
-                isOpen={showSuccessModal}
-                centered
-                contentClassName="border-0 rounded-2xl shadow-lg"
-            >
-                <ModalBody className="p-5 text-center">
-                    <div className="mb-4 d-flex justify-content-center">
-                        <div className="bg-success bg-opacity-10 p-3 rounded-circle">
-                            <FaCheckCircle className="text-success" size={50} />
-                        </div>
-                    </div>
 
-                    <h3 className="fw-bold text-dark mb-2">Reservation Created!</h3>
-                    <p className="text-muted mb-4">
-                        Your booking for <strong>{date}</strong> at <strong>{time?.slice(0, 5)}</strong> has been successfully registered.
-                    </p>
-
-                    <Button
-                        color="success"
-                        className="w-100 py-2 fw-bold rounded-xl"
-                        onClick={handleCloseSuccess}
-                    >
-                        Finish
-                    </Button>
+            <Modal isOpen={showErrorModal} centered contentClassName="border-0 rounded-4 shadow-lg p-4" toggle={() => setShowErrorModal(false)}>
+                <ModalBody className="text-center">
+                    <h5 className="fw-bold text-danger mb-3">Scheduling Conflict</h5>
+                    <p className="small text-muted">{overlappingData?.message || 'Selected time is unavailable.'}</p>
+                    <ul className="text-start list-unstyled bg-light p-3 rounded-3 small">
+                        {overlappingData?.overlapping?.map((item, i) => (
+                            <li key={i} className="mb-1">• {item.startDate} to {item.endDate}</li>
+                        ))}
+                    </ul>
+                    <Button color="danger" className="w-100 py-2 rounded-pill mt-3" onClick={() => setShowErrorModal(false)}>Retry</Button>
                 </ModalBody>
             </Modal>
         </div>

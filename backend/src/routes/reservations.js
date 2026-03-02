@@ -484,36 +484,19 @@ async function createReservationRange(req, res) {
             if (errConn) throw errConn;
             connSuccess = true;
             let { startDate, endDate, idAircraft, notes } = req.body;
-            if (!startDate || !endDate || !idAircraft) {
+            if (!startDate || !endDate) {
                 throw 'Missing required fields';
             }
-            // Verificar solapamiento
-            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
-            if (idAircraft == "all") {
-                // Si es para "all", con que haya 1 avion que 
-                // no aparezca entre las reservas solapadas, es suficiente para crear la reserva.
-                const aircrafts = await dbAircrafts.getAircrafts(conn);
-                let availableAircrafts = aircrafts.filter(n => n.available == 1).map(n => n.idAircraft);
-                let avionesReservados = new Set();
-                overlapping.forEach(r => {
-                    if (r.idAircraft) avionesReservados.add(r.idAircraft);
-                });
-                if (availableAircrafts.length == avionesReservados.size) {
-                    throw { overlapping, message: 'There are already reservations in this range for all available aircraft.' }
-                }
 
-                // Tengo avion disponible, selecciono el primero que encuentre
-                for (let i = 0; i < availableAircrafts.length; i++) {
-                    if (!avionesReservados.has(availableAircrafts[i])) {
-                        idAircraft = availableAircrafts[i];
-                        break;
-                    }
-                }
+            // Require a specific aircraft for range bookings (no 'all')
+            if (!idAircraft || idAircraft === 'all' || isNaN(Number(idAircraft))) {
+                throw 'Please select a aircraft.';
             }
-            else {
-                if (overlapping && overlapping.length > 0) {
-                    throw { overlapping, message: 'There are already reservations in this range.' };
-                }
+
+            // Verificar solapamiento para el aircraft seleccionado
+            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
+            if (overlapping && overlapping.length > 0) {
+                throw { overlapping, message: 'There are already reservations in this range.' };
             }
             
             // Crear reserva de bloqueo
@@ -562,23 +545,27 @@ async function deleteReservation(req, res) {
             connSuccess = true;
 
             if (req.idRole != 1) {
-                throw "No authorized."
+                throw "Not authorized."
             }
 
-            const { idReservation } = req.body;
+            let { idReservation } = req.body;
+
+            idReservation = idReservation != null && idReservation != "" ? idReservation : null
 
             if (!idReservation) {
                 throw 'Missing reservation ID.';
             }
 
-            // Delete addons associated with the reservation
-            await db.deleteReservationAddons(conn, idReservation);
+            // // Delete addons associated with the reservation
+            // await db.deleteReservationAddons(conn, idReservation);
 
-            // Delete passengers associated with the reservation
-            await db.deleteReservationPassengers(conn, idReservation);
+            // // Delete passengers associated with the reservation
+            // await db.deleteReservationPassengers(conn, idReservation);
 
-            // Delete the reservation itself
-            await db.deleteReservation(conn, idReservation);
+            // // Delete the reservation itself
+            // await db.deleteReservation(conn, idReservation);
+
+            await db.updateReservationStatus(conn, {idStatus: 4, idReservation: idReservation })
 
             response = { success: true, message: 'Reservation deleted successfully' };
             status = 200;
