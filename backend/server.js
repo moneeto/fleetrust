@@ -51,9 +51,13 @@ app.use(cookieParser());
 //Rutas
 const auth = require('./src/routes/auth.js');
 const reservations = require('./src/routes/reservations.js');
+const aircrafts = require('./src/routes/aircrafts.js');
+const routes = require('./src/routes/routes.js');
 
 app.use('/auth', auth);
 app.use('/reservations', reservations);
+app.use('/aircrafts', aircrafts);
+app.use('/routes', routes);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {

@@ -6,7 +6,8 @@ const titleMap = {
   "/tours": "Tours",
   "/tours/book-dates": "Book Dates",
   "/tours/bookings": "Bookings",
-  "/tours/users": "Users",
+  "/tours/aircrafts": "Aircrafts",
+  "/users": "Users",
 };
 
 export default function Header() {
@@ -14,8 +15,8 @@ export default function Header() {
   const title = titleMap[pathname] ?? "Admin Panel";
 
   return (
-    <header className="p-3">
-      <h3 className="mb-0">{title}</h3>
+    <header className="p-1">
+      <h5 className="mb-0">{title}</h5>
     </header>
   );
 }

@@ -20,7 +20,7 @@ const SelectBookingType = ({ onSelect }) => {
                     onClick={() => onSelect('me')}
                 >
                     <User size={32} />
-                    <span>To me</span>
+                    <span>To pilot</span>
                 </motion.button>
                 
                 <motion.button
@@ -31,7 +31,7 @@ const SelectBookingType = ({ onSelect }) => {
                     onClick={() => onSelect('others')}
                 >
                     <Users size={32} />
-                    <span>To someone else</span>
+                    <span>To passengers</span>
                 </motion.button>
             </div>
         </div>
