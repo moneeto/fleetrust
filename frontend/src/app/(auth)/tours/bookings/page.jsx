@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FaArrowAltCircleRight, FaExclamationCircle, FaPrint } from "react-icons/fa";
+import { FaArrowAltCircleRight, FaEdit, FaExclamationCircle, FaEye, FaPrint, FaTimes } from "react-icons/fa";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
 import { EditIcon } from "lucide-react";
@@ -21,16 +21,51 @@ export default function ToursPage() {
     const { toast } = useToast();
     const router = useRouter();
     const [reservation, setReservation] = useState(null);
+    console.log(reservation);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
 
     function handlePrint() {
-        if (!tableRef.current) return;
+        // generate a tailored table for printing: pax instead of passengers, plus flight type and notes
+        const buildTable = () => {
+            const headerCols = [
+                'Code', 'Starts at', 'Ends', 'Pax', 'Client', 'Email', 'Flight Type', 'Notes'
+            ];
 
-        // Clonamos la tabla para no afectar la original en la UI
-        const tableHTML = tableRef.current.outerHTML;
+            const ths = headerCols.map(c => `<th class="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">${c}</th>`).join('');
+
+            const rows = reservations.map(r => {
+                const start = moment(r.startDate).format('HH:mm') +
+                    (moment(r.startDate).format('YYYY-MM-DD') !== date ? ` ${moment(r.startDate).format('MMMM DD')}` : '');
+                const end = moment(r.endDate).format('HH:mm') +
+                    (moment(r.endDate).format('YYYY-MM-DD') !== moment(r.startDate).format('YYYY-MM-DD') ?
+                        ` ${moment(r.endDate).format('MMMM DD')}` : '');
+                const pax = r.passengers ? r.passengers : '-';
+                const client = r.name && r.lastname ? `${r.name} ${r.lastname}` : '-';
+                const email = r.email ? r.email : '-';
+                const flightType = r.route ? r.route : '-';
+                const notes = r.notes ? r.notes : '-';
+                return `<tr>
+                    <td class="px-4 py-3 text-sm">#${r.codeReservation}</td>
+                    <td class="px-4 py-3 text-sm">${start}</td>
+                    <td class="px-4 py-3 text-sm">${end}</td>
+                    <td class="px-4 py-3 text-sm">${pax}</td>
+                    <td class="px-4 py-3 text-sm">${client}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${email}</td>
+                    <td class="px-4 py-3 text-sm">${flightType}</td>
+                    <td class="px-4 py-3 text-sm">${notes}</td>
+                </tr>`;
+            }).join('');
+
+            return `<table>
+                    <thead style="background: #f3f4f6" class="border-b"><tr>${ths}</tr></thead>
+                    <tbody class="divide-y">${rows}</tbody>
+                </table>`;
+        };
+
+        const tableHTML = buildTable();
         const printWindow = window.open("", "_blank", "width=900,height=650");
 
         printWindow.document.open();
@@ -59,7 +94,6 @@ export default function ToursPage() {
             margin-bottom: 20px;
           }
 
-          /* Tu diseño actual de tabla para asegurar que se vea bien */
           table {
             width: 100%;
             border-collapse: collapse;
@@ -69,7 +103,7 @@ export default function ToursPage() {
 
           thead {
             background-color: #f3f4f6 !important;
-            -webkit-print-color-adjust: exact; /* Para que el color de fondo se imprima */
+            -webkit-print-color-adjust: exact;
           }
 
           th, td {
@@ -85,16 +119,6 @@ export default function ToursPage() {
             letter-spacing: 0.03em;
           }
 
-          /* Ocultar la columna de 'Actions' en la impresión */
-          th:last-child, td:last-child {
-            display: none;
-          }
-
-          tbody tr:nth-child(even) {
-            background-color: #fafafa !important;
-            -webkit-print-color-adjust: exact;
-          }
-
           @media print {
             body { padding: 0; }
             .no-print { display: none; }
@@ -108,12 +132,10 @@ export default function ToursPage() {
         </div>
         ${tableHTML}
         <script>
-          // Esperar a que cargue el CSS de Bootstrap antes de imprimir
           window.onload = function() {
             setTimeout(() => {
                 window.focus();
                 window.print();
-                // window.close(); // Opcional: cerrar ventana tras imprimir
             }, 250);
           };
         </script>
@@ -264,13 +286,12 @@ export default function ToursPage() {
         }
     }
 
+    if(loading) {
+        return <Spinner />
+    }
+
     return (
         <div className="p-6 space-y-6">
-        {loading && (
-                
-                    <Spinner />
-                
-            )}
             {/* Filtro */}
             <Form className="bg-white rounded-lg shadow-sm border p-4 d-flex gap-3 align-items-end">
                 <FormGroup style={{ maxWidth: '250px' }}>
@@ -374,7 +395,7 @@ export default function ToursPage() {
                                                 size="sm"
                                                 onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
                                             >
-                                                View Details
+                                                <FaEye /> View more
                                             </Button>
                                         </div>
                                     </td>
@@ -509,7 +530,7 @@ export default function ToursPage() {
                                                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
                                                         Passenger #{index + 1}
                                                     </label>
-                                                    <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastName}</span>
+                                                    <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastname}</span>
                                                 </div>
                                             ))
                                         }
@@ -689,14 +710,14 @@ export default function ToursPage() {
                                 color="danger"
                                 onClick={() => cancel()}
                             >
-                                Cancel reservation
+                                <FaTimes /> Cancel reservation
                             </Button>
                             <Button
                                 style={{ fontSize: '13px', fontWeight: '600' }}
                                 color="primary"
                                 onClick={() => setIsEditMode(true)}
                             >
-                                Edit
+                                <FaEdit /> Edit
                             </Button>
                             <Button
                                 style={{ fontSize: '13px', fontWeight: '600' }}
@@ -776,10 +797,10 @@ export default function ToursPage() {
                         <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
                         <div>
                             <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
-                                Are you sure you want to delete this reservation?
+                                Are you sure you want to cancel this reservation?
                             </p>
                             <p style={{ marginBottom: '0', color: '#666', fontSize: '13px' }}>
-                                This action will permanently delete the reservation and all associated data (passengers, addons). This cannot be undone.
+                                This action will cancel the reservation and make the slot available again.
                             </p>
                         </div>
                     </div>
@@ -800,7 +821,7 @@ export default function ToursPage() {
                         onClick={confirmDelete}
                         disabled={loading}
                     >
-                        {loading ? 'Deleting...' : 'Delete Reservation'}
+                        {loading ? 'Canceling...' : 'Cancel Reservation'}
                     </Button>
                 </ModalFooter>
             </Modal>
