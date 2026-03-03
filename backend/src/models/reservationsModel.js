@@ -59,6 +59,7 @@ async function getAvailableHours(conn, p) {
             LEFT JOIN reservations r
                 ON TIMESTAMP(?, a.hour) >= r.startDate
             AND TIMESTAMP(?, a.hour) <  r.endDate
+            AND r.idStatus != 4
 
         `;
         let qParams = [p.date, p.date]
