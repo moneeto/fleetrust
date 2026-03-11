@@ -15,7 +15,7 @@ async function login(req, res) {
 
         let response = {}
         let status = 400
-        let errMsg = "Authentication error."
+        let errMsg = "An internal error has ocurred, please try again or contact support."
         let connSuccess = false
 
         try {
@@ -98,7 +98,7 @@ async function login(req, res) {
 
         }
         catch (e) {
-            let msg = "An internal error has ocurred, please try again or contact support.";
+            let msg = errMsg;
             if (typeof e == String) { msg = e }
             if (e.message) { msg = e.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }
