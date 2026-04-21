@@ -230,6 +230,18 @@ async function getAvailableHours(req, res) {
 }
 
 
+function validateDateParam(d, label) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !moment(d, 'YYYY-MM-DD', true).isValid()) {
+        throw `Invalid ${label}. Please use YYYY-MM-DD.`;
+    }
+    const minDate = moment('2000-01-01', 'YYYY-MM-DD');
+    const maxDate = moment().add(1, 'years');
+    const m = moment(d, 'YYYY-MM-DD');
+    if (m.isBefore(minDate) || m.isAfter(maxDate)) {
+        throw `Date out of allowed range. Use between ${minDate.format('YYYY-MM-DD')} and ${maxDate.format('YYYY-MM-DD')}`;
+    }
+}
+
 async function getReservationsByDate(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
 
@@ -242,28 +254,40 @@ async function getReservationsByDate(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const date = req.query.date;
+            let dateFrom = req.query.dateFrom;
+            let dateTo = req.query.dateTo;
+            const dateLegacy = req.query.date;
 
-            if (!date) {
-                throw 'Missing date.'
+            if (!dateFrom || !dateTo) {
+                if (!dateLegacy) {
+                    throw 'Missing date or date range (dateFrom & dateTo).'
+                }
+                validateDateParam(dateLegacy, 'date format');
+                dateFrom = dateLegacy;
+                dateTo = dateLegacy;
+            } else {
+                validateDateParam(dateFrom, 'dateFrom');
+                validateDateParam(dateTo, 'dateTo');
+                if (moment(dateFrom, 'YYYY-MM-DD').isAfter(moment(dateTo, 'YYYY-MM-DD'))) {
+                    throw 'dateFrom cannot be after dateTo.';
+                }
             }
 
-            // Validate date format (strict) and reasonable range
-            // Expected format: YYYY-MM-DD
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !moment(date, 'YYYY-MM-DD', true).isValid()) {
-                throw 'Invalid date format. Please use YYYY-MM-DD.';
+            const filters = {};
+            if (req.query.code != null && String(req.query.code).trim() !== '') {
+                filters.codeReservation = String(req.query.code).trim();
+            }
+            if (req.query.client != null && String(req.query.client).trim() !== '') {
+                filters.client = String(req.query.client).trim();
+            }
+            if (req.query.idAircraft != null && String(req.query.idAircraft).trim() !== '' && req.query.idAircraft !== 'all') {
+                filters.idAircraft = req.query.idAircraft;
+            }
+            if (req.query.idRoute != null && String(req.query.idRoute).trim() !== '' && req.query.idRoute !== 'all') {
+                filters.idRoute = req.query.idRoute;
             }
 
-            const minDate = moment('2000-01-01', 'YYYY-MM-DD');
-            const maxDate = moment().add(1, 'years'); // allow up to one year in the future
-            const mDate = moment(date, 'YYYY-MM-DD');
-
-            if (mDate.isBefore(minDate) || mDate.isAfter(maxDate)) {
-                throw `Date out of allowed range. Use between ${minDate.format('YYYY-MM-DD')} and ${maxDate.format('YYYY-MM-DD')}`;
-            }
-
-            // lookup idTourType by code
-            const reservations = await db.getReservationsByDate(conn, date)
+            const reservations = await db.getReservationsByDateRange(conn, dateFrom, dateTo, filters)
 
             response = { reservations }
 

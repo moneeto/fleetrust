@@ -1,47 +1,215 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
+import { Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FaArrowAltCircleRight, FaEdit, FaExclamationCircle, FaEye, FaPrint, FaTimes } from "react-icons/fa";
+import { FaEdit, FaExclamationCircle, FaEye, FaPrint, FaTimes } from "react-icons/fa";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
-import { EditIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
 
-export default function ToursPage() {
-    let today = moment().format("YYYY-MM-DD");
-    const [date, setDate] = useState(today);
+/** ISO weeks (Mon–Sun) that have at least one day in the calendar month. */
+function getIsoWeekRangesOverlappingMonth(yearMonth) {
+    const monthStart = moment(`${yearMonth}-01`, "YYYY-MM-DD");
+    if (!monthStart.isValid()) return [];
+    const monthEnd = monthStart.clone().endOf("month");
+    let monday = monthStart.clone().startOf("isoWeek");
+    const weeks = [];
+    while (monday.isSameOrBefore(monthEnd, "day")) {
+        const sunday = monday.clone().endOf("isoWeek");
+        const overlapsMonth =
+            sunday.isSameOrAfter(monthStart, "day") &&
+            monday.isSameOrBefore(monthEnd, "day");
+        if (overlapsMonth) {
+            weeks.push({
+                from: monday.format("YYYY-MM-DD"),
+                to: sunday.format("YYYY-MM-DD"),
+            });
+        }
+        monday = monday.clone().add(1, "week");
+    }
+    return weeks;
+}
+
+function findWeekIndexForDate(dateStr, weeks) {
+    const d = moment(dateStr, "YYYY-MM-DD");
+    for (let i = 0; i < weeks.length; i++) {
+        const { from, to } = weeks[i];
+        if (d.isSameOrAfter(from, "day") && d.isSameOrBefore(to, "day")) return i;
+    }
+    return 0;
+}
+
+function BookingsContent() {
+    const today = moment().format("YYYY-MM-DD");
+    const initialMonth = moment().format("YYYY-MM");
+    const [referenceDate, setReferenceDate] = useState(today);
+    const [referenceMonth, setReferenceMonth] = useState(initialMonth);
+    const [referenceWeekIndex, setReferenceWeekIndex] = useState(() => {
+        const wks = getIsoWeekRangesOverlappingMonth(initialMonth);
+        return wks.length ? findWeekIndexForDate(today, wks) : 0;
+    });
+    const [view, setView] = useState("day");
+    const [filterCode, setFilterCode] = useState("");
+    const [filterClient, setFilterClient] = useState("");
+    const [debouncedCode, setDebouncedCode] = useState("");
+    const [debouncedClient, setDebouncedClient] = useState("");
+    const [idAircraftFilter, setIdAircraftFilter] = useState("");
+    const [idRouteFilter, setIdRouteFilter] = useState("");
+    const [aircrafts, setAircrafts] = useState([]);
+    const [routes, setRoutes] = useState([]);
     const [reservations, setReservations] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [listLoading, setListLoading] = useState(true);
+    const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [modalDetail, setModalDetail] = useState({ show: false, reservation: null });
     const tableRef = useRef(null);
     const { toast } = useToast();
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [reservation, setReservation] = useState(null);
-    console.log(reservation);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
 
+    /** URL tiene prioridad hasta que el efecto sincronice estado y quite la query (evita fetch día sin filtro). */
+    const effectiveView = useMemo(() => {
+        const p = searchParams.get("period");
+        if (p === "month" || p === "week" || p === "day") return p;
+        return view;
+    }, [searchParams, view]);
+
+    const effectiveIdAircraft = useMemo(() => {
+        const fromState = idAircraftFilter && idAircraftFilter !== "all" ? idAircraftFilter : "";
+        if (fromState) return fromState;
+        const fromUrl = searchParams.get("idAircraft");
+        return fromUrl ? String(fromUrl) : "";
+    }, [idAircraftFilter, searchParams]);
+
+    const weekRangesInRefMonth = useMemo(
+        () => getIsoWeekRangesOverlappingMonth(referenceMonth),
+        [referenceMonth]
+    );
+
+    const dateRange = useMemo(() => {
+        if (effectiveView === "day") {
+            return { from: referenceDate, to: referenceDate };
+        }
+        if (effectiveView === "month") {
+            const m = moment(`${referenceMonth}-01`, "YYYY-MM-DD");
+            if (!m.isValid()) {
+                return { from: today, to: today };
+            }
+            return {
+                from: m.clone().startOf("month").format("YYYY-MM-DD"),
+                to: m.clone().endOf("month").format("YYYY-MM-DD"),
+            };
+        }
+        if (effectiveView === "week") {
+            if (!weekRangesInRefMonth.length) {
+                return { from: referenceDate, to: referenceDate };
+            }
+            const idx = Math.min(
+                referenceWeekIndex,
+                Math.max(0, weekRangesInRefMonth.length - 1)
+            );
+            const w = weekRangesInRefMonth[idx];
+            return { from: w.from, to: w.to };
+        }
+        return { from: referenceDate, to: referenceDate };
+    }, [
+        effectiveView,
+        referenceDate,
+        referenceMonth,
+        referenceWeekIndex,
+        weekRangesInRefMonth,
+        today,
+    ]);
+
+    useEffect(() => {
+        if (effectiveView !== "week" || !weekRangesInRefMonth.length) return;
+        if (referenceWeekIndex >= weekRangesInRefMonth.length) {
+            setReferenceWeekIndex(weekRangesInRefMonth.length - 1);
+        }
+    }, [effectiveView, referenceMonth, weekRangesInRefMonth.length, referenceWeekIndex]);
+
+    useEffect(() => {
+        const idAc = searchParams.get("idAircraft");
+        const period = searchParams.get("period");
+        let applied = false;
+        if (period === "month" || period === "week" || period === "day") {
+            setView(period);
+            applied = true;
+        }
+        if (idAc) {
+            setIdAircraftFilter(String(idAc));
+            applied = true;
+        }
+        if (applied) {
+            router.replace(pathname, { scroll: false });
+        }
+    }, [searchParams, pathname, router]);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedCode(filterCode), 400);
+        return () => clearTimeout(t);
+    }, [filterCode]);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedClient(filterClient), 400);
+        return () => clearTimeout(t);
+    }, [filterClient]);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const [rRoutes, rAc] = await Promise.all([
+                    ApiComunicator(`/routes/getRoutes`, "GET"),
+                    ApiComunicator(`/aircrafts`, "GET"),
+                ]);
+                if (cancelled) return;
+                setRoutes(rRoutes.routes || []);
+                setAircrafts(rAc.aircrafts || []);
+            } catch {
+                if (!cancelled) {
+                    setRoutes([]);
+                    setAircrafts([]);
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
     function handlePrint() {
         // generate a tailored table for printing: pax instead of passengers, plus flight type and notes
         const buildTable = () => {
             const headerCols = [
-                'Code', 'Starts at', 'Ends', 'Pax', 'Client', 'Email', 'Flight Type', 'Notes'
+                'Code', 'Starts at', 'Ends', 'Pax', 'Client', 'Email', 'Flight Type', 'Aircraft', 'Notes'
             ];
 
             const ths = headerCols.map(c => `<th class="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">${c}</th>`).join('');
 
             const rows = reservations.map(r => {
-                const start = moment(r.startDate).format('HH:mm') +
-                    (moment(r.startDate).format('YYYY-MM-DD') !== date ? ` ${moment(r.startDate).format('MMMM DD')}` : '');
-                const end = moment(r.endDate).format('HH:mm') +
-                    (moment(r.endDate).format('YYYY-MM-DD') !== moment(r.startDate).format('YYYY-MM-DD') ?
-                        ` ${moment(r.endDate).format('MMMM DD')}` : '');
+                const showStartDay =
+                    effectiveView !== "day" ||
+                    moment(r.startDate).format("YYYY-MM-DD") !== referenceDate;
+                const start =
+                    moment(r.startDate).format("HH:mm") +
+                    (showStartDay ? ` ${moment(r.startDate).format("MMMM DD")}` : "");
+                const end =
+                    moment(r.endDate).format("HH:mm") +
+                    (moment(r.endDate).format("YYYY-MM-DD") !==
+                    moment(r.startDate).format("YYYY-MM-DD")
+                        ? ` ${moment(r.endDate).format("MMMM DD")}`
+                        : "");
+                const aircraftLabel = r.aircraft
+                    ? `${r.aircraft}${r.registrationNumber ? ` (${r.registrationNumber})` : ""}`
+                    : "-";
                 const pax = r.passengers ? r.passengers : '-';
                 const client = r.name && r.lastname ? `${r.name} ${r.lastname}` : '-';
                 const email = r.email ? r.email : '-';
@@ -55,6 +223,7 @@ export default function ToursPage() {
                     <td class="px-4 py-3 text-sm">${client}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">${email}</td>
                     <td class="px-4 py-3 text-sm">${flightType}</td>
+                    <td class="px-4 py-3 text-sm">${aircraftLabel}</td>
                     <td class="px-4 py-3 text-sm">${notes}</td>
                 </tr>`;
             }).join('');
@@ -126,7 +295,11 @@ export default function ToursPage() {
         </style>
       </head>
       <body>
-        <h1>Bookings for ${moment(date).format("MMMM DD, YYYY")}</h1>
+        <h1>Bookings — ${
+            dateRange.from === dateRange.to
+                ? moment(dateRange.from).format("MMMM DD, YYYY")
+                : `${moment(dateRange.from).format("MMM DD, YYYY")} — ${moment(dateRange.to).format("MMM DD, YYYY")}`
+        }</h1>
         <div class="subtitle">
           Generated on ${new Date().toLocaleDateString()}
         </div>
@@ -148,29 +321,49 @@ export default function ToursPage() {
 
     async function fetchReservations() {
         try {
-            setLoading(true);
+            setListLoading(true);
             setError(null);
 
+            const q = new URLSearchParams();
+            q.set("dateFrom", dateRange.from);
+            q.set("dateTo", dateRange.to);
+            if (debouncedCode.trim()) q.set("code", debouncedCode.trim());
+            if (debouncedClient.trim()) q.set("client", debouncedClient.trim());
+            if (effectiveIdAircraft && effectiveIdAircraft !== "all") {
+                q.set("idAircraft", String(effectiveIdAircraft));
+            }
+            if (idRouteFilter && idRouteFilter !== "all") q.set("idRoute", idRouteFilter);
+
             const res = await ApiComunicator(
-                `/reservations/reservationsByDate?date=${date}`
+                `/reservations/reservationsByDate?${q.toString()}`
             );
 
             setReservations(res.reservations);
         } catch (err) {
-            setError(err.message);
+            const msg =
+                err?.message ||
+                err?.mensaje ||
+                (typeof err === "string" ? err : "Error loading bookings");
+            setError(msg);
             setReservations([]);
         } finally {
-            setLoading(false);
+            setListLoading(false);
+            setHasFetchedOnce(true);
         }
     }
 
-
     useEffect(() => {
-        if (!date) { return; }
-        else {
-            fetchReservations();
-        }
-    }, [date]);
+        if (!dateRange.from || !dateRange.to) return;
+        fetchReservations();
+    }, [
+        dateRange.from,
+        dateRange.to,
+        debouncedCode,
+        debouncedClient,
+        effectiveIdAircraft,
+        idRouteFilter,
+        searchParams.toString(),
+    ]);
 
     const getReservationById = async (id) => {
         try {
@@ -218,8 +411,7 @@ export default function ToursPage() {
                     title: "Success",
                     description: "Reservation updated successfully"
                 });
-                // Reload reservations
-                setDate(date);
+                fetchReservations();
             }
         } catch (error) {
             let errorMessage = "An error occurred while updating the reservation.";
@@ -286,36 +478,213 @@ export default function ToursPage() {
         }
     }
 
-    if(loading) {
-        return <Spinner />
+    if (!hasFetchedOnce && listLoading) {
+        return <Spinner />;
     }
 
     return (
         <div className="p-6 space-y-6">
-            {/* Filtro */}
-            <Form className="bg-white rounded-lg shadow-sm border p-4 d-flex gap-3 align-items-end">
-                <FormGroup style={{ maxWidth: '250px' }}>
-                    <Label for="date">
-                        Search by date
-                    </Label>
-
-                    <Input
-                        id="date"
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                    />
-                </FormGroup>
-                {reservations && reservations.length > 0 &&
-                    <FormGroup>
-                        <Button
-                            color="primary"
-                            style={{ color: 'white' }}
-                            onClick={() => handlePrint()}
+            {/* Filtros */}
+            <Form className="bg-white rounded-lg shadow-sm border p-4">
+                <div className="d-flex flex-wrap gap-3 align-items-end">
+                    <FormGroup style={{ minWidth: "200px" }}>
+                        <Label for="view">Period</Label>
+                        <Input
+                            id="view"
+                            type="select"
+                            value={effectiveView}
+                            onChange={(e) => {
+                                const next = e.target.value;
+                                if (next === "week") {
+                                    const m =
+                                        effectiveView === "month"
+                                            ? referenceMonth
+                                            : moment(referenceDate).format("YYYY-MM");
+                                    const wks = getIsoWeekRangesOverlappingMonth(m);
+                                    setReferenceMonth(m);
+                                    const idx = wks.length
+                                        ? findWeekIndexForDate(referenceDate, wks)
+                                        : 0;
+                                    setReferenceWeekIndex(
+                                        wks.length ? Math.min(idx, wks.length - 1) : 0
+                                    );
+                                }
+                                if (next === "month") {
+                                    const ym =
+                                        effectiveView === "week"
+                                            ? referenceMonth
+                                            : moment(referenceDate).format("YYYY-MM");
+                                    setReferenceMonth(ym);
+                                }
+                                if (next === "day") {
+                                    setReferenceDate((d) => d || today);
+                                }
+                                setView(next);
+                                if (searchParams.toString()) {
+                                    router.replace(pathname, { scroll: false });
+                                }
+                            }}
                         >
-                            <FaPrint color="white" /> Print
-                        </Button>
-                    </FormGroup>}
+                            <option value="day">Day</option>
+                            <option value="week">Week</option>
+                            <option value="month">Month</option>
+                        </Input>
+                    </FormGroup>
+                    {effectiveView === "day" && (
+                        <FormGroup style={{ minWidth: "200px" }}>
+                            <Label for="referenceDate">Reference date</Label>
+                            <Input
+                                id="referenceDate"
+                                type="date"
+                                value={referenceDate}
+                                onChange={(e) => setReferenceDate(e.target.value)}
+                            />
+                        </FormGroup>
+                    )}
+                    {effectiveView === "week" && (
+                        <>
+                            <FormGroup style={{ minWidth: "200px" }}>
+                                <Label for="referenceMonthWeek">Reference month</Label>
+                                <Input
+                                    id="referenceMonthWeek"
+                                    type="month"
+                                    value={referenceMonth}
+                                    onChange={(e) => {
+                                        const ym = e.target.value;
+                                        setReferenceMonth(ym);
+                                        const wks = getIsoWeekRangesOverlappingMonth(ym);
+                                        setReferenceWeekIndex(0);
+                                        if (wks.length) {
+                                            const idx = findWeekIndexForDate(today, wks);
+                                            if (ym === moment().format("YYYY-MM")) {
+                                                setReferenceWeekIndex(
+                                                    Math.min(idx, wks.length - 1)
+                                                );
+                                            }
+                                        }
+                                    }}
+                                />
+                            </FormGroup>
+                            <FormGroup style={{ minWidth: "200px" }}>
+                                <Label for="referenceWeek">Reference week</Label>
+                                <Input
+                                    id="referenceWeek"
+                                    type="select"
+                                    value={String(
+                                        Math.min(
+                                            referenceWeekIndex,
+                                            Math.max(0, weekRangesInRefMonth.length - 1)
+                                        )
+                                    )}
+                                    onChange={(e) =>
+                                        setReferenceWeekIndex(Number(e.target.value))
+                                    }
+                                    disabled={!weekRangesInRefMonth.length}
+                                >
+                                    {!weekRangesInRefMonth.length ? (
+                                        <option value="0">—</option>
+                                    ) : (
+                                        weekRangesInRefMonth.map((_, i) => (
+                                            <option key={i} value={String(i)}>
+                                                Week {i + 1}
+                                            </option>
+                                        ))
+                                    )}
+                                </Input>
+                            </FormGroup>
+                        </>
+                    )}
+                    {effectiveView === "month" && (
+                        <FormGroup style={{ minWidth: "200px" }}>
+                            <Label for="referenceMonthOnly">Reference month</Label>
+                            <Input
+                                id="referenceMonthOnly"
+                                type="month"
+                                value={referenceMonth}
+                                onChange={(e) => setReferenceMonth(e.target.value)}
+                            />
+                        </FormGroup>
+                    )}
+                    <FormGroup style={{ minWidth: "120px" }}>
+                        <Label for="filterCode">Code</Label>
+                        <Input
+                            id="filterCode"
+                            type="text"
+                            value={filterCode}
+                            onChange={(e) => setFilterCode(e.target.value)}
+                        />
+                    </FormGroup>
+                    <FormGroup style={{ minWidth: "160px" }}>
+                        <Label for="filterClient">Client</Label>
+                        <Input
+                            id="filterClient"
+                            type="text"
+                            value={filterClient}
+                            onChange={(e) => setFilterClient(e.target.value)}
+                        />
+                    </FormGroup>
+                    <FormGroup style={{ minWidth: "180px" }}>
+                        <Label for="idAircraftFilter">Aircraft</Label>
+                        <Input
+                            id="idAircraftFilter"
+                            type="select"
+                            value={effectiveIdAircraft || "all"}
+                            onChange={(e) => {
+                                const v = e.target.value === "all" ? "" : e.target.value;
+                                setIdAircraftFilter(v);
+                                if (searchParams.get("idAircraft")) {
+                                    router.replace(pathname, { scroll: false });
+                                }
+                            }}
+                        >
+                            <option value="all">All aircraft</option>
+                            {aircrafts.map((a) => (
+                                <option key={a.idAircraft} value={a.idAircraft}>
+                                    {a.aircraft}
+                                    {a.registrationNumber ? ` (${a.registrationNumber})` : ""}
+                                </option>
+                            ))}
+                        </Input>
+                    </FormGroup>
+                    <FormGroup style={{ minWidth: "180px" }}>
+                        <Label for="idRouteFilter">Flight type</Label>
+                        <Input
+                            id="idRouteFilter"
+                            type="select"
+                            value={idRouteFilter || "all"}
+                            onChange={(e) =>
+                                setIdRouteFilter(e.target.value === "all" ? "" : e.target.value)
+                            }
+                        >
+                            <option value="all">All types</option>
+                            {routes.map((rt) => (
+                                <option key={rt.idRoute} value={rt.idRoute}>
+                                    {rt.title || rt.code}
+                                </option>
+                            ))}
+                        </Input>
+                    </FormGroup>
+                    {reservations && reservations.length > 0 && (
+                        <FormGroup>
+                            <Label className="d-block invisible">Print</Label>
+                            <Button
+                                color="primary"
+                                style={{ color: "white" }}
+                                type="button"
+                                onClick={() => handlePrint()}
+                            >
+                                <FaPrint color="white" /> Print
+                            </Button>
+                        </FormGroup>
+                    )}
+                </div>
+                <div className="mt-2 text-sm text-gray-500">
+                    Showing{" "}
+                    {dateRange.from === dateRange.to
+                        ? moment(dateRange.from).format("MMM D, YYYY")
+                        : `${moment(dateRange.from).format("MMM D")} — ${moment(dateRange.to).format("MMM D, YYYY")}`}
+                    {listLoading && hasFetchedOnce ? " · Updating…" : ""}
+                </div>
             </Form>
 
             {error && (
@@ -325,8 +694,11 @@ export default function ToursPage() {
             )}
 
             {/* Tabla */}
-            {!loading && reservations.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+            {reservations.length > 0 && (
+                <div
+                    className="bg-white rounded-lg shadow-sm border overflow-x-auto position-relative"
+                    style={{ opacity: listLoading ? 0.65 : 1 }}
+                >
                     <Table innerRef={tableRef}>
                         <thead style={{ background: '#f3f4f6' }} className="border-b">
                             <tr>
@@ -351,6 +723,12 @@ export default function ToursPage() {
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
                                     Phone
                                 </th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
+                                    Flight type
+                                </th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
+                                    Aircraft
+                                </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-right">
                                     Actions
                                 </th>
@@ -358,7 +736,11 @@ export default function ToursPage() {
                         </thead>
 
                         <tbody className="divide-y">
-                            {reservations.map((r) => (
+                            {reservations.map((r) => {
+                                const showStartDay =
+                                    effectiveView !== "day" ||
+                                    moment(r.startDate).format("YYYY-MM-DD") !== referenceDate;
+                                return (
                                 <tr
                                     key={r.idReservation}
                                     className="hover:bg-gray-50 transition-colors"
@@ -368,7 +750,7 @@ export default function ToursPage() {
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                         {moment(r.startDate).format('HH:mm')}
-                                        {moment(r.startDate).format('YYYY-MM-DD') !== date ?
+                                        {showStartDay ?
                                             ` ${moment(r.startDate).format('MMMM DD')}` : ``}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
@@ -388,6 +770,14 @@ export default function ToursPage() {
                                     <td className="px-4 py-3 text-sm">
                                         {r.phoneNumber ? r.phoneNumber : `-`}
                                     </td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {r.route ? r.route : `-`}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {r.aircraft
+                                            ? `${r.aircraft}${r.registrationNumber ? ` (${r.registrationNumber})` : ""}`
+                                            : `-`}
+                                    </td>
                                     <td>
                                         <div className="d-flex gap-2">
                                             <Button
@@ -400,14 +790,15 @@ export default function ToursPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </Table>
                 </div>
             )}
 
             {/* Sin resultados */}
-            {!loading && date && reservations.length === 0 && (
+            {!listLoading && reservations.length === 0 && (
                 <div className="bg-white rounded-lg shadow-sm border">
                     <div
                         style={{
@@ -428,7 +819,7 @@ export default function ToursPage() {
                                 fontWeight: 500
                             }}
                         >
-                            No bookings for selected date
+                            No bookings for the selected period or filters
                         </div>
 
                         <Button
@@ -827,5 +1218,13 @@ export default function ToursPage() {
             </Modal>
         </div>
 
+    );
+}
+
+export default function BookingsPage() {
+    return (
+        <Suspense fallback={<Spinner />}>
+            <BookingsContent />
+        </Suspense>
     );
 }

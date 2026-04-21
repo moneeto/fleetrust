@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { FormGroup, Label, Input, Button, Table} from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
-import { CheckIcon, EditIcon, XIcon } from "lucide-react";
+import { ArrowRight, ArrowRightCircle, CheckIcon, EditIcon, XIcon } from "lucide-react";
 import styles from './page.module.css';
 import Spinner from "@/components/ui/Spinner";
 
@@ -16,6 +17,7 @@ export default function AircraftList() {
     const [creatingAircraft, setCreatingAircraft] = useState(null);
 
     const { toast } = useToast();
+    const router = useRouter();
 
     async function fetchAircrafts() {
         try {
@@ -27,7 +29,7 @@ export default function AircraftList() {
             setAircrafts(res.aircrafts);
         } catch (err) {
             setError(err.message);
-            setReservations([]);
+            setAircrafts([]);
         } finally {
             setLoading(false);
         }
@@ -110,6 +112,9 @@ export default function AircraftList() {
                                     Available
                                 </th>
                                 <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
+                                    Has planned bookings
+                                </th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase text-left">
                                     Actions
                                 </th>
                             </tr>
@@ -155,6 +160,9 @@ export default function AircraftList() {
                                                 <Label for="available"></Label>
                                             </FormGroup>
                                         </td>
+                                        <td className="px-4 py-3 text-sm text-gray-400">
+                                            —
+                                        </td>
                                         <td>
                                             <div className="d-flex gap-2 align-items-center">
                                                 <Button
@@ -179,10 +187,19 @@ export default function AircraftList() {
                                 ) : (
                                     <tr
                                         key={r.idAircraft}
-                                        className={styles.customRow}
+                                        className={`${styles.customRow} transition-colors duration-150 hover:bg-sky-100`}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() =>
+                                            router.push(
+                                                `/tours/bookings?idAircraft=${encodeURIComponent(
+                                                    String(r.idAircraft)
+                                                )}&period=month`
+                                            )
+                                        }
                                     >
                                         <td className="px-4 py-3 text-sm">
-                                            {r.aircraft}
+                                            <ArrowRightCircle className="text-primary shrink-0" size={16} strokeWidth={2} aria-hidden/> 
+                                            <span style={{ marginLeft: '4px', color: '#0d6efd', fontWeight: '500' }}> {r.aircraft} </span>
                                         </td>
                                         <td className="px-4 py-3 text-sm">
                                             {r.capacity}
@@ -199,12 +216,26 @@ export default function AircraftList() {
                                                     <XIcon color="red" size={16} /> No
                                                 </>}
                                         </td>
+                                        <td className="px-4 py-3 text-sm">
+                                            {(r.plannedBookings === 1 || r.plannedBookings === true) ? (
+                                                <>
+                                                    <CheckIcon color="green" size={16} /> Yes
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XIcon color="red" size={16} /> No
+                                                </>
+                                            )}
+                                        </td>
                                         <td>
                                             <Button
                                                 color="primary"
                                                 size="sm"
                                                 outline
-                                                onClick={() => { toggleEditAircraft(r) }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleEditAircraft(r);
+                                                }}
                                             >
                                                 <EditIcon size={16} /> Edit
                                             </Button>
@@ -258,6 +289,9 @@ export default function AircraftList() {
                                             />
                                             <Label />
                                         </FormGroup>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-400">
+                                        —
                                     </td>
                                     <td>
                                         <div className="d-flex gap-2">

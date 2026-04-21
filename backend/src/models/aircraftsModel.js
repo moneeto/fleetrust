@@ -1,8 +1,15 @@
 async function getAircrafts(conn) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT *
-        FROM aircrafts
+        SELECT a.*,
+            EXISTS (
+                SELECT 1
+                FROM reservations r
+                WHERE r.idAircraft = a.idAircraft
+                  AND r.idStatus IN (1, 2, 3)
+                  AND DATE(r.endDate) >= CURDATE()
+            ) AS plannedBookings
+        FROM aircrafts a
         `;
         const qParams = [];
         conn.query(query, qParams, (err, results) => {

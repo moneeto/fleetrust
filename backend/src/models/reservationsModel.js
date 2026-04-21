@@ -91,23 +91,59 @@ async function getAvailableHours(conn, p) {
     });
 }
 
-async function getReservationsByDate(conn, date) {
+/**
+ * Reservations that overlap [dateFrom, dateFrom] (calendar days) with optional filters.
+ * filters: { codeReservation?, client?, idAircraft?, idRoute? }
+ */
+async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) {
     return new Promise((resolve, reject) => {
-        const query = `
-        SELECT a.*, b.title AS route, c.title AS experience
-        from reservations a
-        LEFT JOIN routes b on a.idRoute = b.idRoute
-        LEFT JOIN experiences c on a.idExperience = c.idExperience
-        WHERE DATE(a.startDate) <= ?
-        AND DATE(a.endDate) >= ?
-        AND a.idStatus = 3;
+        let query = `
+        SELECT a.*, b.title AS route, c.title AS experience, d.aircraft, d.registrationNumber
+        FROM reservations a
+        LEFT JOIN routes b ON a.idRoute = b.idRoute
+        LEFT JOIN experiences c ON a.idExperience = c.idExperience
+        LEFT JOIN aircrafts d ON a.idAircraft = d.idAircraft
+        WHERE DATE(a.endDate) >= ?
+        AND DATE(a.startDate) <= ?
+        AND a.idStatus = 3
         `;
-        const qParams = [date, date];
+        const qParams = [dateFrom, dateTo];
+
+        if (filters.codeReservation) {
+            const raw = String(filters.codeReservation).replace(/^#/u, '').trim();
+            if (raw) {
+                query += ` AND CAST(a.codeReservation AS CHAR) LIKE ?`;
+                qParams.push(`%${raw}%`);
+            }
+        }
+        if (filters.client) {
+            const term = `%${String(filters.client).trim()}%`;
+            query += ` AND (
+                a.name LIKE ? OR a.lastname LIKE ?
+                OR CONCAT(COALESCE(a.name,''), ' ', COALESCE(a.lastname,'')) LIKE ?
+            )`;
+            qParams.push(term, term, term);
+        }
+        if (filters.idAircraft && String(filters.idAircraft) !== '' && filters.idAircraft !== 'all') {
+            query += ` AND a.idAircraft = ?`;
+            qParams.push(filters.idAircraft);
+        }
+        if (filters.idRoute != null && String(filters.idRoute) !== '' && filters.idRoute !== 'all') {
+            query += ` AND a.idRoute = ?`;
+            qParams.push(filters.idRoute);
+        }
+
+        query += ` ORDER BY a.startDate ASC`;
+
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
+}
+
+async function getReservationsByDate(conn, date) {
+    return getReservationsByDateRange(conn, date, date, {});
 }
 
 async function getReservationById(conn, id) {
@@ -361,6 +397,7 @@ async function deleteReservation(conn, idReservation) {
 
 module.exports = {
     getReservationsByDate,
+    getReservationsByDateRange,
     createReservation,
     getAvailableHours,
     getReservationById,
