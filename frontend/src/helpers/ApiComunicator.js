@@ -26,8 +26,9 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
         if (!response.ok) {
 
             if (response.status === 401) {
-                // window.location.reload(); 
-                // throw new Error("No autorizado");
+                document.cookie = "token=; Max-Age=0; path=/";
+                window.location.replace("/login");
+                return;
             }
             
             try {
