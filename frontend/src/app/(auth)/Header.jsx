@@ -8,6 +8,7 @@ const titleMap = {
   "/tours/bookings": "Bookings",
   "/tours/aircrafts": "Aircrafts",
   "/users": "Users",
+  "/tours/qr-scan": "QR Scan",
 };
 
 export default function Header() {

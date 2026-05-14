@@ -6,6 +6,7 @@ const dbAircrafts = require('../models/aircraftsModel.js')
 const { poolTours } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 const moment = require('moment');
+const { generateBoardingPass } = require('../utils/boardingPass.js');
 
 router.post('/createReservation', withAuth, createReservation);
 router.post('/confirmBooking', withAuth, confirmBooking);
@@ -17,6 +18,168 @@ router.post('/updateReservation', withAuth, updateReservation);
 router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
+router.post('/validateQrConfirmation', withAuth, validateQrConfirmation);
+router.post('/qrBoardingPassPdf', withAuth, qrBoardingPassPdf);
+router.post('/completeQrValidation', withAuth, completeQrValidation);
+
+function qrReject(message, code, status = 400) {
+    const e = new Error(message);
+    e.code = code;
+    e.status = status;
+    return e;
+}
+
+function normalizeConfirmationHash(body) {
+    const raw = body && (body.confirmationHash ?? body.confirmation_hash);
+    return String(raw || '').trim();
+}
+
+function assertQrValidationEligible(rows) {
+    const reservation = rows && rows[0];
+    if (!reservation) throw qrReject('No reservation matches this code.', 'NOT_FOUND', 404);
+    if (Number(reservation.idStatus) !== 3) {
+        throw qrReject('Reservation is not confirmed yet, please try again in a while', 'INVALID_STATUS', 400);
+    }
+    if (Number(reservation.validatedQR) === 1) {
+        throw qrReject('This reservation has already been checked in before.', 'ALREADY_VALIDATED', 400);
+    }
+    return reservation;
+}
+
+function experienceTitle(reservation) {
+    return reservation.experience || reservation.route || 'Tour';
+}
+
+function passengersForBoardingPdf(passengerRows) {
+    return (passengerRows || []).map((row) => ({
+        name: row.name ?? '',
+        lastname: row.lastName ?? row.lastname ?? ''
+    }));
+}
+
+function passengersForQrPreview(passengerRows) {
+    return (passengerRows || []).map((row) => ({
+        idPassenger: row.idPassenger,
+        name: row.name ?? '',
+        lastName: row.lastName ?? row.lastname ?? ''
+    }));
+}
+
+async function validateQrConfirmation(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let response = { success: false };
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const hash = normalizeConfirmationHash(req.body);
+            if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
+            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            const reservation = assertQrValidationEligible(rows);
+            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation);
+            response = {
+                success: true,
+                reservation: {
+                    idReservation: reservation.idReservation,
+                    codeReservation: reservation.codeReservation,
+                    startDate: reservation.startDate,
+                    title: experienceTitle(reservation),
+                    holderName: [reservation.name, reservation.lastname].filter(Boolean).join(' ').trim() || null,
+                    passengerCount: reservation.passengers,
+                    passengers: passengersForQrPreview(passengerRows)
+                }
+            };
+            status = 200;
+        } catch (e) {
+            console.log(e);
+            const code = e.code || 'ERROR';
+            const message = typeof e.message === 'string' ? e.message : 'Validation failed.';
+            status = e.status || 400;
+            response = { success: false, code, message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).json(response);
+        }
+    });
+}
+
+async function qrBoardingPassPdf(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const hash = normalizeConfirmationHash(req.body);
+            if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
+            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            const reservation = assertQrValidationEligible(rows);
+            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation);
+            const passengers = passengersForBoardingPdf(passengerRows);
+            if (!passengers.length) {
+                throw qrReject('No passengers found for this reservation.', 'NO_PASSENGERS', 400);
+            }
+            const title = experienceTitle(reservation);
+            const pdfBuffer = await generateBoardingPass(
+                reservation.codeReservation,
+                passengers,
+                reservation.startDate,
+                title,
+                hash
+            );
+            const filename = `boarding_pass_${reservation.codeReservation}.pdf`;
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            res.status(200).send(pdfBuffer);
+        } catch (e) {
+            console.log(e);
+            const code = e.code || 'ERROR';
+            const message = typeof e.message === 'string' ? e.message : 'Could not generate boarding pass.';
+            const status = e.status || 400;
+            if (!res.headersSent) {
+                res.status(status).json({ success: false, code, message });
+            }
+        } finally {
+            if (connSuccess) conn.release();
+        }
+    });
+}
+
+async function completeQrValidation(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let response = { success: false };
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const hash = normalizeConfirmationHash(req.body);
+            if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
+            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            assertQrValidationEligible(rows);
+            const idReservation = rows[0].idReservation;
+            const updateResult = await db.completeQrValidation(conn, idReservation);
+            if (!updateResult || updateResult.affectedRows === 0) {
+                throw qrReject(
+                    'Could not complete check-in. The reservation may have been updated by another session.',
+                    'UPDATE_CONFLICT',
+                    409
+                );
+            }
+            response = { success: true, message: 'Check-in completed successfully.' };
+            status = 200;
+        } catch (e) {
+            console.log(e);
+            const code = e.code || 'ERROR';
+            const message = typeof e.message === 'string' ? e.message : 'Could not complete check-in.';
+            status = e.status || 400;
+            response = { success: false, code, message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).json(response);
+        }
+    });
+}
 
 async function createReservation(req, res) {
     poolTours.getConnection(async (errConn, conn) => {

@@ -36,6 +36,9 @@ export default async function AuthLayout({ children }) {
                                 <Link href="/tours/aircrafts" className="nav-link">
                                     Aircrafts
                                 </Link>
+                                <Link href="/tours/qr-scan" className="nav-link">
+                                    QR scan
+                                </Link>
                                 {/* <Link href="/tours/schedule" className="nav-link">
                                     Schedule
                                 </Link> */}

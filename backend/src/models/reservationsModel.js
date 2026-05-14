@@ -164,6 +164,40 @@ async function getReservationById(conn, id) {
     });
 }
 
+async function getReservationByConfirmationHash(conn, confirmationHash) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        SELECT a.*, b.title AS route, d.title AS experience, c.aircraft, c.registrationNumber
+        FROM reservations a
+        LEFT JOIN routes b ON a.idRoute = b.idRoute
+        LEFT JOIN aircrafts c ON a.idAircraft = c.idAircraft
+        LEFT JOIN experiences d ON d.idExperience = a.idExperience
+        WHERE a.confirmationHash = ?
+        LIMIT 1
+        `;
+        conn.query(query, [confirmationHash], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function completeQrValidation(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        UPDATE reservations
+        SET validatedQR = 1, validatedDatetime = NOW()
+        WHERE idReservation = ?
+        AND COALESCE(validatedQR, 0) = 0
+        AND idStatus = 3
+        `;
+        conn.query(query, [idReservation], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 async function updateReservationHolder(conn, p) {
     return new Promise((resolve, reject) => {
         let query = `
@@ -401,6 +435,8 @@ module.exports = {
     createReservation,
     getAvailableHours,
     getReservationById,
+    getReservationByConfirmationHash,
+    completeQrValidation,
     updateReservationHolder,
     insertPassengers,
     getPassengersByReservationId,
