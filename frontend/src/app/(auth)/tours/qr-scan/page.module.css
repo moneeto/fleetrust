@@ -8,9 +8,6 @@
     padding: clamp(1rem, 4vw, 1.5rem);
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 28px;
-    background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34%),
-        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
 }
 
@@ -69,6 +66,14 @@
     object-fit: cover;
 }
 
+.frozenCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .overlay {
     position: absolute;
     inset: 0;
@@ -77,6 +82,10 @@
     align-items: center;
     justify-content: center;
     pointer-events: none;
+}
+
+.overlayInteractive {
+    pointer-events: auto;
 }
 
 .frame {
@@ -146,6 +155,28 @@
     line-height: 1.25;
 }
 
+.tryAgainButton {
+    position: absolute;
+    bottom: 0.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.45rem 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1.25;
+    cursor: pointer;
+}
+
+.tryAgainButton:hover,
+.tryAgainButton:focus-visible {
+    background: rgba(15, 23, 42, 0.9);
+}
+
 .supportText {
     margin: 0.75rem 0 0;
     color: #64748b;
@@ -182,6 +213,16 @@
     border-width: 0;
     padding: 0.75rem 0.9rem;
     font-size: 0.9rem;
+}
+
+.successState {
+    display: grid;
+    gap: 1rem;
+    justify-items: center;
+}
+
+.successState .alertBox {
+    width: 100%;
 }
 
 .primaryActions,

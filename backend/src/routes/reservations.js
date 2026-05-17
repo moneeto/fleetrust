@@ -125,7 +125,8 @@ async function qrBoardingPassPdf(req, res) {
                 passengers,
                 reservation.startDate,
                 title,
-                hash
+                hash,
+                reservation.passengers
             );
             const filename = `boarding_pass_${reservation.codeReservation}.pdf`;
             res.setHeader('Content-Type', 'application/pdf');

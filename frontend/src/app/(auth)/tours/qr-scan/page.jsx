@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
-import { Alert, Button, Form, FormGroup, Input, Label } from "reactstrap";
+import { Alert, Button } from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import styles from "./page.module.css";
+import { FaArrowCircleLeft, FaCheckCircle, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 
 /** @typedef {"checking" | "ready" | "no-camera" | "blocked" | "error"} ScanPhase */
 
@@ -18,10 +19,16 @@ const QR_ERR_EN = {
         "Check-in could not be completed. Another session may have updated the reservation.",
 };
 
+function displayValue(value) {
+    if (value === null || value === undefined) return "-";
+    const text = String(value).trim();
+    return text || "-";
+}
+
 function formatReservationDate(iso) {
-    if (!iso) return "";
+    if (!iso) return "-";
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return String(iso);
+    if (Number.isNaN(d.getTime())) return displayValue(iso);
     return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
@@ -43,10 +50,10 @@ export default function QrScanPage() {
     const streamRef = useRef(null);
     const rafRef = useRef(0);
     const lastLoggedCodeRef = useRef("");
+    const lastValidationAttemptRef = useRef("");
+    const validationRequestIdRef = useRef(0);
     const [phase, setPhase] = useState(/** @type {ScanPhase} */ ("checking"));
-    const [manualCode, setManualCode] = useState("");
     const [lastDecoded, setLastDecoded] = useState("");
-    const [statusNote, setStatusNote] = useState("");
 
     const [validateLoading, setValidateLoading] = useState(false);
     const [printLoading, setPrintLoading] = useState(false);
@@ -59,8 +66,8 @@ export default function QrScanPage() {
     const [doneSuccess, setDoneSuccess] = useState(false);
 
     const effectiveCode = useMemo(
-        () => String(lastDecoded || manualCode || "").trim(),
-        [lastDecoded, manualCode]
+        () => String(lastDecoded || "").trim(),
+        [lastDecoded]
     );
 
     useEffect(() => {
@@ -128,33 +135,36 @@ export default function QrScanPage() {
                 setPhase("no-camera");
             } else {
                 setPhase("error");
-                setStatusNote(String(e?.message || e));
             }
         }
     }, [stopStream]);
+
+    const startCamera = useCallback(async () => {
+        setPhase("checking");
+        const hasCamera = await hasVideoInputDevice();
+
+        if (!hasCamera) {
+            setPhase("no-camera");
+            return;
+        }
+
+        await openCamera();
+    }, [hasVideoInputDevice, openCamera]);
 
     useEffect(() => {
         let cancelled = false;
 
         (async () => {
-            setPhase("checking");
-            const hasCamera = await hasVideoInputDevice();
+            await startCamera();
 
             if (cancelled) return;
-
-            if (!hasCamera) {
-                setPhase("no-camera");
-                return;
-            }
-
-            await openCamera();
         })();
 
         return () => {
             cancelled = true;
             stopStream();
         };
-    }, [hasVideoInputDevice, openCamera, stopStream]);
+    }, [startCamera, stopStream]);
 
     useEffect(() => {
         if (phase !== "ready") return;
@@ -203,6 +213,8 @@ export default function QrScanPage() {
                         lastLoggedCodeRef.current = detectedCode;
                         console.log("QR detected:", detectedCode);
                     }
+                    stopStream();
+                    return;
                 }
             } catch {
                 /* ignore failed frames */
@@ -215,36 +227,69 @@ export default function QrScanPage() {
             stopped = true;
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
-    }, [phase]);
+    }, [phase, stopStream]);
 
-    const handleValidate = async () => {
+    const handleValidate = useCallback(async (code = effectiveCode) => {
+        const confirmationHash = String(code || "").trim();
         setFlowError("");
         setApiNote("");
         setDoneSuccess(false);
-        if (!effectiveCode) {
-            setFlowError("Enter or scan a code before validating.");
+        if (!confirmationHash) {
+            setFlowError("Scan a QR code before validating.");
             return;
         }
         setValidateLoading(true);
+        const requestId = validationRequestIdRef.current + 1;
+        validationRequestIdRef.current = requestId;
         try {
             const res = await ApiComunicator(`/reservations/validateQrConfirmation`, "POST", {
-                confirmationHash: effectiveCode,
+                confirmationHash,
             });
+            if (validationRequestIdRef.current !== requestId) return;
             if (!res?.success || !res.reservation) {
                 throw res || { message: "Invalid server response." };
             }
-            setValidatedHash(effectiveCode);
+            setValidatedHash(confirmationHash);
             setReservationPreview(res.reservation);
             setPrintedOnce(false);
-            setApiNote("Reservation is ready to print tickets and complete check-in.");
+            setApiNote("Reservation loaded. Print tickets and complete check-in when ready.");
         } catch (e) {
+            if (validationRequestIdRef.current !== requestId) return;
             setFlowError(mapQrApiError(e));
             setValidatedHash("");
             setReservationPreview(null);
         } finally {
-            setValidateLoading(false);
+            if (validationRequestIdRef.current === requestId) {
+                setValidateLoading(false);
+            }
         }
-    };
+    }, [effectiveCode]);
+
+    const handleTryAgain = useCallback(async () => {
+        validationRequestIdRef.current += 1;
+        lastLoggedCodeRef.current = "";
+        lastValidationAttemptRef.current = "";
+        stopStream();
+        setLastDecoded("");
+        setValidatedHash("");
+        setReservationPreview(null);
+        setFlowError("");
+        setApiNote("");
+        setPrintedOnce(false);
+        setDoneSuccess(false);
+        setValidateLoading(false);
+        setPrintLoading(false);
+        setCompleteLoading(false);
+        await startCamera();
+    }, [startCamera, stopStream]);
+
+    useEffect(() => {
+        if (!effectiveCode || validateLoading || doneSuccess || effectiveCode === validatedHash) return;
+        if (lastValidationAttemptRef.current === effectiveCode) return;
+
+        lastValidationAttemptRef.current = effectiveCode;
+        handleValidate(effectiveCode);
+    }, [doneSuccess, effectiveCode, handleValidate, validateLoading, validatedHash]);
 
     const handlePrintTickets = async () => {
         if (!validatedHash) return;
@@ -296,7 +341,8 @@ export default function QrScanPage() {
             setValidatedHash("");
             setPrintedOnce(false);
             setLastDecoded("");
-            setManualCode("");
+            stopStream();
+            lastValidationAttemptRef.current = "";
         } catch (e) {
             setFlowError(mapQrApiError(e));
         } finally {
@@ -304,8 +350,6 @@ export default function QrScanPage() {
         }
     };
 
-    const showManualBlock = phase === "no-camera" || phase === "blocked" || phase === "error";
-    const canValidate = Boolean(effectiveCode) && !validateLoading && !doneSuccess;
     const showActions = Boolean(validatedHash && reservationPreview && !doneSuccess);
     const reservationPassengers = Array.isArray(reservationPreview?.passengers)
         ? reservationPreview.passengers
@@ -314,197 +358,170 @@ export default function QrScanPage() {
     return (
         <div className={styles.pageShell}>
             <div className={styles.scanPanel}>
-                <div className={styles.header}>
-                    <p>Point the camera at the boarding pass QR to validate the reservation.</p>
-                </div>
-
-                {phase === "checking" && <p className={styles.statusText}>Checking camera…</p>}
-
-                {phase === "ready" && (
-                    <>
-                        <div className={styles.scannerCard}>
-                            <div className={`ratio ratio-4x3 ${styles.viewport}`}>
-                                <video
-                                    ref={videoRef}
-                                    className={styles.video}
-                                    playsInline
-                                    muted
-                                    autoPlay
-                                />
-                                <canvas ref={scanCanvasRef} className="d-none" />
-                                <div className={styles.overlay} aria-hidden>
-                                    <div className={styles.frame}>
-                                        <span className={`${styles.corner} ${styles.cornerTl}`} />
-                                        <span className={`${styles.corner} ${styles.cornerTr}`} />
-                                        <span className={`${styles.corner} ${styles.cornerBl}`} />
-                                        <span className={`${styles.corner} ${styles.cornerBr}`} />
-                                    </div>
-                                    <p className={styles.hint}>Align the QR code within the frame</p>
-                                </div>
-                            </div>
+                {doneSuccess ? (
+                    <div className={styles.successState}>
+                        <Alert color="success" className={styles.alertBox}>
+                            <FaCheckCircle /> Check-in completed successfully. The reservation was validated.
+                        </Alert>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                        <Button color="primary" onClick={handleTryAgain}>
+                            New scan
+                        </Button>
+                        <a href="/tours/bookings" className="btn btn-secondary">
+                            Back to bookings
+                        </a>    
                         </div>
-                        {typeof window !== "undefined" && "BarcodeDetector" in window && (
-                            <p className={styles.supportText}>
-                                Automatic QR reading is enabled when your browser supports it.
-                            </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className={styles.header}>
+                            <p>To start the validation, point the camera at the boarding pass QR code.</p>
+                        </div>
+
+                        {phase === "checking" && <p className={styles.statusText}>Checking camera…</p>}
+
+                        {phase === "ready" && (
+                            <>
+                                <div className={styles.scannerCard}>
+                                    <div className={`ratio ratio-4x3 ${styles.viewport}`}>
+                                        <video
+                                            ref={videoRef}
+                                            className={styles.video}
+                                            playsInline
+                                            muted
+                                            autoPlay
+                                        />
+                                        <canvas
+                                            ref={scanCanvasRef}
+                                            className={lastDecoded ? styles.frozenCanvas : "d-none"}
+                                        />
+                                        <div
+                                            className={`${styles.overlay} ${lastDecoded ? styles.overlayInteractive : ""}`}
+                                            aria-hidden={!lastDecoded}
+                                        >
+                                            <div className={styles.frame}>
+                                                <span className={`${styles.corner} ${styles.cornerTl}`} />
+                                                <span className={`${styles.corner} ${styles.cornerTr}`} />
+                                                <span className={`${styles.corner} ${styles.cornerBl}`} />
+                                                <span className={`${styles.corner} ${styles.cornerBr}`} />
+                                            </div>
+                                            {lastDecoded ? (
+                                                <button
+                                                    type="button"
+                                                    className={styles.tryAgainButton}
+                                                    onClick={handleTryAgain}
+                                                >
+                                                    Try again
+                                                </button>
+                                            ) : (
+                                                <p className={styles.hint}>Align the QR code within the frame</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                {typeof window !== "undefined" && "BarcodeDetector" in window && (
+                                    <p className={styles.supportText}>
+                                        Automatic QR reading is enabled when your browser supports it.
+                                    </p>
+                                )}
+                                {lastDecoded && !reservationPreview && !flowError && (
+                                    <div className={styles.codePill}>
+                                        <span>{validateLoading ? "Loading reservation..." : "QR code read"}</span>
+                                    </div>
+                                )}
+                            </>
                         )}
-                        {lastDecoded && (
-                            <div className={styles.codePill}>
-                                <span>Last code read</span>
-                                <strong>{lastDecoded}</strong>
+
+                        {flowError && (
+                            <Alert color="danger" className={styles.alertBox}>
+                                <FaExclamationCircle/> {flowError}
+                            </Alert>
+                        )}
+                        {apiNote && !flowError && (
+                            <Alert color="info" className={styles.alertBox}>
+                                <FaInfoCircle /> {apiNote}
+                            </Alert>
+                        )}
+
+                        {validateLoading && (
+                            <p className={styles.statusText}>Loading reservation data...</p>
+                        )}
+
+                        {showActions && (
+                            <div className={styles.reservationCard}>
+                                <div className={styles.reservationHeader}>
+                                    <span>Reservation</span>
+                                    <strong>#{displayValue(reservationPreview.codeReservation)}</strong>
+                                </div>
+                                <ul className={styles.reservationList}>
+                                    <li>
+                                        <span>Date and time</span>
+                                        <strong>{formatReservationDate(reservationPreview.startDate)}</strong>
+                                    </li>
+                                    <li>
+                                        <span>Experience</span>
+                                        <strong>{displayValue(reservationPreview.title)}</strong>
+                                    </li>
+                                    <li>
+                                        <span>Booked by</span>
+                                        <strong>{displayValue(reservationPreview.holderName)}</strong>
+                                    </li>
+                                    <li>
+                                        <span>Passengers</span>
+                                        <strong>{displayValue(reservationPreview.passengerCount)}</strong>
+                                    </li>
+                                </ul>
+                                <div className={styles.passengersBlock}>
+                                    <div className={styles.passengersTitle}>
+                                        <span>Passenger list</span>
+                                        <strong>{reservationPassengers.length}</strong>
+                                    </div>
+                                    {reservationPassengers.length > 0 ? (
+                                        <ol className={styles.passengersList}>
+                                            {reservationPassengers.map((passenger, index) => {
+                                                const name = formatPassengerName(passenger);
+                                                return (
+                                                    <li key={passenger.idPassenger || `${name}-${index}`}>
+                                                        <span>{index + 1}</span>
+                                                        <strong>{displayValue(name)}</strong>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ol>
+                                    ) : (
+                                        <p className={styles.emptyPassengers}>
+                                            No passengers were found for this reservation.
+                                        </p>
+                                    )}
+                                </div>
+                                <div className={styles.secondaryActions}>
+                                    <Button color="secondary" disabled={printLoading} onClick={handlePrintTickets}>
+                                        {printLoading ? "Generating PDF…" : "Print tickets"}
+                                    </Button>
+                                    <Button
+                                        color="success"
+                                        disabled={completeLoading || !printedOnce}
+                                        onClick={handleCompleteCheckIn}
+                                        title={
+                                            printedOnce
+                                                ? ""
+                                                : "Print or open the ticket PDF before completing check-in."
+                                        }
+                                    >
+                                        {completeLoading ? "Saving…" : "Complete check-in"}
+                                    </Button>
+                                </div>
+                                {!printedOnce && (
+                                    <p className={styles.helperText}>
+                                        First use &quot;Print tickets&quot; to generate the same PDF the system sends
+                                        after payment; then tap &quot;Complete check-in&quot;.
+                                    </p>
+                                )}
                             </div>
                         )}
-                        {/* <FormGroup>
-                        <Label for="manual-optional">Manual code (optional)</Label>
-                        <Input
-                            id="manual-optional"
-                            type="text"
-                            value={manualCode}
-                            onChange={(e) => setManualCode(e.target.value)}
-                            placeholder="Paste or enter the confirmation code"
-                        />
-                    </FormGroup> */}
                     </>
                 )}
-
-                {/* {showManualBlock && (
-                <div className="alert alert-warning" role="alert">
-                    <p className="mb-2">
-                        {phase === "no-camera" && (
-                            <>
-                                No camera was detected. Enter the confirmation code manually.
-                            </>
-                        )}
-                        {phase === "blocked" && (
-                            <>
-                                Camera access was denied. Enter the confirmation code manually.
-                            </>
-                        )}
-                        {phase === "error" && (
-                            <>
-                                The camera could not be started
-                                {statusNote ? `: ${statusNote}` : ""}. Enter the code manually.
-                            </>
-                        )}
-                    </p>
-                    <Form>
-                        <FormGroup>
-                            <Label for="manual-required">Code</Label>
-                            <Input
-                                id="manual-required"
-                                type="text"
-                                value={manualCode}
-                                onChange={(e) => setManualCode(e.target.value)}
-                                placeholder="Paste or enter the confirmation code"
-                            />
-                        </FormGroup>
-                    </Form>
-                </div>
-                )} */}
-
-                {flowError && (
-                    <Alert color="danger" className={styles.alertBox}>
-                        {flowError}
-                    </Alert>
-                )}
-                {apiNote && !flowError && (
-                    <Alert color="info" className={styles.alertBox}>
-                        {apiNote}
-                    </Alert>
-                )}
-                {doneSuccess && (
-                    <Alert color="success" className={styles.alertBox}>
-                        Check-in completed successfully. The reservation was validated.
-                    </Alert>
-                )}
-
-                <div className={styles.primaryActions}>
-                    <Button color="primary" disabled={!canValidate} onClick={handleValidate}>
-                        {validateLoading ? "Validating…" : "Validate code"}
-                    </Button>
-                </div>
-
-                {showActions && (
-                    <div className={styles.reservationCard}>
-                        <div className={styles.reservationHeader}>
-                            <span>Reservation</span>
-                            <strong>#{reservationPreview.codeReservation}</strong>
-                        </div>
-                        <ul className={styles.reservationList}>
-                            <li>
-                                <span>Date and time</span>
-                                <strong>{formatReservationDate(reservationPreview.startDate)}</strong>
-                            </li>
-                            <li>
-                                <span>Experience</span>
-                                <strong>{reservationPreview.title}</strong>
-                            </li>
-                            {reservationPreview.holderName ? (
-                                <li>
-                                    <span>Booked by</span>
-                                    <strong>{reservationPreview.holderName}</strong>
-                                </li>
-                            ) : null}
-                            <li>
-                                <span>Passengers</span>
-                                <strong>{reservationPreview.passengerCount}</strong>
-                            </li>
-                        </ul>
-                        <div className={styles.passengersBlock}>
-                            <div className={styles.passengersTitle}>
-                                <span>Passenger list</span>
-                                <strong>{reservationPassengers.length}</strong>
-                            </div>
-                            {reservationPassengers.length > 0 ? (
-                                <ol className={styles.passengersList}>
-                                    {reservationPassengers.map((passenger, index) => {
-                                        const name = formatPassengerName(passenger);
-                                        return (
-                                            <li key={passenger.idPassenger || `${name}-${index}`}>
-                                                <span>{index + 1}</span>
-                                                <strong>{name || "Passenger without name"}</strong>
-                                            </li>
-                                        );
-                                    })}
-                                </ol>
-                            ) : (
-                                <p className={styles.emptyPassengers}>
-                                    No passengers were found for this reservation.
-                                </p>
-                            )}
-                        </div>
-                        <div className={styles.secondaryActions}>
-                            <Button color="secondary" disabled={printLoading} onClick={handlePrintTickets}>
-                                {printLoading ? "Generating PDF…" : "Print tickets"}
-                            </Button>
-                            <Button
-                                color="success"
-                                disabled={completeLoading || !printedOnce}
-                                onClick={handleCompleteCheckIn}
-                                title={
-                                    printedOnce
-                                        ? ""
-                                        : "Print or open the ticket PDF before completing check-in."
-                                }
-                            >
-                                {completeLoading ? "Saving…" : "Complete check-in"}
-                            </Button>
-                        </div>
-                        {!printedOnce && (
-                            <p className={styles.helperText}>
-                                First use &quot;Print tickets&quot; to generate the same PDF the system sends
-                                after payment; then tap &quot;Complete check-in&quot;.
-                            </p>
-                        )}
-                    </div>
-                )}
-
-                {/* {phase === "ready" && !effectiveCode && (
-                    <p className="small text-muted mt-2 mb-0">
-                        Scan the QR code or enter the confirmation code and tap &quot;Validate code&quot;.
-                    </p>
-                )} */}
-                </div>
+            </div>
         </div>
     );
 }
