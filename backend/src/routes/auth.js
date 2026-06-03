@@ -83,7 +83,8 @@ async function login(req, res) {
 
             let expires = moment().add(120, 'days').toDate()
 
-            res.cookie('token', token, { expires, httpOnly: true });
+            res.cookie('token', token, { expires, httpOnly: true,secure: true,
+    sameSite: "none", domain: ".frassiaviation.com" });
 
             let reestablecer_password = userData[0].resetPassword
             if (reestablecer_password == 1) {
@@ -113,7 +114,8 @@ async function login(req, res) {
 }
 
 async function logout(req, res) {
-    res.clearCookie('token');
+    res.clearCookie('token',{httpOnly: true,secure: true,
+    sameSite: "none", domain: ".frassiaviation.com" });
     res.status(200).send({})
 }
 
