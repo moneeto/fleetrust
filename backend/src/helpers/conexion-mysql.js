@@ -2,6 +2,7 @@ const mysql = require('mysql2');
 
 const pool = mysql.createPool({
     host: process.env.MYSQL_HOST,
+    port: process.env.MYSQL_PORT,
     user: process.env.MYSQL_USER,
     database: process.env.MYSQL_DATABASE,
     password: process.env.MYSQL_PASSWORD,
@@ -17,6 +18,7 @@ const pool = mysql.createPool({
 
 const poolTours = mysql.createPool({
     host: process.env.MYSQL_HOST_TOURS,
+    port: process.env.MYSQL_PORT_TOURS,
     user: process.env.MYSQL_USER_TOURS,
     database: process.env.MYSQL_DATABASE_TOURS,
     password: process.env.MYSQL_PASSWORD_TOURS,

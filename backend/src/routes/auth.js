@@ -10,6 +10,15 @@ const moment = require('moment');
 router.post('/login', login);
 router.get('/logout', logout);
 
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    ...(process.env.COOKIE_DOMAIN && {
+        domain: process.env.COOKIE_DOMAIN
+    })
+};
+
 async function login(req, res) {
     connection.pool.getConnection(async (errConn, conn) => {
 
@@ -83,8 +92,10 @@ async function login(req, res) {
 
             let expires = moment().add(120, 'days').toDate()
 
-            res.cookie('token', token, { expires, httpOnly: true,secure: true,
-    sameSite: "none", domain: ".frassiaviation.com" });
+            res.cookie('token', token, {
+                ...cookieOptions,
+                expires
+            });
 
             let reestablecer_password = userData[0].resetPassword
             if (reestablecer_password == 1) {
@@ -114,8 +125,7 @@ async function login(req, res) {
 }
 
 async function logout(req, res) {
-    res.clearCookie('token',{httpOnly: true,secure: true,
-    sameSite: "none", domain: ".frassiaviation.com" });
+    res.clearCookie('token', cookieOptions);
     res.status(200).send({})
 }
 

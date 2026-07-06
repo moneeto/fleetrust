@@ -7,6 +7,7 @@ const withAuth = require('../middleware/withAuth.js')
 router.get('/', withAuth, getAircrafts);
 router.post('/edit', withAuth, editAircraft);
 router.post('/new', withAuth, createAircraft);
+router.post('/delete', withAuth, deleteAircraft);
 
 
 async function createAircraft(req, res) {
@@ -103,8 +104,8 @@ async function getAircrafts(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            // lookup idTourType by code
-            const aircrafts = await db.getAircrafts(conn)
+            const includeDeleted = req.query.includeDeleted === '1' || req.query.includeDeleted === 'true';
+            const aircrafts = await db.getAircrafts(conn, includeDeleted)
 
             response = { aircrafts }
 
@@ -124,5 +125,45 @@ async function getAircrafts(req, res) {
     })
 }
 
+
+async function deleteAircraft(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const { idAircraft } = req.body;
+
+            if (!idAircraft) {
+                throw 'Missing required fields'
+            }
+
+            const result = await db.deleteAircraft(conn, idAircraft)
+
+            if (!result.affectedRows) {
+                throw 'Aircraft not found or already deleted'
+            }
+
+            response = { success: true }
+            status = 200
+        }
+        catch (e) {
+            let message = "Error deleting aircraft.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { message: message, success: false }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
 
 module.exports = router;

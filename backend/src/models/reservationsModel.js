@@ -375,6 +375,7 @@ async function getAircrafts(conn, startDate, endDate) {
             SELECT a.*
             FROM aircrafts a
             WHERE a.available = 1
+            AND (a.deleted = 0 OR a.deleted IS NULL)
             AND NOT EXISTS (
                 SELECT 1
                 FROM reservations r

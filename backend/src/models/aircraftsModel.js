@@ -1,4 +1,4 @@
-async function getAircrafts(conn) {
+async function getAircrafts(conn, includeDeleted = false) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT a.*,
@@ -10,6 +10,7 @@ async function getAircrafts(conn) {
                   AND DATE(r.endDate) >= CURDATE()
             ) AS plannedBookings
         FROM aircrafts a
+        ${includeDeleted ? '' : 'WHERE (a.deleted = 0 OR a.deleted IS NULL)'}
         `;
         const qParams = [];
         conn.query(query, qParams, (err, results) => {
@@ -47,8 +48,24 @@ async function createAircraft(conn, p) {
     });
 }
 
+async function deleteAircraft(conn, idAircraft) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        UPDATE aircrafts
+        SET deleted = 1
+        WHERE idAircraft = ? AND (deleted = 0 OR deleted IS NULL)
+        `;
+        const qParams = [idAircraft];
+        conn.query(query, qParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 module.exports = {
     getAircrafts,
     updateAircraft,
-    createAircraft
+    createAircraft,
+    deleteAircraft
 }

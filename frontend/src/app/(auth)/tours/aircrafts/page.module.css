@@ -1,3 +1,7 @@
-.customRow > td{
-    min-height: 70px;
+.deletedRow > td {
+    background-color: #fae8e8 !important;
+}
+
+.deletedRow:hover > td {
+    background-color: #f5d8d8 !important;
 }
