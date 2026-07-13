@@ -63,9 +63,25 @@ async function deleteAircraft(conn, idAircraft) {
     });
 }
 
+async function restoreAircraft(conn, idAircraft) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        UPDATE aircrafts
+        SET deleted = 0
+        WHERE idAircraft = ? AND deleted = 1
+        `;
+        const qParams = [idAircraft];
+        conn.query(query, qParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 module.exports = {
     getAircrafts,
     updateAircraft,
     createAircraft,
-    deleteAircraft
+    deleteAircraft,
+    restoreAircraft
 }

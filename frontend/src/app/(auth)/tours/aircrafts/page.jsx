@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowRightCircle, CheckIcon, EditIcon, TrashIcon, XIcon } from "lucide-react";
+import { ArrowRightCircle, CheckIcon, EditIcon, TrashIcon, Undo2, XIcon } from "lucide-react";
 import { FaExclamationCircle } from "react-icons/fa";
 import styles from './page.module.css';
 import Spinner from "@/components/ui/Spinner";
@@ -157,6 +157,32 @@ export default function AircraftList() {
                 variant: "destructive",
                 title: "Error",
                 description: error.message || "An error occurred while deleting the aircraft."
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const restoreAircraft = async (aircraft, e) => {
+        e.stopPropagation();
+        try {
+            setLoading(true);
+            const response = await ApiComunicator(`/aircrafts/restore`, "POST", {
+                idAircraft: aircraft.idAircraft
+            });
+
+            if (response.success) {
+                toast({
+                    title: "Success",
+                    description: "Aircraft restored successfully"
+                });
+                await fetchAircrafts();
+            }
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || "An error occurred while restoring the aircraft."
             });
         } finally {
             setLoading(false);
@@ -398,7 +424,19 @@ export default function AircraftList() {
                                         )}
                                     </td>
                                     <td>
-                                        {!isDeleted(r) && (
+                                        {isDeleted(r) ? (
+                                            <div className="d-flex gap-2">
+                                                <Button
+                                                    color="secondary"
+                                                    size="sm"
+                                                    outline
+                                                    onClick={(e) => restoreAircraft(r, e)}
+                                                    disabled={loading}
+                                                >
+                                                    <Undo2 size={16} /> Undo
+                                                </Button>
+                                            </div>
+                                        ) : (
                                             <div className="d-flex gap-2">
                                                 <Button
                                                     color="primary"

@@ -8,6 +8,7 @@ router.get('/', withAuth, getAircrafts);
 router.post('/edit', withAuth, editAircraft);
 router.post('/new', withAuth, createAircraft);
 router.post('/delete', withAuth, deleteAircraft);
+router.post('/restore', withAuth, restoreAircraft);
 
 
 async function createAircraft(req, res) {
@@ -155,6 +156,46 @@ async function deleteAircraft(req, res) {
         }
         catch (e) {
             let message = "Error deleting aircraft.";
+            if (typeof e == "string") { message = e }
+            status = 400
+            response = { message: message, success: false }
+        }
+        finally {
+            if (connSuccess) conn.release()
+            res.status(status).send(response)
+        }
+    })
+}
+
+async function restoreAircraft(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+
+        let response = {}
+        let status = 400
+        let connSuccess = false
+
+        try {
+
+            if (errConn) throw errConn
+            connSuccess = true
+
+            const { idAircraft } = req.body;
+
+            if (!idAircraft) {
+                throw 'Missing required fields'
+            }
+
+            const result = await db.restoreAircraft(conn, idAircraft)
+
+            if (!result.affectedRows) {
+                throw 'Aircraft not found or not deleted'
+            }
+
+            response = { success: true }
+            status = 200
+        }
+        catch (e) {
+            let message = "Error restoring aircraft.";
             if (typeof e == "string") { message = e }
             status = 400
             response = { message: message, success: false }
