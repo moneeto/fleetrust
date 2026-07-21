@@ -17,6 +17,7 @@ import {
   Col
 } from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
+import { getRecaptchaToken } from "@/helpers/recaptcha";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
@@ -42,11 +43,12 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await ApiComunicator("/auth/login", "POST", form);
+      const captchaToken = await getRecaptchaToken("login");
+      await ApiComunicator("/auth/login", "POST", { ...form, captchaToken });
       router.refresh();
       router.replace("/tours/bookings");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }

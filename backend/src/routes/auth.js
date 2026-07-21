@@ -6,6 +6,7 @@ const { addLog } = require('../helpers/addLog.js')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
+const { verifyRecaptcha } = require('../utils/recaptcha.js');
 
 router.post('/login', login);
 router.get('/logout', logout);
@@ -42,17 +43,10 @@ async function login(req, res) {
                 throw "No se envio usuario y/o contraseña"
             }
 
-            if (process.env.UTILIZAR_CAPTCHA == 'true') {
-                // if (!req.body.captchaToken) {
-                //     throw "Internal error."
-                // }
-                //Validación de captcha
-                // const captchaResults = await getCaptcha(req.body.captchaToken);
-
-                // if (!captchaResults.success || captchaResults.score < process.env.CAPTCHA_SCORE_MINIMO) {
-                //     errMsg = "Authentication error. The system detected suspicious activity."
-                //     throw Error("Sos un robot.")
-                // }
+            const captchaResults = await verifyRecaptcha(req.body.captchaToken, 'login');
+            if (!captchaResults.success) {
+                errMsg = "Authentication error. The system detected suspicious activity."
+                throw Error("reCAPTCHA verification failed")
             }
 
             let userData = await db.getUserByUsername(conn, params)
