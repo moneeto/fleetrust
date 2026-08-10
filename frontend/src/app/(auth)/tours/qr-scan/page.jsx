@@ -375,10 +375,10 @@ export default function QrScanPage() {
                 ) : (
                     <>
                         <div className={styles.header}>
-                            <p>To start the validation, point the camera at the boarding pass QR code.</p>
+                            <p>Point the camera at the boarding pass QR code.</p>
                         </div>
 
-                        {phase === "checking" && <p className={styles.statusText}>Checking camera…</p>}
+                        {phase === "checking" && <p className={styles.statusText}>loading camera...</p>}
 
                         {phase === "ready" && (
                             <>
@@ -414,7 +414,7 @@ export default function QrScanPage() {
                                                     Try again
                                                 </button>
                                             ) : (
-                                                <p className={styles.hint}>Align the QR code within the frame</p>
+                                            <p></p>
                                             )}
                                         </div>
                                     </div>

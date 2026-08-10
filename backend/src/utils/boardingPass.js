@@ -169,7 +169,6 @@ async function generateBoardingPass(codeReservation, passengers, startDate, titl
   `;
 
   const file = { content: html };
-
   const options = {
     width: '1536px',
     height: '1024px',
@@ -177,8 +176,7 @@ async function generateBoardingPass(codeReservation, passengers, startDate, titl
     printBackground: true
   };
 
-  const pdfBuffer = await htmlToPdf.generatePdf(file, options);
-  return pdfBuffer;
+  return htmlToPdf.generatePdf(file, options);
 }
 
 module.exports = { generateBoardingPass };

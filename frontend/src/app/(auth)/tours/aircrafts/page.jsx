@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowRightCircle, CheckIcon, EditIcon, TrashIcon, Undo2, XIcon } from "lucide-react";
+import { ArrowRightCircle, CheckIcon, EditIcon, Filter, TrashIcon, Undo2, XIcon } from "lucide-react";
 import { FaExclamationCircle } from "react-icons/fa";
 import styles from './page.module.css';
 import Spinner from "@/components/ui/Spinner";
+import useIsMobile from "@/hooks/useIsMobile";
+import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
 
 const INITIAL_FILTERS = {
     aircraft: "",
@@ -26,6 +28,17 @@ function hasPlannedBookings(aircraft) {
     return aircraft.plannedBookings === 1 || aircraft.plannedBookings === true;
 }
 
+function countActiveFilters(filters, showDeleted) {
+    let count = 0;
+    if (filters.aircraft) count += 1;
+    if (filters.capacity) count += 1;
+    if (filters.registrationNumber) count += 1;
+    if (filters.available !== "all") count += 1;
+    if (filters.plannedBookings !== "all") count += 1;
+    if (showDeleted) count += 1;
+    return count;
+}
+
 export default function AircraftList() {
     const [aircrafts, setAircrafts] = useState([]);
     const [selectedAircraft, setSelectedAircraft] = useState(null);
@@ -35,10 +48,13 @@ export default function AircraftList() {
     const [creatingAircraft, setCreatingAircraft] = useState(null);
     const [filters, setFilters] = useState(INITIAL_FILTERS);
     const [showDeleted, setShowDeleted] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, aircraft: null });
 
     const { toast } = useToast();
     const router = useRouter();
+    const isMobile = useIsMobile();
+    const activeFilterCount = countActiveFilters(filters, showDeleted);
 
     async function fetchAircrafts() {
         try {
@@ -87,6 +103,11 @@ export default function AircraftList() {
         setFilters((prev) => ({ ...prev, [field]: value }));
     };
 
+    const resetFilters = () => {
+        setFilters(INITIAL_FILTERS);
+        setShowDeleted(false);
+    };
+
     const createAircraft = async () => {
         try {
             setLoading(true);
@@ -127,7 +148,7 @@ export default function AircraftList() {
     }
 
     const openDeleteModal = (aircraft, e) => {
-        e.stopPropagation();
+        e?.stopPropagation?.();
         setDeleteConfirmModal({ show: true, aircraft });
     };
 
@@ -164,7 +185,7 @@ export default function AircraftList() {
     };
 
     const restoreAircraft = async (aircraft, e) => {
-        e.stopPropagation();
+        e?.stopPropagation?.();
         try {
             setLoading(true);
             const response = await ApiComunicator(`/aircrafts/restore`, "POST", {
@@ -194,91 +215,186 @@ export default function AircraftList() {
         setSelectedAircraft(aircraft);
     }
 
+    function goToBookings(aircraft) {
+        if (isDeleted(aircraft)) return;
+        router.push(
+            `/tours/bookings?idAircraft=${encodeURIComponent(
+                String(aircraft.idAircraft)
+            )}&period=month`
+        );
+    }
+
+    const filterFields = (idPrefix = "") => (
+        <>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "180px" }}>
+                <Label for={`${idPrefix}filterAircraft`}>Aircraft</Label>
+                <Input
+                    id={`${idPrefix}filterAircraft`}
+                    type="text"
+                    value={filters.aircraft}
+                    onChange={(e) => updateFilter("aircraft", e.target.value)}
+                />
+            </FormGroup>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "120px" }}>
+                <Label for={`${idPrefix}filterCapacity`}>Capacity</Label>
+                <Input
+                    id={`${idPrefix}filterCapacity`}
+                    type="text"
+                    value={filters.capacity}
+                    onChange={(e) => updateFilter("capacity", e.target.value)}
+                />
+            </FormGroup>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "180px" }}>
+                <Label for={`${idPrefix}filterRegistration`}>Registration number</Label>
+                <Input
+                    id={`${idPrefix}filterRegistration`}
+                    type="text"
+                    value={filters.registrationNumber}
+                    onChange={(e) => updateFilter("registrationNumber", e.target.value)}
+                />
+            </FormGroup>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "140px" }}>
+                <Label for={`${idPrefix}filterAvailable`}>Available</Label>
+                <Input
+                    id={`${idPrefix}filterAvailable`}
+                    type="select"
+                    value={filters.available}
+                    onChange={(e) => updateFilter("available", e.target.value)}
+                >
+                    <option value="all">All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "180px" }}>
+                <Label for={`${idPrefix}filterPlannedBookings`}>Has planned bookings</Label>
+                <Input
+                    id={`${idPrefix}filterPlannedBookings`}
+                    type="select"
+                    value={filters.plannedBookings}
+                    onChange={(e) => updateFilter("plannedBookings", e.target.value)}
+                >
+                    <option value="all">All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: isMobile ? "100%" : "140px" }}>
+                {isMobile ? (
+                    <Label for={`${idPrefix}showDeleted`}>Show deleted</Label>
+                ) : (
+                    <Label className="d-block invisible">Show deleted</Label>
+                )}
+                <div className="d-flex align-items-center" style={{ minHeight: "38px" }}>
+                    <Input
+                        id={`${idPrefix}showDeleted`}
+                        type="checkbox"
+                        checked={showDeleted}
+                        onChange={(e) => setShowDeleted(e.target.checked)}
+                    />
+                    {!isMobile && (
+                        <Label for={`${idPrefix}showDeleted`} check className="ms-2 mb-0">
+                            Show deleted
+                        </Label>
+                    )}
+                    {isMobile && (
+                        <Label for={`${idPrefix}showDeleted`} check className="ms-2 mb-0">
+                            Include deleted aircraft
+                        </Label>
+                    )}
+                </div>
+            </FormGroup>
+        </>
+    );
+
+    const renderEditFields = (aircraftState, setAircraftState, idSuffix) => (
+        <div className={styles.editFields}>
+            <FormGroup className="mb-0">
+                <Label for={`aircraft-${idSuffix}`}>Aircraft</Label>
+                <Input
+                    id={`aircraft-${idSuffix}`}
+                    type="text"
+                    value={aircraftState.aircraft}
+                    onChange={(e) => setAircraftState({ ...aircraftState, aircraft: e.target.value })}
+                />
+            </FormGroup>
+            <FormGroup className="mb-0">
+                <Label for={`capacity-${idSuffix}`}>Capacity</Label>
+                <Input
+                    id={`capacity-${idSuffix}`}
+                    type="number"
+                    value={aircraftState.capacity}
+                    onChange={(e) => setAircraftState({ ...aircraftState, capacity: e.target.value })}
+                />
+            </FormGroup>
+            <FormGroup className="mb-0">
+                <Label for={`registration-${idSuffix}`}>Registration number</Label>
+                <Input
+                    id={`registration-${idSuffix}`}
+                    type="text"
+                    value={aircraftState.registrationNumber}
+                    onChange={(e) => setAircraftState({ ...aircraftState, registrationNumber: e.target.value })}
+                />
+            </FormGroup>
+            <FormGroup switch className="mb-0">
+                <Input
+                    type="switch"
+                    id={`available-mobile-${idSuffix}`}
+                    checked={!!aircraftState.available}
+                    style={{ cursor: "pointer" }}
+                    onChange={(e) => setAircraftState({ ...aircraftState, available: e.target.checked })}
+                />
+                <Label for={`available-mobile-${idSuffix}`} check>
+                    Available
+                </Label>
+            </FormGroup>
+        </div>
+    );
+
     if (!hasFetchedOnce && loading) {
         return <Spinner />
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className={styles.page}>
             {error && (
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 px-3">
                     {error}
                 </p>
             )}
 
-            <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className={styles.mobileToolbar}>
+                <Button
+                    color="primary"
+                    outline
+                    className={styles.filtersBtn}
+                    onClick={() => setFiltersOpen(true)}
+                >
+                    <Filter size={16} />
+                    Filters
+                    {activeFilterCount > 0 && (
+                        <span className={styles.filtersBadge}>{activeFilterCount}</span>
+                    )}
+                </Button>
+            </div>
+
+            <div className={`${styles.filtersCard} ${styles.desktopOnly}`}>
                 <div className="d-flex flex-wrap gap-3 align-items-end">
-                    <FormGroup style={{ minWidth: "180px" }}>
-                        <Label for="filterAircraft">Aircraft</Label>
-                        <Input
-                            id="filterAircraft"
-                            type="text"
-                            value={filters.aircraft}
-                            onChange={(e) => updateFilter("aircraft", e.target.value)}
-                        />
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "120px" }}>
-                        <Label for="filterCapacity">Capacity</Label>
-                        <Input
-                            id="filterCapacity"
-                            type="text"
-                            value={filters.capacity}
-                            onChange={(e) => updateFilter("capacity", e.target.value)}
-                        />
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "180px" }}>
-                        <Label for="filterRegistration">Registration number</Label>
-                        <Input
-                            id="filterRegistration"
-                            type="text"
-                            value={filters.registrationNumber}
-                            onChange={(e) => updateFilter("registrationNumber", e.target.value)}
-                        />
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "140px" }}>
-                        <Label for="filterAvailable">Available</Label>
-                        <Input
-                            id="filterAvailable"
-                            type="select"
-                            value={filters.available}
-                            onChange={(e) => updateFilter("available", e.target.value)}
-                        >
-                            <option value="all">All</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                        </Input>
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "180px" }}>
-                        <Label for="filterPlannedBookings">Has planned bookings</Label>
-                        <Input
-                            id="filterPlannedBookings"
-                            type="select"
-                            value={filters.plannedBookings}
-                            onChange={(e) => updateFilter("plannedBookings", e.target.value)}
-                        >
-                            <option value="all">All</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                        </Input>
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "140px" }}>
-                        <Label className="d-block invisible">Show deleted</Label>
-                        <div className="d-flex align-items-center" style={{ minHeight: "38px" }}>
-                            <Input
-                                id="showDeleted"
-                                type="checkbox"
-                                checked={showDeleted}
-                                onChange={(e) => setShowDeleted(e.target.checked)}
-                            />
-                            <Label for="showDeleted" check className="ms-2 mb-0">
-                                Show deleted
-                            </Label>
-                        </div>
-                    </FormGroup>
+                    {filterFields()}
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+            <MobileFiltersModal
+                isOpen={filtersOpen}
+                toggle={() => setFiltersOpen(false)}
+                onApply={() => setFiltersOpen(false)}
+                onReset={resetFilters}
+            >
+                {filterFields("mobile-")}
+            </MobileFiltersModal>
+
+            {/* Desktop table */}
+            <div className={`${styles.tableCard} ${styles.desktopOnly}`}>
                 <Table>
                     <thead style={{ background: '#f3f4f6' }} className="border-b">
                         <tr>
@@ -313,7 +429,7 @@ export default function AircraftList() {
                         )}
                         {filteredAircrafts.map((r) =>
                             (selectedAircraft && selectedAircraft.idAircraft === r.idAircraft) ? (
-                                <tr key={r.idAircraft} className={styles.customRow}>
+                                <tr key={r.idAircraft}>
                                     <td className="px-4 py-3 text-sm">
                                         <Input
                                             type="text"
@@ -377,16 +493,9 @@ export default function AircraftList() {
                             ) : (
                                 <tr
                                     key={r.idAircraft}
-                                    className={`${styles.customRow} ${isDeleted(r) ? styles.deletedRow : "transition-colors duration-150 hover:bg-sky-100"}`}
+                                    className={`${isDeleted(r) ? styles.deletedRow : "transition-colors duration-150 hover:bg-sky-100"}`}
                                     style={{ cursor: isDeleted(r) ? "default" : "pointer" }}
-                                    onClick={() => {
-                                        if (isDeleted(r)) return;
-                                        router.push(
-                                            `/tours/bookings?idAircraft=${encodeURIComponent(
-                                                String(r.idAircraft)
-                                            )}&period=month`
-                                        );
-                                    }}
+                                    onClick={() => goToBookings(r)}
                                 >
                                     <td className="px-4 py-3 text-sm">
                                         <ArrowRightCircle className="text-primary shrink-0" size={16} strokeWidth={2} aria-hidden />
@@ -460,7 +569,7 @@ export default function AircraftList() {
                                 </tr>
                             ))}
                         {creatingAircraft && (
-                            <tr className={styles.customRow}>
+                            <tr>
                                 <td className="px-4 py-3 text-sm">
                                     <Input
                                         size="sm"
@@ -540,7 +649,145 @@ export default function AircraftList() {
                 </Table>
             </div>
 
-            <div className="d-flex justify-content-end mt-3">
+            {/* Mobile cards */}
+            <div className={`${styles.mobileOnly} ${styles.cardsList}`}>
+                {filteredAircrafts.length === 0 && !creatingAircraft && (
+                    <div className={styles.card}>
+                        <p className="mb-0 text-sm text-gray-500 text-center">No aircrafts found.</p>
+                    </div>
+                )}
+
+                {filteredAircrafts.map((r) => {
+                    const editing = selectedAircraft && selectedAircraft.idAircraft === r.idAircraft;
+                    return (
+                        <div
+                            key={r.idAircraft}
+                            className={`${styles.card} ${isDeleted(r) ? styles.cardDeleted : ""}`}
+                        >
+                            {editing ? (
+                                <>
+                                    {renderEditFields(selectedAircraft, setSelectedAircraft, r.idAircraft)}
+                                    <div className={`${styles.cardActions} mt-3`}>
+                                        <Button
+                                            color="success"
+                                            size="sm"
+                                            onClick={() => editAircraft(selectedAircraft.idAircraft)}
+                                        >
+                                            Save
+                                        </Button>
+                                        <Button
+                                            color="danger"
+                                            size="sm"
+                                            outline
+                                            onClick={() => setSelectedAircraft(null)}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div
+                                        className={`${styles.cardTitle} ${isDeleted(r) ? styles.cardTitleDeleted : ""}`}
+                                        onClick={() => goToBookings(r)}
+                                    >
+                                        <ArrowRightCircle size={16} strokeWidth={2} aria-hidden />
+                                        <span>
+                                            {r.aircraft}
+                                            {isDeleted(r) && (
+                                                <span className="ms-2 text-xs">(Deleted)</span>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className={styles.cardMeta}>
+                                        <div>
+                                            <span className={styles.cardMetaLabel}>Capacity</span>
+                                            {r.capacity}
+                                        </div>
+                                        <div>
+                                            <span className={styles.cardMetaLabel}>Registration</span>
+                                            {r.registrationNumber}
+                                        </div>
+                                    </div>
+                                    <div className={styles.badges}>
+                                        <span className={`${styles.badge} ${r.available ? styles.badgeOk : styles.badgeNo}`}>
+                                            {r.available ? <CheckIcon size={12} /> : <XIcon size={12} />}
+                                            Available
+                                        </span>
+                                        <span className={`${styles.badge} ${hasPlannedBookings(r) ? styles.badgeOk : styles.badgeNo}`}>
+                                            {hasPlannedBookings(r) ? <CheckIcon size={12} /> : <XIcon size={12} />}
+                                            Planned bookings
+                                        </span>
+                                    </div>
+                                    <div className={styles.cardActions}>
+                                        {isDeleted(r) ? (
+                                            <Button
+                                                color="secondary"
+                                                size="sm"
+                                                outline
+                                                onClick={(e) => restoreAircraft(r, e)}
+                                                disabled={loading}
+                                            >
+                                                <Undo2 size={16} /> Undo
+                                            </Button>
+                                        ) : (
+                                            <>
+                                                <Button
+                                                    color="primary"
+                                                    size="sm"
+                                                    outline
+                                                    onClick={(e) => toggleEditAircraft(r, e)}
+                                                >
+                                                    <EditIcon size={16} /> Edit
+                                                </Button>
+                                                <Button
+                                                    color="danger"
+                                                    size="sm"
+                                                    outline
+                                                    onClick={(e) => openDeleteModal(r, e)}
+                                                >
+                                                    <TrashIcon size={16} /> Delete
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {creatingAircraft && (
+                    <div className={styles.card}>
+                        <p className="fw-semibold mb-3">New aircraft</p>
+                        {renderEditFields(creatingAircraft, setCreatingAircraft, "new")}
+                        <div className={`${styles.cardActions} mt-3`}>
+                            <Button
+                                color="success"
+                                size="sm"
+                                disabled={
+                                    !creatingAircraft.aircraft ||
+                                    !creatingAircraft.capacity ||
+                                    !creatingAircraft.registrationNumber
+                                }
+                                onClick={createAircraft}
+                            >
+                                Save
+                            </Button>
+                            <Button
+                                color="danger"
+                                size="sm"
+                                outline
+                                onClick={() => setCreatingAircraft(null)}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className={styles.newBtnWrap}>
                 <Button
                     color="primary"
                     size="sm"
@@ -559,7 +806,7 @@ export default function AircraftList() {
             </div>
 
             {loading && hasFetchedOnce && (
-                <div className="bg-white rounded-lg border p-4 text-sm text-gray-500">
+                <div className="px-3 text-sm text-gray-500">
                     Loading aircrafts...
                 </div>
             )}

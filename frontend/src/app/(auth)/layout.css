@@ -118,6 +118,11 @@
         gap: 0.75rem;
     }
 
+    /* Contenido full-bleed en mobile */
+    .auth-content {
+        padding: 0.75rem 0;
+    }
+
     /* Botón hamburguesa */
     .mobile-menu-button {
         display: flex;
@@ -131,8 +136,8 @@
         border: none;
         border-radius: 5px;
 
-        background-color: #212529;
-        color: white;
+        background-color: transparent;
+        color: #212529;
 
         font-size: 1.3rem;
         cursor: pointer;

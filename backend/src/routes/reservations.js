@@ -1,5 +1,6 @@
 const express = require('express');
 const Currency = require('currency.js');
+const crypto = require('crypto');
 const router = express.Router();
 const db = require('../models/reservationsModel.js')
 const dbAircrafts = require('../models/aircraftsModel.js')
@@ -7,6 +8,17 @@ const { poolTours } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 const moment = require('moment');
 const { generateBoardingPass } = require('../utils/boardingPass.js');
+const { sendBookingDetails } = require('../utils/mailer.js');
+
+function generateConfirmationHash(length = 10) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const bytes = crypto.randomBytes(length);
+    let out = '';
+    for (let i = 0; i < length; i++) {
+        out += chars[bytes[i] % chars.length];
+    }
+    return out;
+}
 
 router.post('/createReservation', withAuth, createReservation);
 router.post('/confirmBooking', withAuth, confirmBooking);
@@ -199,8 +211,18 @@ async function createReservation(req, res) {
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
             }
+
+            // Sunset experience (SUN) can only be booked at 19:30 (Miami ET)
+            if (String(experienceCode || '').trim().toUpperCase() === 'SUN' && reservationTime !== '19:30') {
+                throw 'Sunset experience can only be booked at 19:30.'
+            }
+
             //Check if booking is available
-            const availableHours = await db.getAvailableHours(conn, { date: reservationDate })
+            const availabilityParams = {
+                date: reservationDate,
+                idAircraft: idAircraft && idAircraft !== 'all' ? idAircraft : null,
+            };
+            const availableHours = await db.getAvailableHours(conn, availabilityParams)
             const isAvailable = availableHours.some(item => item.hour.substring(0, 5) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
@@ -226,9 +248,7 @@ async function createReservation(req, res) {
             //     passengers: passengerCount
             // })
 
-            // Debemos guardar tanto la ruta como la experiencia si corresponde. Tambien cambiamos el formato de fecha desde-hasta de la reserva.
-
-            // lookup route data by code
+            // Debemos guardar tanto la ruta como la experiencia si corresponde.
             if (experienceCode && experienceCode?.length > 0) {
                 routeCode = 'PRE'
             }
@@ -236,27 +256,29 @@ async function createReservation(req, res) {
             const route = await db.getRouteByCode(conn, routeCode)
             if (!route) throw 'No route found'
 
-            // Get base value
-            let baseValue = 0;
-            let experienceValue = 0;
-            if (passengers == 2) {
-                baseValue = route.value2;
-            }
-            else {
-                baseValue = route.value3;
-            }
+            const paxCount = Number(passengerCount) || (Array.isArray(passengers) ? passengers.length : 0) || 2;
 
-            const totalValue = new Currency(baseValue).add(experienceValue).value;
-            const deposit = 50;
-            const remainingBalance = new Currency(totalValue).subtract(deposit).value;
+            let experienceData = null;
+            let totalValue = 0;
 
-            // Get special experience data
-            let experienceData;
             if (experienceCode && experienceCode?.length > 0) {
                 experienceData = await db.getExperienceByCode(conn, experienceCode)
                 if (!experienceData || experienceData?.length === 0) throw 'Invalid experience code'
-                experienceValue = experienceData[0].value;
+                const experience = experienceData[0];
+                totalValue = paxCount == 2 ? experience.value2 : experience.value3;
+                if (totalValue == null || totalValue === '') {
+                    throw 'Selected experience is not available for this number of passengers.'
+                }
+            } else {
+                totalValue = paxCount == 2 ? route.value2 : route.value3;
+                if (totalValue == null || totalValue === '') {
+                    throw 'Selected route is not available for this number of passengers.'
+                }
             }
+
+            totalValue = new Currency(totalValue).value;
+            const deposit = 50;
+            const remainingBalance = new Currency(totalValue).subtract(deposit).value;
 
             // reservation expiration (+ 15 minutes)
             const reservationExpiration = moment().utc().add(15, 'minutes').format('YYYY-MM-DD HH:mm:ss');
@@ -266,8 +288,8 @@ async function createReservation(req, res) {
                 startDate,
                 endDate,
                 idRoute: route.idRoute,
-                idExperience: experienceData ? experienceData.idExperience : null,
-                passengerCount,
+                idExperience: experienceData ? experienceData[0].idExperience : null,
+                passengerCount: paxCount,
                 idStatus: 1,
                 totalValue,
                 deposit,
@@ -333,6 +355,47 @@ async function confirmBooking(req, res) {
                 await db.insertPassengers(conn, { passengers: ps })
             }
 
+            // Generate confirmation hash + email boarding pass (same flow as tours landing)
+            const confirmationHash = generateConfirmationHash(10);
+            await db.saveConfirmationHash(conn, {
+                idReservation,
+                confirmationHash,
+            });
+
+            const reservationRows = await db.getReservationById(conn, idReservation);
+            const reservation = reservationRows && reservationRows[0];
+            const passengerRows = await db.getPassengersByReservationId(conn, idReservation);
+            const holderEmail = reservationHolder?.email || reservation?.email;
+
+            if (reservation && holderEmail) {
+                let mailPassengers = passengersForBoardingPdf(passengerRows);
+                if (!mailPassengers.length && reservationHolder?.firstName) {
+                    mailPassengers = [{
+                        name: reservationHolder.firstName,
+                        lastname: reservationHolder.lastName || '',
+                    }];
+                } else if (!mailPassengers.length && reservation.name) {
+                    mailPassengers = [{
+                        name: reservation.name,
+                        lastname: reservation.lastname || '',
+                    }];
+                }
+
+                try {
+                    await sendBookingDetails({
+                        codeReservation: reservation.codeReservation,
+                        email: holderEmail,
+                        passengers: mailPassengers,
+                        passengerCount: reservation.passengers || mailPassengers.length,
+                        startDate: reservation.startDate,
+                        title: experienceTitle(reservation),
+                        confirmationHash,
+                    });
+                } catch (mailErr) {
+                    console.log('Error sending booking confirmation email:', mailErr);
+                }
+            }
+
             response = { success: true }
             status = 200
         }
@@ -365,6 +428,7 @@ async function getAvailableHours(req, res) {
             let params = {}
             const date = req.query.date;
             const idAircraft = req.query.idAircraft && req.query.idAircraft != null && req.query.idAircraft != "all" ? req.query.idAircraft : null
+            const experienceCode = (req.query.experienceCode || '').toString().trim().toUpperCase();
 
             params = { date, idAircraft }
 
@@ -373,7 +437,12 @@ async function getAvailableHours(req, res) {
             }
 
             // lookup idTourType by code
-            const availableHours = await db.getAvailableHours(conn, params)
+            let availableHours = await db.getAvailableHours(conn, params)
+
+            // Sunset experience (SUN) can only be booked at 19:30 (Miami ET)
+            if (experienceCode === 'SUN') {
+                availableHours = availableHours.filter(item => item.hour.substring(0, 5) === '19:30');
+            }
 
             response = { availableHours: availableHours.map(item => item.hour.substring(0, 5)) }
 
