@@ -5,3 +5,192 @@
 .deletedRow:hover > td {
     background-color: #f5d8d8 !important;
 }
+
+.page {
+    padding: 1.5rem;
+}
+
+.page > * + * {
+    margin-top: 1.5rem;
+}
+
+.filtersCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+}
+
+.tableCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    overflow-x: auto;
+}
+
+.mobileToolbar {
+    display: none;
+}
+
+.desktopOnly {
+    display: block;
+}
+
+.mobileOnly {
+    display: none !important;
+}
+
+.cardsList {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0 0.75rem;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.cardDeleted {
+    background: #fae8e8;
+    border-color: #f5c2c7;
+}
+
+.cardTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: #0d6efd;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+}
+
+.cardTitleDeleted {
+    color: #991b1b;
+    cursor: default;
+}
+
+.cardMeta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.cardMetaLabel {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+    margin-bottom: 0.15rem;
+}
+
+.badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.badgeOk {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badgeNo {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.cardActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.editFields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.filtersBtn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.filtersBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: #0d6efd;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.newBtnWrap {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .page {
+        padding: 0.75rem 0;
+    }
+
+    .page > * + * {
+        margin-top: 0.75rem;
+    }
+
+    .desktopOnly {
+        display: none !important;
+    }
+
+    .mobileOnly {
+        display: block !important;
+    }
+
+    .mobileOnly.cardsList {
+        display: flex !important;
+    }
+
+    .mobileToolbar {
+        display: block;
+        padding: 0 0.75rem;
+    }
+
+    .newBtnWrap {
+        justify-content: stretch;
+    }
+
+    .newBtnWrap button {
+        width: 100%;
+    }
+}

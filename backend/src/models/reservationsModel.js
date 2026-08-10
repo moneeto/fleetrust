@@ -292,7 +292,8 @@ async function getRouteByCode(conn, code) {
 async function getExperienceByCode(conn, code) {
     return new Promise((resolve, reject) => {
         let query = `
-        SELECT code, title, description, value, (SELECT duration FROM routes WHERE code = 'PRE') as duration
+        SELECT idExperience, code, title, description, value2, value3, image,
+            (SELECT duration FROM routes WHERE code = 'PRE') as duration
         FROM experiences 
         WHERE code = ?
         `
@@ -304,6 +305,18 @@ async function getExperienceByCode(conn, code) {
         })
 
     })
+}
+
+async function saveConfirmationHash(conn, p) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            UPDATE reservations SET confirmationHash = ? WHERE idReservation = ?;
+        `;
+        conn.query(query, [p.confirmationHash, p.idReservation], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
 }
 
 async function getPremiumRouteValue(conn) {
@@ -452,5 +465,6 @@ module.exports = {
     checkReservationOverlap,
     deleteReservationAddons,
     deleteReservationPassengers,
-    deleteReservation
+    deleteReservation,
+    saveConfirmationHash
 }

@@ -125,6 +125,18 @@
   color: #01579b;
 }
 
+.time-slot-sunset {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.time-slot-sunset.time-slot-selected {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .time-slot-disabled {
   border-color: #e0e0e0;
   background: #f5f5f5;
@@ -172,4 +184,42 @@
 .rdp-range_middle > .rdp-day_button {
   background-color: var(--rdp-range_middle-background-color) !important;
   color: #0288d1
+}
+
+.mobile-native-fields {
+  width: 100%;
+}
+
+.mobile-native-fields .form-control,
+.mobile-native-fields .form-select {
+  width: 100%;
+}
+
+.step2-container-mobile {
+  padding: 1rem;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .step2-container {
+    padding: 1rem;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .calendar-wrapper {
+    padding: 0.5rem;
+    box-shadow: none;
+    margin-bottom: 0;
+  }
+
+  .time-grid {
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  }
 }

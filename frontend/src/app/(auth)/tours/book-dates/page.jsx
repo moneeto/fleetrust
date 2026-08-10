@@ -4,22 +4,26 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from "next/navigation";
 import { Modal, ModalBody, Button, FormGroup, Label, Input } from 'reactstrap';
-import { FaCheckCircle, FaRegCalendarAlt, FaUserFriends, FaPlaneDeparture, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
 import moment from 'moment';
 
-// Componentes locales (Asumo que ya existen según tu código original)
 import SelectDateTime from '@/components/booking/SelectDateTime';
 import SelectDateRange from '@/components/booking/SelectDateRange';
 import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
 import SelectBookingType from '@/components/booking/SelectBookingType';
+import SelectOfferCategory from '@/components/booking/SelectOfferCategory';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
+import styles from './page.module.css';
 
 export default function BookDatesPage() {
     const router = useRouter();
     const [step, setStep] = useState(0);
     const [routes, setRoutes] = useState([]);
+    const [experiences, setExperiences] = useState([]);
     const [selectedRoute, setSelectedRoute] = useState(null);
+    const [selectedExperience, setSelectedExperience] = useState(null);
+    const [offerCategory, setOfferCategory] = useState(null); // 'tour' | 'experience'
     const [bookingType, setBookingType] = useState(null);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
@@ -41,7 +45,6 @@ export default function BookDatesPage() {
     const [dateRange, setDateRange] = useState({ from: null, to: null });
     const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
 
-    // --- LÓGICA DE DATOS ---
     useEffect(() => {
         if (bookingType === 'others') {
             setPassengersData(prev =>
@@ -53,37 +56,63 @@ export default function BookDatesPage() {
     useEffect(() => {
         getAircrafts();
         getRoutes();
+        getExperiences();
     }, []);
 
     const getRoutes = async () => {
         try {
             const res = await ApiComunicator(`/routes/getRoutes`, 'GET');
-            setRoutes(res.routes);
+            setRoutes(res.routes || []);
+        } catch (err) { console.error(err); }
+    };
+
+    const getExperiences = async () => {
+        try {
+            const res = await ApiComunicator(`/experiences/getExperiences`, 'GET');
+            setExperiences((res.experiences || []).filter((e) => e.code !== 'STAN'));
         } catch (err) { console.error(err); }
     };
 
     const getAircrafts = async () => {
         try {
             const res = await ApiComunicator(`/aircrafts/`, 'GET');
-            setAircrafts(res.aircrafts);
+            setAircrafts(res.aircrafts || []);
         } catch (err) { console.error(err); }
     };
 
-    // --- NAVEGACIÓN Y ACTIONS ---
+    const resetPilotFlow = () => {
+        setCustomLength(false);
+        setDateRange({ from: null, to: null });
+        setTimeRange({ start: "07:00", end: "07:00" });
+        setDate('');
+        setTime('');
+        setIdAircraft("all");
+    };
+
+    const resetOfferSelection = () => {
+        setOfferCategory(null);
+        setSelectedRoute(null);
+        setSelectedExperience(null);
+    };
+
     const handleBack = () => {
-        // Si estamos en el primer paso después de elegir tipo, reseteamos todo al volver al menú principal
         if (step === 1) {
             setBookingType(null);
             resetPilotFlow();
-            setSelectedRoute(null);
+            resetOfferSelection();
             setPassengers(2);
+        }
+        if (bookingType === 'others' && step === 2) {
+            setSelectedRoute(null);
+            setSelectedExperience(null);
         }
         setStep((prev) => prev - 1);
     };
 
     const handleNext = async () => {
         setError(null);
-        if (bookingType === 'others' && step === 3) {
+        // Draft se crea al salir del schedule (step 4 en others)
+        if (bookingType === 'others' && step === 4) {
             const draft = await createDraftReservation();
             if (draft && draft.id) setStep((s) => s + 1);
             return;
@@ -99,11 +128,19 @@ export default function BookDatesPage() {
                 reservationTime: time,
                 passengerCount: bookingType === 'me' ? 1 : passengers,
                 passengers: [],
-                routeCode: bookingType === 'me' ? "BAS" : selectedRoute,
                 notes,
                 reservationHolder: {},
-                idAircraft
+                idAircraft,
             };
+
+            if (bookingType === 'me') {
+                data.routeCode = 'BAS';
+            } else if (offerCategory === 'experience') {
+                data.experienceCode = selectedExperience;
+            } else {
+                data.routeCode = selectedRoute;
+            }
+
             const res = await ApiComunicator(`/reservations/createReservation`, 'POST', data);
             if (res?.id) setReservationId(res.id);
             return res;
@@ -151,44 +188,63 @@ export default function BookDatesPage() {
         } finally { setLoading(false); }
     };
 
-    // --- RENDER HELPERS ---
-    const isStep3Valid = reservationHolder.firstName.trim() !== '' &&
+    const isDetailsValid = reservationHolder.firstName.trim() !== '' &&
         reservationHolder.email.trim() !== '' &&
         (bookingType === 'me' || passengersData.every(p => p.firstName?.trim() !== ''));
 
     const setStepTitle = () => {
         if (step === 0) return 'Booking Experience';
         if (bookingType === 'me') return 'Schedule your Flight';
-        const titles = ['Select Tour', 'Passengers', 'Flight Schedule', 'Confirm Details'];
+        const titles = [
+            'Tour or Experience',
+            offerCategory === 'experience' ? 'Select Experience' : 'Select Tour',
+            'Passengers',
+            'Flight Schedule',
+            'Confirm Details',
+        ];
         return titles[step - 1] || '';
     };
-  
-    // --- NAVEGACIÓN Y LIMPIEZA ---
-    const resetPilotFlow = () => {
-        setCustomLength(false);
-        setDateRange({ from: null, to: null });
-        setTimeRange({ start: "07:00", end: "07:00" });
-        setDate('');
-        setTime('');
-        setIdAircraft("all");
-    };
+
+    const offerSelected =
+        offerCategory === 'experience' ? !!selectedExperience : !!selectedRoute;
+
+    const nextDisabled =
+        (bookingType === 'others' && step === 1 && !offerCategory) ||
+        (bookingType === 'others' && step === 2 && !offerSelected) ||
+        (bookingType === 'others' && step === 4 && (!date || !time));
+
+    const renderOfferCard = (item, selected, onClick) => (
+        <div key={item.code} className="col-12" onClick={onClick}>
+            <div
+                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'hover-bg-light'}`}
+                style={{ cursor: 'pointer', border: selected ? undefined : '2px solid transparent' }}
+            >
+                <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 className="fw-bold mb-1">{item.title}</h6>
+                        <p className="text-muted small mb-0">{item.description}</p>
+                    </div>
+                    {selected && <FaCheckCircle className="text-primary" size={20} />}
+                </div>
+            </div>
+        </div>
+    );
 
     return (
-        <div className="container py-5" style={{ maxWidth: '1200px', fontFamily: 'Inter, sans-serif' }}>
+        <div className={styles.page}>
 
-            {/* Header & Progress */}
-            <div className="text-center mb-5">
+            <div className={styles.header}>
                 <h2 className="fw-bold text-dark">{setStepTitle()}</h2>
                 <div className="d-flex justify-content-center gap-2 mt-3">
-                    {[0, 1, 2, 3, 4].slice(0, bookingType === 'me' ? 2 : 5).map((s) => (
+                    {[0, 1, 2, 3, 4, 5].slice(0, bookingType === 'me' ? 2 : 6).map((s) => (
                         <div key={s} className={`rounded-pill ${step >= s ? 'bg-primary' : 'bg-light'}`}
                             style={{ width: '40px', height: '6px', transition: '0.3s' }} />
                     ))}
                 </div>
             </div>
 
-            <div className="bg-white shadow-lg border-0 rounded-4 overflow-hidden">
-                <div className="p-4 p-md-5">
+            <div className={styles.cardShell}>
+                <div className={styles.cardBody}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={step}
@@ -197,80 +253,156 @@ export default function BookDatesPage() {
                             exit={{ opacity: 0, y: -15 }}
                             transition={{ duration: 0.25 }}
                         >
-                            {/* STEP 0: Tipo de Reserva */}
+                            {/* STEP 0: Piloto / Pasajeros */}
                             {step === 0 && (
                                 <div className="py-4">
                                     <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
                                 </div>
                             )}
 
-                            {/* STEP 1 (Others): Selección de Tour */}
+                            {/* STEP 1 (Others): Tour o Experience */}
                             {bookingType === 'others' && step === 1 && (
-                                <div className="row g-3">
-                                    {routes.map((route) => (
-                                        <div key={route.code} className="col-12" onClick={() => setSelectedRoute(route.code)}>
-                                            <div className={`p-4 border rounded-4 cursor-pointer transition-all ${selectedRoute === route.code ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'hover-bg-light'}`}
-                                                style={{ cursor: 'pointer', border: '2px solid transparent' }}>
-                                                <div className="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <h6 className="fw-bold mb-1">{route.title}</h6>
-                                                        <p className="text-muted small mb-0">{route.description}</p>
-                                                    </div>
-                                                    {selectedRoute === route.code && <FaCheckCircle className="text-primary" size={20} />}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                <div className="py-4">
+                                    <SelectOfferCategory
+                                        onSelect={(category) => {
+                                            setOfferCategory(category);
+                                            setSelectedRoute(null);
+                                            setSelectedExperience(null);
+                                            setStep(2);
+                                        }}
+                                    />
                                 </div>
                             )}
 
-                            {/* STEP 2 (Others): Pasajeros */}
+                            {/* STEP 2 (Others): Lista de tours o experiences */}
                             {bookingType === 'others' && step === 2 && (
+                                <div className="row g-3">
+                                    {offerCategory === 'experience'
+                                        ? experiences.map((experience) =>
+                                            renderOfferCard(
+                                                experience,
+                                                selectedExperience === experience.code,
+                                                () => setSelectedExperience(experience.code)
+                                            )
+                                        )
+                                        : routes.map((route) =>
+                                            renderOfferCard(
+                                                route,
+                                                selectedRoute === route.code,
+                                                () => setSelectedRoute(route.code)
+                                            )
+                                        )}
+                                    {offerCategory === 'experience' && experiences.length === 0 && (
+                                        <p className="text-muted text-center">No experiences available.</p>
+                                    )}
+                                    {offerCategory === 'tour' && routes.length === 0 && (
+                                        <p className="text-muted text-center">No tours available.</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* STEP 3 (Others): Pasajeros */}
+                            {bookingType === 'others' && step === 3 && (
                                 <div className="text-center py-4">
                                     <SelectPassengersNumber count={passengers} onCountChange={setPassengers} />
                                 </div>
                             )}
 
-                            {/* STEP 1 (Me) o STEP 3 (Others): Fecha y Hora */}
-                            {((bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 3)) && (
-                                <div className="row g-4">
-                                    <div className="col-lg-8 border-end pe-lg-4">
-                                        {customLength ? (
-                                            <SelectDateRange range={dateRange} timeRange={timeRange} onDateChange={setDateRange} onTimeChange={setTimeRange} />
-                                        ) : (
-                                            <SelectDateTime date={date} time={time} onDateChange={setDate} onTimeChange={setTime} idAircraft={idAircraft} />
+                            {/* STEP 1 (Me) o STEP 4 (Others): Aircraft + fecha/hora */}
+                            {((bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 4)) && (
+                                <div className={styles.scheduleStack}>
+                                    <div className={styles.settingsPanel}>
+                                        {bookingType === 'me' ? (
+                                            <Label className="fw-bold small text-uppercase text-muted mb-3 d-block">Settings</Label>
+                                        ) : null}
+
+                                        <FormGroup className="mb-3">
+                                            <Label className="small fw-bold" for="selectAircraft">
+                                                Select Aircraft {customLength ? '(*)' : ''}
+                                            </Label>
+                                            <Input
+                                                id="selectAircraft"
+                                                type="select"
+                                                className="form-select rounded-3"
+                                                value={idAircraft}
+                                                onChange={(e) => {
+                                                    setIdAircraft(e.target.value);
+                                                    setDate('');
+                                                    setTime('');
+                                                    setDateRange({ from: null, to: null });
+                                                    setTimeRange({ start: '07:00', end: '07:00' });
+                                                }}
+                                            >
+                                                <option value="all">Any Available</option>
+                                                {aircrafts.map((a) => (
+                                                    <option key={a.idAircraft} value={a.idAircraft}>
+                                                        {a.aircraft}
+                                                    </option>
+                                                ))}
+                                            </Input>
+                                        </FormGroup>
+
+                                        {bookingType === 'me' && (
+                                            <FormGroup check className="mb-0">
+                                                <Input
+                                                    type="checkbox"
+                                                    id="toggleRange"
+                                                    checked={customLength}
+                                                    onChange={(e) => {
+                                                        setCustomLength(e.target.checked);
+                                                        setDate('');
+                                                        setTime('');
+                                                        setDateRange({ from: null, to: null });
+                                                        setTimeRange({ start: '07:00', end: '07:00' });
+                                                    }}
+                                                />
+                                                <Label check for="toggleRange" className="small">
+                                                    Select date range
+                                                </Label>
+                                            </FormGroup>
                                         )}
                                     </div>
-                                    <div className="col-lg-4">
-                                        <div className="bg-light p-4 rounded-4">
-                                            {bookingType === 'me' ? <Label className="fw-bold small text-uppercase text-muted mb-3">Settings</Label> : <></>}
 
-                                            {bookingType === 'me' && (
-                                                <FormGroup check className="mb-4">
-                                                    <Input type='checkbox' id="toggleRange" onChange={(e) => setCustomLength(e.target.checked)} />
-                                                    <Label check for="toggleRange" className="small">Select date range</Label>
-                                                </FormGroup>
-                                            )}
+                                    <div className={styles.scheduleMain}>
+                                        {customLength ? (
+                                            <SelectDateRange
+                                                range={dateRange}
+                                                timeRange={timeRange}
+                                                onDateChange={setDateRange}
+                                                onTimeChange={setTimeRange}
+                                            />
+                                        ) : (
+                                            <SelectDateTime
+                                                date={date}
+                                                time={time}
+                                                onDateChange={setDate}
+                                                onTimeChange={setTime}
+                                                idAircraft={idAircraft}
+                                                experienceCode={
+                                                    offerCategory === 'experience' ? selectedExperience : null
+                                                }
+                                            />
+                                        )}
+                                    </div>
 
-                                            <FormGroup className="mb-4">
-                                                <Label className="small fw-bold">Select Aircraft {customLength ? '(*)' : ''}</Label>
-                                                <Input type="select" className="form-select-sm rounded-3" value={idAircraft} onChange={e => setIdAircraft(e.target.value)}>
-                                                    <option value="all">Any Available</option>
-                                                    {aircrafts.map(a => <option key={a.idAircraft} value={a.idAircraft}>{a.aircraft}</option>)}
-                                                </Input>
-                                            </FormGroup>
-
-                                            <FormGroup className="mb-0">
-                                                <Label className="small fw-bold">Notes (optional)</Label>
-                                                <Input type="textarea" className="rounded-3" rows={4} value={notes} onChange={e => setNotes(e.target.value)} placeholder="" />
-                                            </FormGroup>
-                                        </div>
+                                    <div className={styles.settingsPanel}>
+                                        <FormGroup className="mb-0">
+                                            <Label className="small fw-bold">Notes (optional)</Label>
+                                            <Input
+                                                type="textarea"
+                                                className="rounded-3"
+                                                rows={4}
+                                                value={notes}
+                                                onChange={(e) => setNotes(e.target.value)}
+                                                placeholder=""
+                                            />
+                                        </FormGroup>
                                     </div>
                                 </div>
                             )}
 
-                            {/* STEP 4: Detalles Finales */}
-                            {bookingType === 'others' && step === 4 && (
+                            {/* STEP 5 (Others): Detalles finales */}
+                            {bookingType === 'others' && step === 5 && (
                                 <PassengerDetails
                                     count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
                                     notes={notes} setNotes={setNotes} reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
@@ -280,28 +412,34 @@ export default function BookDatesPage() {
                     </AnimatePresence>
                 </div>
 
-                {/* Navigation Bar */}
                 {step > 0 && (
-                    <div className="bg-light p-4 d-flex justify-content-between align-items-center">
+                    <div className={styles.navBar}>
                         <Button color="link" className="text-decoration-none text-muted fw-bold" onClick={handleBack} disabled={loading}>
                             <FaChevronLeft className="me-2" /> Back
                         </Button>
 
                         <div className="d-flex gap-3">
                             {(() => {
-                                let isLast = (bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 4);
+                                const isLast = (bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 5);
                                 if (!isLast) {
                                     return (
-                                        <Button color="primary" className="px-5 py-2 rounded-pill fw-bold shadow-sm" onClick={handleNext}
-                                            disabled={(step === 1 && bookingType === 'others' && !selectedRoute) || (step === 3 && !date)}>
+                                        <Button
+                                            color="primary"
+                                            className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                            onClick={handleNext}
+                                            disabled={nextDisabled || loading}
+                                        >
                                             Next <FaChevronRight className="ms-2" />
                                         </Button>
                                     );
                                 }
                                 return (
-                                    <Button color="success" className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                    <Button
+                                        color="success"
+                                        className="px-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
-                                        disabled={loading || (bookingType === 'others' && !isStep3Valid)}>
+                                        disabled={loading || (bookingType === 'others' && !isDetailsValid)}
+                                    >
                                         {loading ? 'Processing...' : 'Complete Booking'}
                                     </Button>
                                 );
@@ -321,24 +459,26 @@ export default function BookDatesPage() {
                         <FaInfoCircle className="me-2" />
                         <span>{error}</span>
                     </div>
-
-                    {/* Botón de cierre (la cruz) */}
                     <button
                         type="button"
                         className="btn-close ms-3"
                         aria-label="Close"
                         onClick={() => setError(null)}
-                        style={{ fontSize: '0.8rem', filter: 'invert(0.5)' }} // Ajuste estético opcional
+                        style={{ fontSize: '0.8rem', filter: 'invert(0.5)' }}
                     ></button>
                 </motion.div>
             )}
 
-            {/* MODALS (Success & Error) */}
             <Modal isOpen={showSuccessModal} centered contentClassName="border-0 rounded-4 shadow-lg text-center p-4">
                 <ModalBody>
                     <div className="mb-4"><FaCheckCircle className="text-success" size={60} /></div>
                     <h3 className="fw-bold">Reservation Confirmed!</h3>
-                    <p className="text-muted">Your flight for <strong>{date}</strong> is ready.</p>
+                    <p className="text-muted">
+                        Your flight for <strong>{date}</strong> is ready.
+                        {reservationHolder?.email ? (
+                            <> A boarding pass was sent to <strong>{reservationHolder.email}</strong>.</>
+                        ) : null}
+                    </p>
                     <Button color="success" className="w-100 py-2 rounded-pill fw-bold mt-3" onClick={() => router.push('/tours/bookings')}>Finish</Button>
                 </ModalBody>
             </Modal>

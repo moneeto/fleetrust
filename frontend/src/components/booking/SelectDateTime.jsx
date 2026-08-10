@@ -2,17 +2,21 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, AlertCircle } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { format, addHours, addDays } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import './SelectDateTime.css';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import { toZonedTime } from 'date-fns-tz';
+import useIsMobile from '@/hooks/useIsMobile';
 
 
-const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) => {
+const SUNSET_SLOT_TIME = '19:30';
+
+const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, experienceCode }) => {
   const TIMEZONE = 'America/New_York';
+  const isMobile = useIsMobile();
+  const isSunsetExperience = String(experienceCode || '').toUpperCase() === 'SUN';
 
   function getTodayInMiami() {
     const now = new Date();
@@ -26,13 +30,14 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
     );
   }
 
-  const [initialDate, setInitialDate] = useState(getTodayInMiami());
+  const [initialDate] = useState(getTodayInMiami());
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // 👇 Date LOCAL seguro (no UTC)
   const selectedDate = parseLocalDate(date);
+  const minDateStr = formatLocalDate(initialDate);
 
   const fetchAvailableHours = async (dateObj) => {
     setLoading(true);
@@ -44,13 +49,22 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
       if (idAircraft) {
         url += `&idAircraft=${idAircraft}`;
       }
+      if (experienceCode) {
+        url += `&experienceCode=${encodeURIComponent(experienceCode)}`;
+      }
 
       const data = await ApiComunicator(
         url,
         'GET'
       );
 
-      setTimeSlots(data.availableHours || []);
+      const slots = data.availableHours || [];
+      setTimeSlots(slots);
+
+      // Si cambia a Sunset y el horario actual ya no aplica, limpiar
+      if (time && !slots.includes(time)) {
+        onTimeChange('');
+      }
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -62,7 +76,88 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
     if (selectedDate) {
       fetchAvailableHours(selectedDate);
     }
-  }, [date, idAircraft]);
+  }, [date, idAircraft, experienceCode]);
+
+  const noSlotsMessage = (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="no-slots-container d-flex flex-column align-items-center justify-content-center p-5 text-center"
+    >
+      <div className="icon-container mb-3">
+        <AlertCircle size={48} className="text-muted opacity-50" />
+      </div>
+      <h5 className="text-muted fw-normal">No timeslots available</h5>
+      <p className="text-secondary small">
+        All timeslots has been already taken for this day. Please select another day.
+      </p>
+    </motion.div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="step2-container step2-container-mobile">
+        <div className="mobile-native-fields">
+          <label className="label" htmlFor="booking-date">Date</label>
+          <input
+            id="booking-date"
+            type="date"
+            className="form-control form-control-lg"
+            min={minDateStr}
+            value={date || ''}
+            onChange={(e) => {
+              onDateChange(e.target.value || '');
+              if (time) onTimeChange('');
+            }}
+          />
+
+          <label className="label mt-3" htmlFor="booking-time">Time</label>
+          <select
+            id="booking-time"
+            className="form-select form-select-lg"
+            value={time || ''}
+            disabled={!selectedDate || loading}
+            onChange={(e) => onTimeChange(e.target.value)}
+          >
+            <option value="">
+              {loading ? 'Loading…' : selectedDate ? 'Select a time' : 'Select a date first'}
+            </option>
+            {timeSlots.map((slot) => (
+              <option key={slot} value={slot}>
+                {slot === SUNSET_SLOT_TIME ? `${slot} (Sunset)` : slot}
+              </option>
+            ))}
+          </select>
+
+          {isSunsetExperience && (
+            <p className="small text-muted mt-2 mb-0">
+              Sunset experience is only available at {SUNSET_SLOT_TIME} (Miami ET).
+            </p>
+          )}
+
+          {selectedDate && !loading && timeSlots.length === 0 && noSlotsMessage}
+        </div>
+
+        {date && time && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="summary mt-4"
+          >
+            <Calendar className="summary-icon" />
+            <span>
+              {format(parseLocalDate(date), 'MMMM d, yyyy')}
+            </span>
+            <span className="mx-2">•</span>
+            <Clock className="summary-icon" />
+            <span>{time}</span>
+          </motion.div>
+        )}
+
+        {error && <p className="text-danger mt-2">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="step2-container">
@@ -82,6 +177,11 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
         </div>
 
         <div className="time-wrapper">
+          {isSunsetExperience && (
+            <p className="small text-muted mb-2">
+              Sunset experience is only available at {SUNSET_SLOT_TIME} (Miami ET).
+            </p>
+          )}
           <div className="time-grid">
             {timeSlots && timeSlots?.length > 0 ? timeSlots?.map((slot) => (
               <motion.button
@@ -90,7 +190,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onTimeChange(slot)}
                 disabled={!selectedDate}
-                className={`time-slot ${time === slot
+                className={`time-slot ${slot === SUNSET_SLOT_TIME ? 'time-slot-sunset ' : ''}${time === slot
                   ? 'time-slot-selected'
                   : selectedDate
                     ? 'time-slot-enabled'
@@ -101,19 +201,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft }) 
               </motion.button>
             ))
               :
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="no-slots-container d-flex flex-column align-items-center justify-content-center p-5 text-center"
-              >
-                <div className="icon-container mb-3">
-                  <AlertCircle size={48} className="text-muted opacity-50" />
-                </div>
-                <h5 className="text-muted fw-normal">No timeslots available</h5>
-                <p className="text-secondary small">
-                  All timeslots has been already taken for this day. Please select another day.
-                </p>
-              </motion.div>
+              noSlotsMessage
             }
           </div>
         </div>

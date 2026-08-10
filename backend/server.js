@@ -1,4 +1,4 @@
-require('dotenv').config() //<-- prod.
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
@@ -53,11 +53,13 @@ const auth = require('./src/routes/auth.js');
 const reservations = require('./src/routes/reservations.js');
 const aircrafts = require('./src/routes/aircrafts.js');
 const routes = require('./src/routes/routes.js');
+const experiences = require('./src/routes/experiences.js');
 
 app.use('/auth', auth);
 app.use('/reservations', reservations);
 app.use('/aircrafts', aircrafts);
 app.use('/routes', routes);
+app.use('/experiences', experiences);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {

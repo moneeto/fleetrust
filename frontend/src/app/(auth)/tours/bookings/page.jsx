@@ -4,10 +4,14 @@ import { Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { FaEdit, FaExclamationCircle, FaEye, FaPrint, FaTimes } from "react-icons/fa";
+import { Filter } from "lucide-react";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
+import useIsMobile from "@/hooks/useIsMobile";
+import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
+import styles from "./page.module.css";
 
 /** ISO weeks (Mon–Sun) that have at least one day in the calendar month. */
 function getIsoWeekRangesOverlappingMonth(yearMonth) {
@@ -75,6 +79,8 @@ function BookingsContent() {
     const [editFormData, setEditFormData] = useState(null);
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const isMobile = useIsMobile();
 
     /** URL tiene prioridad hasta que el efecto sincronice estado y quite la query (evita fetch día sin filtro). */
     const effectiveView = useMemo(() => {
@@ -89,6 +95,16 @@ function BookingsContent() {
         const fromUrl = searchParams.get("idAircraft");
         return fromUrl ? String(fromUrl) : "";
     }, [idAircraftFilter, searchParams]);
+
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (filterCode) count += 1;
+        if (filterClient) count += 1;
+        if (effectiveIdAircraft) count += 1;
+        if (idRouteFilter) count += 1;
+        if (effectiveView !== "day") count += 1;
+        return count;
+    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -478,192 +494,256 @@ function BookingsContent() {
         }
     }
 
+    const handlePeriodChange = (next) => {
+        if (next === "week") {
+            const m =
+                effectiveView === "month"
+                    ? referenceMonth
+                    : moment(referenceDate).format("YYYY-MM");
+            const wks = getIsoWeekRangesOverlappingMonth(m);
+            setReferenceMonth(m);
+            const idx = wks.length
+                ? findWeekIndexForDate(referenceDate, wks)
+                : 0;
+            setReferenceWeekIndex(
+                wks.length ? Math.min(idx, wks.length - 1) : 0
+            );
+        }
+        if (next === "month") {
+            const ym =
+                effectiveView === "week"
+                    ? referenceMonth
+                    : moment(referenceDate).format("YYYY-MM");
+            setReferenceMonth(ym);
+        }
+        if (next === "day") {
+            setReferenceDate((d) => d || today);
+        }
+        setView(next);
+        if (searchParams.toString()) {
+            router.replace(pathname, { scroll: false });
+        }
+    };
+
+    const resetFilters = () => {
+        setView("day");
+        setReferenceDate(today);
+        setReferenceMonth(initialMonth);
+        const wks = getIsoWeekRangesOverlappingMonth(initialMonth);
+        setReferenceWeekIndex(wks.length ? findWeekIndexForDate(today, wks) : 0);
+        setFilterCode("");
+        setFilterClient("");
+        setIdAircraftFilter("");
+        setIdRouteFilter("");
+        if (searchParams.toString()) {
+            router.replace(pathname, { scroll: false });
+        }
+    };
+
+    const fieldMin = isMobile ? "100%" : undefined;
+
+    const filterFields = (idPrefix = "") => (
+        <>
+            <FormGroup style={{ minWidth: fieldMin || "200px" }}>
+                <Label for={`${idPrefix}view`}>Period</Label>
+                <Input
+                    id={`${idPrefix}view`}
+                    type="select"
+                    value={effectiveView}
+                    onChange={(e) => handlePeriodChange(e.target.value)}
+                >
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                </Input>
+            </FormGroup>
+            {effectiveView === "day" && (
+                <FormGroup style={{ minWidth: fieldMin || "200px" }}>
+                    <Label for={`${idPrefix}referenceDate`}>Reference date</Label>
+                    <Input
+                        id={`${idPrefix}referenceDate`}
+                        type="date"
+                        value={referenceDate}
+                        onChange={(e) => setReferenceDate(e.target.value)}
+                    />
+                </FormGroup>
+            )}
+            {effectiveView === "week" && (
+                <>
+                    <FormGroup style={{ minWidth: fieldMin || "200px" }}>
+                        <Label for={`${idPrefix}referenceMonthWeek`}>Reference month</Label>
+                        <Input
+                            id={`${idPrefix}referenceMonthWeek`}
+                            type="month"
+                            value={referenceMonth}
+                            onChange={(e) => {
+                                const ym = e.target.value;
+                                setReferenceMonth(ym);
+                                const wks = getIsoWeekRangesOverlappingMonth(ym);
+                                setReferenceWeekIndex(0);
+                                if (wks.length) {
+                                    const idx = findWeekIndexForDate(today, wks);
+                                    if (ym === moment().format("YYYY-MM")) {
+                                        setReferenceWeekIndex(
+                                            Math.min(idx, wks.length - 1)
+                                        );
+                                    }
+                                }
+                            }}
+                        />
+                    </FormGroup>
+                    <FormGroup style={{ minWidth: fieldMin || "200px" }}>
+                        <Label for={`${idPrefix}referenceWeek`}>Reference week</Label>
+                        <Input
+                            id={`${idPrefix}referenceWeek`}
+                            type="select"
+                            value={String(
+                                Math.min(
+                                    referenceWeekIndex,
+                                    Math.max(0, weekRangesInRefMonth.length - 1)
+                                )
+                            )}
+                            onChange={(e) =>
+                                setReferenceWeekIndex(Number(e.target.value))
+                            }
+                            disabled={!weekRangesInRefMonth.length}
+                        >
+                            {!weekRangesInRefMonth.length ? (
+                                <option value="0">—</option>
+                            ) : (
+                                weekRangesInRefMonth.map((_, i) => (
+                                    <option key={i} value={String(i)}>
+                                        Week {i + 1}
+                                    </option>
+                                ))
+                            )}
+                        </Input>
+                    </FormGroup>
+                </>
+            )}
+            {effectiveView === "month" && (
+                <FormGroup style={{ minWidth: fieldMin || "200px" }}>
+                    <Label for={`${idPrefix}referenceMonthOnly`}>Reference month</Label>
+                    <Input
+                        id={`${idPrefix}referenceMonthOnly`}
+                        type="month"
+                        value={referenceMonth}
+                        onChange={(e) => setReferenceMonth(e.target.value)}
+                    />
+                </FormGroup>
+            )}
+            <FormGroup style={{ minWidth: fieldMin || "120px" }}>
+                <Label for={`${idPrefix}filterCode`}>Code</Label>
+                <Input
+                    id={`${idPrefix}filterCode`}
+                    type="text"
+                    value={filterCode}
+                    onChange={(e) => setFilterCode(e.target.value)}
+                />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "160px" }}>
+                <Label for={`${idPrefix}filterClient`}>Client</Label>
+                <Input
+                    id={`${idPrefix}filterClient`}
+                    type="text"
+                    value={filterClient}
+                    onChange={(e) => setFilterClient(e.target.value)}
+                />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}idAircraftFilter`}>Aircraft</Label>
+                <Input
+                    id={`${idPrefix}idAircraftFilter`}
+                    type="select"
+                    value={effectiveIdAircraft || "all"}
+                    onChange={(e) => {
+                        const v = e.target.value === "all" ? "" : e.target.value;
+                        setIdAircraftFilter(v);
+                        if (searchParams.get("idAircraft")) {
+                            router.replace(pathname, { scroll: false });
+                        }
+                    }}
+                >
+                    <option value="all">All aircraft</option>
+                    {aircrafts.map((a) => (
+                        <option key={a.idAircraft} value={a.idAircraft}>
+                            {a.aircraft}
+                            {a.registrationNumber ? ` (${a.registrationNumber})` : ""}
+                        </option>
+                    ))}
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}idRouteFilter`}>Flight type</Label>
+                <Input
+                    id={`${idPrefix}idRouteFilter`}
+                    type="select"
+                    value={idRouteFilter || "all"}
+                    onChange={(e) =>
+                        setIdRouteFilter(e.target.value === "all" ? "" : e.target.value)
+                    }
+                >
+                    <option value="all">All types</option>
+                    {routes.map((rt) => (
+                        <option key={rt.idRoute} value={rt.idRoute}>
+                            {rt.title || rt.code}
+                        </option>
+                    ))}
+                </Input>
+            </FormGroup>
+        </>
+    );
+
+    const periodSummary = (
+        <>
+            Showing{" "}
+            {dateRange.from === dateRange.to
+                ? moment(dateRange.from).format("MMM D, YYYY")
+                : `${moment(dateRange.from).format("MMM D")} — ${moment(dateRange.to).format("MMM D, YYYY")}`}
+            {listLoading && hasFetchedOnce ? " · Updating…" : ""}
+        </>
+    );
+
     if (!hasFetchedOnce && listLoading) {
         return <Spinner />;
     }
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Filtros */}
-            <Form className="bg-white rounded-lg shadow-sm border p-4">
+        <div className={styles.page}>
+            <div className={styles.mobileToolbar}>
+                <div className={styles.toolbarRow}>
+                    <Button
+                        color="primary"
+                        outline
+                        className={styles.filtersBtn}
+                        type="button"
+                        onClick={() => setFiltersOpen(true)}
+                    >
+                        <Filter size={16} />
+                        Filters
+                        {activeFilterCount > 0 && (
+                            <span className={styles.filtersBadge}>{activeFilterCount}</span>
+                        )}
+                    </Button>
+                    {reservations && reservations.length > 0 && (
+                        <Button
+                            color="primary"
+                            type="button"
+                            onClick={() => handlePrint()}
+                        >
+                            <FaPrint color="white" /> Print
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            <div className={styles.summary + " " + styles.mobileOnly}>
+                {periodSummary}
+            </div>
+
+            <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
                 <div className="d-flex flex-wrap gap-3 align-items-end">
-                    <FormGroup style={{ minWidth: "200px" }}>
-                        <Label for="view">Period</Label>
-                        <Input
-                            id="view"
-                            type="select"
-                            value={effectiveView}
-                            onChange={(e) => {
-                                const next = e.target.value;
-                                if (next === "week") {
-                                    const m =
-                                        effectiveView === "month"
-                                            ? referenceMonth
-                                            : moment(referenceDate).format("YYYY-MM");
-                                    const wks = getIsoWeekRangesOverlappingMonth(m);
-                                    setReferenceMonth(m);
-                                    const idx = wks.length
-                                        ? findWeekIndexForDate(referenceDate, wks)
-                                        : 0;
-                                    setReferenceWeekIndex(
-                                        wks.length ? Math.min(idx, wks.length - 1) : 0
-                                    );
-                                }
-                                if (next === "month") {
-                                    const ym =
-                                        effectiveView === "week"
-                                            ? referenceMonth
-                                            : moment(referenceDate).format("YYYY-MM");
-                                    setReferenceMonth(ym);
-                                }
-                                if (next === "day") {
-                                    setReferenceDate((d) => d || today);
-                                }
-                                setView(next);
-                                if (searchParams.toString()) {
-                                    router.replace(pathname, { scroll: false });
-                                }
-                            }}
-                        >
-                            <option value="day">Day</option>
-                            <option value="week">Week</option>
-                            <option value="month">Month</option>
-                        </Input>
-                    </FormGroup>
-                    {effectiveView === "day" && (
-                        <FormGroup style={{ minWidth: "200px" }}>
-                            <Label for="referenceDate">Reference date</Label>
-                            <Input
-                                id="referenceDate"
-                                type="date"
-                                value={referenceDate}
-                                onChange={(e) => setReferenceDate(e.target.value)}
-                            />
-                        </FormGroup>
-                    )}
-                    {effectiveView === "week" && (
-                        <>
-                            <FormGroup style={{ minWidth: "200px" }}>
-                                <Label for="referenceMonthWeek">Reference month</Label>
-                                <Input
-                                    id="referenceMonthWeek"
-                                    type="month"
-                                    value={referenceMonth}
-                                    onChange={(e) => {
-                                        const ym = e.target.value;
-                                        setReferenceMonth(ym);
-                                        const wks = getIsoWeekRangesOverlappingMonth(ym);
-                                        setReferenceWeekIndex(0);
-                                        if (wks.length) {
-                                            const idx = findWeekIndexForDate(today, wks);
-                                            if (ym === moment().format("YYYY-MM")) {
-                                                setReferenceWeekIndex(
-                                                    Math.min(idx, wks.length - 1)
-                                                );
-                                            }
-                                        }
-                                    }}
-                                />
-                            </FormGroup>
-                            <FormGroup style={{ minWidth: "200px" }}>
-                                <Label for="referenceWeek">Reference week</Label>
-                                <Input
-                                    id="referenceWeek"
-                                    type="select"
-                                    value={String(
-                                        Math.min(
-                                            referenceWeekIndex,
-                                            Math.max(0, weekRangesInRefMonth.length - 1)
-                                        )
-                                    )}
-                                    onChange={(e) =>
-                                        setReferenceWeekIndex(Number(e.target.value))
-                                    }
-                                    disabled={!weekRangesInRefMonth.length}
-                                >
-                                    {!weekRangesInRefMonth.length ? (
-                                        <option value="0">—</option>
-                                    ) : (
-                                        weekRangesInRefMonth.map((_, i) => (
-                                            <option key={i} value={String(i)}>
-                                                Week {i + 1}
-                                            </option>
-                                        ))
-                                    )}
-                                </Input>
-                            </FormGroup>
-                        </>
-                    )}
-                    {effectiveView === "month" && (
-                        <FormGroup style={{ minWidth: "200px" }}>
-                            <Label for="referenceMonthOnly">Reference month</Label>
-                            <Input
-                                id="referenceMonthOnly"
-                                type="month"
-                                value={referenceMonth}
-                                onChange={(e) => setReferenceMonth(e.target.value)}
-                            />
-                        </FormGroup>
-                    )}
-                    <FormGroup style={{ minWidth: "120px" }}>
-                        <Label for="filterCode">Code</Label>
-                        <Input
-                            id="filterCode"
-                            type="text"
-                            value={filterCode}
-                            onChange={(e) => setFilterCode(e.target.value)}
-                        />
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "160px" }}>
-                        <Label for="filterClient">Client</Label>
-                        <Input
-                            id="filterClient"
-                            type="text"
-                            value={filterClient}
-                            onChange={(e) => setFilterClient(e.target.value)}
-                        />
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "180px" }}>
-                        <Label for="idAircraftFilter">Aircraft</Label>
-                        <Input
-                            id="idAircraftFilter"
-                            type="select"
-                            value={effectiveIdAircraft || "all"}
-                            onChange={(e) => {
-                                const v = e.target.value === "all" ? "" : e.target.value;
-                                setIdAircraftFilter(v);
-                                if (searchParams.get("idAircraft")) {
-                                    router.replace(pathname, { scroll: false });
-                                }
-                            }}
-                        >
-                            <option value="all">All aircraft</option>
-                            {aircrafts.map((a) => (
-                                <option key={a.idAircraft} value={a.idAircraft}>
-                                    {a.aircraft}
-                                    {a.registrationNumber ? ` (${a.registrationNumber})` : ""}
-                                </option>
-                            ))}
-                        </Input>
-                    </FormGroup>
-                    <FormGroup style={{ minWidth: "180px" }}>
-                        <Label for="idRouteFilter">Flight type</Label>
-                        <Input
-                            id="idRouteFilter"
-                            type="select"
-                            value={idRouteFilter || "all"}
-                            onChange={(e) =>
-                                setIdRouteFilter(e.target.value === "all" ? "" : e.target.value)
-                            }
-                        >
-                            <option value="all">All types</option>
-                            {routes.map((rt) => (
-                                <option key={rt.idRoute} value={rt.idRoute}>
-                                    {rt.title || rt.code}
-                                </option>
-                            ))}
-                        </Input>
-                    </FormGroup>
+                    {filterFields()}
                     {reservations && reservations.length > 0 && (
                         <FormGroup>
                             <Label className="d-block invisible">Print</Label>
@@ -679,24 +759,29 @@ function BookingsContent() {
                     )}
                 </div>
                 <div className="mt-2 text-sm text-gray-500">
-                    Showing{" "}
-                    {dateRange.from === dateRange.to
-                        ? moment(dateRange.from).format("MMM D, YYYY")
-                        : `${moment(dateRange.from).format("MMM D")} — ${moment(dateRange.to).format("MMM D, YYYY")}`}
-                    {listLoading && hasFetchedOnce ? " · Updating…" : ""}
+                    {periodSummary}
                 </div>
             </Form>
 
+            <MobileFiltersModal
+                isOpen={filtersOpen}
+                toggle={() => setFiltersOpen(false)}
+                onApply={() => setFiltersOpen(false)}
+                onReset={resetFilters}
+            >
+                {filterFields("mobile-")}
+            </MobileFiltersModal>
+
             {error && (
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 px-3">
                     {error}
                 </p>
             )}
 
-            {/* Tabla */}
+            {/* Tabla desktop */}
             {reservations.length > 0 && (
                 <div
-                    className="bg-white rounded-lg shadow-sm border overflow-x-auto position-relative"
+                    className={`${styles.tableCard} ${styles.desktopOnly}`}
                     style={{ opacity: listLoading ? 0.65 : 1 }}
                 >
                     <Table innerRef={tableRef}>
@@ -797,10 +882,74 @@ function BookingsContent() {
                 </div>
             )}
 
+            {/* Cards mobile */}
+            {reservations.length > 0 && (
+                <div
+                    className={`${styles.mobileOnly} ${styles.cardsList}`}
+                    style={{ opacity: listLoading ? 0.65 : 1 }}
+                >
+                    {reservations.map((r) => {
+                        const showStartDay =
+                            effectiveView !== "day" ||
+                            moment(r.startDate).format("YYYY-MM-DD") !== referenceDate;
+                        const startLabel =
+                            moment(r.startDate).format("HH:mm") +
+                            (showStartDay ? ` ${moment(r.startDate).format("MMM DD")}` : "");
+                        const endLabel =
+                            moment(r.endDate).format("HH:mm") +
+                            (moment(r.endDate).format("YYYY-MM-DD") !== moment(r.startDate).format("YYYY-MM-DD")
+                                ? ` ${moment(r.endDate).format("MMM DD")}`
+                                : "");
+                        return (
+                            <div key={r.idReservation} className={styles.card}>
+                                <div className={styles.cardCode}>#{r.codeReservation}</div>
+                                <div className={styles.cardMeta}>
+                                    <div>
+                                        <span className={styles.cardMetaLabel}>Starts</span>
+                                        {startLabel}
+                                    </div>
+                                    <div>
+                                        <span className={styles.cardMetaLabel}>Ends</span>
+                                        {endLabel}
+                                    </div>
+                                    <div className={styles.cardMetaFull}>
+                                        <span className={styles.cardMetaLabel}>Client</span>
+                                        {r.name && r.lastname ? `${r.name} ${r.lastname}` : "—"}
+                                    </div>
+                                    <div>
+                                        <span className={styles.cardMetaLabel}>Aircraft</span>
+                                        {r.aircraft
+                                            ? `${r.aircraft}${r.registrationNumber ? ` (${r.registrationNumber})` : ""}`
+                                            : "—"}
+                                    </div>
+                                    <div>
+                                        <span className={styles.cardMetaLabel}>Flight type</span>
+                                        {r.route || "—"}
+                                    </div>
+                                </div>
+                                <div className={styles.cardActions}>
+                                    <Button
+                                        color="secondary"
+                                        size="sm"
+                                        onClick={() => {
+                                            setModalDetail({ show: true });
+                                            getReservationById(r.idReservation);
+                                        }}
+                                    >
+                                        <FaEye /> View more
+                                    </Button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Sin resultados */}
             {!listLoading && reservations.length === 0 && (
-                <div className="bg-white rounded-lg shadow-sm border">
+                <div className={styles.emptyCard}>
                     <div
+                        className={styles.emptyMobile}
                         style={{
                             minHeight: "220px",
                             display: "flex",
