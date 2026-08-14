@@ -756,12 +756,15 @@ async function createReservationRange(req, res) {
                 throw { overlapping, message: 'There are already reservations in this range.' };
             }
             
+            const pilotRoute = await db.getRouteByCode(conn, '000');
+            if (!pilotRoute) throw 'No route found for pilot booking.';
+
             // Crear reserva de bloqueo
             const insertResult = await db.createReservation(conn, {
                 passengers: 0,
                 startDate,
                 endDate,
-                idRoute: null,
+                idRoute: pilotRoute.idRoute,
                 idExperience: null,
                 idStatus: 3, // Confirmed
                 totalValue: 0,

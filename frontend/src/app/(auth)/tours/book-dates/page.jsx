@@ -205,6 +205,10 @@ export default function BookDatesPage() {
         return titles[step - 1] || '';
     };
 
+    const clientVisibleRoutes = routes.filter(
+        (route) => route.visibleToClients !== 0 && route.visibleToClients !== false
+    );
+
     const offerSelected =
         offerCategory === 'experience' ? !!selectedExperience : !!selectedRoute;
 
@@ -285,7 +289,7 @@ export default function BookDatesPage() {
                                                 () => setSelectedExperience(experience.code)
                                             )
                                         )
-                                        : routes.map((route) =>
+                                        : clientVisibleRoutes.map((route) =>
                                             renderOfferCard(
                                                 route,
                                                 selectedRoute === route.code,
@@ -295,7 +299,7 @@ export default function BookDatesPage() {
                                     {offerCategory === 'experience' && experiences.length === 0 && (
                                         <p className="text-muted text-center">No experiences available.</p>
                                     )}
-                                    {offerCategory === 'tour' && routes.length === 0 && (
+                                    {offerCategory === 'tour' && clientVisibleRoutes.length === 0 && (
                                         <p className="text-muted text-center">No tours available.</p>
                                     )}
                                 </div>
