@@ -9,6 +9,7 @@ const titleMap = {
   "/tours/aircrafts": "Aircrafts",
   "/users": "Users",
   "/tours/qr-scan": "QR Scan",
+  "/maintenance/gallery": "Gallery",
 };
 
 export default function Header({ onMenuClick }) {

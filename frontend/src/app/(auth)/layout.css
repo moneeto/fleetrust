@@ -24,17 +24,42 @@
 
 /* Navegación */
 .auth-sidebar .nav-link {
-    color: white;
-    padding-left: 0;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.35rem 0.5rem;
+    text-decoration: none;
 }
 
-.auth-sidebar .nav-link:hover {
-    text-decoration: underline;
+.auth-sidebar .submenu .nav-link {
+    margin-left: -2rem;
+    padding-left: 2rem;
+    border-left: 2px solid transparent;
+}
+
+.auth-sidebar .nav-link.fw-semibold {
+    color: #fff;
+    padding-left: 0;
+    padding-right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.auth-sidebar .submenu .nav-link:hover {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+}
+
+.auth-sidebar .submenu .nav-link.active {
+    color: #fff;
+    font-weight: 600;
+    border-left: 2px solid #fff;
 }
 
 /* Submenú */
 .auth-sidebar .submenu {
-    margin-left: 1rem;
+    background-color: rgba(0, 0, 0, 0.28);
+    margin: 0 -1rem;
+    padding: 0.25rem 1rem 0.25rem 2rem;
 }
 
 /* Footer del sidebar */

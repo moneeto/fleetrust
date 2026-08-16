@@ -1,15 +1,27 @@
 import { motion } from 'framer-motion';
 import { Plane } from 'lucide-react';
 
-const Spinner = () => {
+const Spinner = ({ overlay = false }) => {
   return (
     <div
-      style={{
-        height: "80svh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}
+      style={
+        overlay
+          ? {
+              position: "fixed",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(248, 249, 250, 0.55)",
+              zIndex: 2000,
+            }
+          : {
+              height: "80svh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }
+      }
     >
       <div
         style={{
