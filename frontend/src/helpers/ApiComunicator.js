@@ -3,18 +3,19 @@ import Config from '../config.js';
 export const ApiComunicator = async (urlTail, method, info, signal, isADownload = false) => {
     
     const url = Config.endpoint + urlTail;
+    const isFormData = typeof FormData !== 'undefined' && info instanceof FormData;
 
     const params = {
         credentials: "include",
         method: method,
         mode: 'cors',
-        headers: {
+        headers: isFormData ? {} : {
             'Content-Type': 'application/json;charset=utf-8'
         }
     };
 
     if (info) {
-        params.body = JSON.stringify(info);
+        params.body = isFormData ? info : JSON.stringify(info);
     }
 
     if (signal) {

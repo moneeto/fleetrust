@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Plane, Wrench } from "lucide-react";
 import LogoutButton from "./components/LogoutButton";
 
 export default function Sidebar({ open, onClose }) {
+    const pathname = usePathname();
+
     return (
         <>
             {open && (
@@ -27,6 +31,7 @@ export default function Sidebar({ open, onClose }) {
 
                         <div>
                             <span className="nav-link fw-semibold px-0">
+                                <Plane size={16} strokeWidth={1.75} />
                                 Tours
                             </span>
 
@@ -34,7 +39,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/bookings"
-                                    className="nav-link"
+                                    className={pathname === "/tours/bookings" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Bookings
@@ -42,7 +47,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/book-dates"
-                                    className="nav-link"
+                                    className={pathname === "/tours/book-dates" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Book dates
@@ -50,7 +55,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/aircrafts"
-                                    className="nav-link"
+                                    className={pathname === "/tours/aircrafts" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Aircrafts
@@ -58,12 +63,29 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/qr-scan"
-                                    className="nav-link"
+                                    className={pathname === "/tours/qr-scan" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     QR scan
                                 </Link>
 
+                            </nav>
+                        </div>
+
+                        <div>
+                            <span className="nav-link fw-semibold px-0">
+                                <Wrench size={16} strokeWidth={1.75} />
+                                Maintenance
+                            </span>
+
+                            <nav className="nav flex-column submenu">
+                                <Link
+                                    href="/maintenance/gallery"
+                                    className={pathname === "/maintenance/gallery" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Gallery
+                                </Link>
                             </nav>
                         </div>
 
