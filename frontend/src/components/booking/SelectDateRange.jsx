@@ -66,14 +66,14 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
       className="bg-white border rounded-4 shadow-sm p-4"
     >
       <div className="d-flex align-items-center gap-2 mb-4">
-        <Clock size={18} className="text-primary" />
         <span className="fw-bold text-dark">Flight Schedule</span>
       </div>
 
       <Row className="g-4 align-items-end">
+      <p>You can change the hour by clicking in the clock</p>
         <Col md={6} xs={12}>
           <div className="p-3 bg-light rounded-3">
-            <Label className="small fw-bold text-uppercase text-muted d-block mb-2">Departure Time</Label>
+            <Label className="small fw-bold text-uppercase text-muted d-block mb-2">Departure</Label>
             <input
               type="time"
               value={selectedTimeRange.start || ''}
@@ -87,7 +87,7 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
 
         <Col md={6} xs={12}>
           <div className="p-3 bg-light rounded-3">
-            <Label className="small fw-bold text-uppercase text-muted d-block mb-2">Return Time</Label>
+            <Label className="small fw-bold text-uppercase text-muted d-block mb-2">Return</Label>
             <input
               type="time"
               value={selectedTimeRange.end || ''}
@@ -99,19 +99,6 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
           </div>
         </Col>
       </Row>
-
-      <div className="mt-4 p-3 rounded-3 text-center" style={{ backgroundColor: '#e0f2fe', border: '1px dashed #0ea5e9' }}>
-        <div className="d-flex align-items-center justify-content-center gap-2 flex-wrap text-primary">
-          <span className="fw-bold">Booking from:</span>
-          <span className="bg-white px-2 py-1 rounded shadow-sm text-dark small">
-            {format(range.from, 'MM/dd/yyyy')} - {timeRange.start}
-          </span>
-          <ArrowRight size={16} />
-          <span className="bg-white px-2 py-1 rounded shadow-sm text-dark small">
-            {format(range.to, 'MM/dd/yyyy')} - {timeRange.end}
-          </span>
-        </div>
-      </div>
     </motion.div>
   );
 
@@ -120,7 +107,6 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
       <div className="d-flex flex-column gap-3">
         <div className="mobile-native-fields">
           <div className="d-flex align-items-center gap-2 mb-3">
-            <CalendarIcon size={18} className="text-primary" />
             <span className="fw-bold text-dark">Select Date Range</span>
           </div>
           <Label className="small fw-bold text-uppercase text-muted" htmlFor="range-from">From</Label>
@@ -156,7 +142,6 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
       {/* CONTENEDOR 1: El Calendario (Tarjeta Superior) */}
       <div className="bg-white border rounded-4 shadow-sm p-3 overflow-hidden">
         <div className="d-flex align-items-center gap-2 mb-3 px-2">
-          <CalendarIcon size={18} className="text-primary" />
           <span className="fw-bold text-dark">Select Date Range</span>
         </div>
 
