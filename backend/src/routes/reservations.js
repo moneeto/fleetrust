@@ -30,6 +30,7 @@ router.post('/updateReservation', withAuth, updateReservation);
 router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
+router.get('/cancellationReasons', withAuth, getCancellationReasons);
 router.post('/validateQrConfirmation', withAuth, validateQrConfirmation);
 router.post('/qrBoardingPassPdf', withAuth, qrBoardingPassPdf);
 router.post('/completeQrValidation', withAuth, completeQrValidation);
@@ -610,8 +611,10 @@ async function getReservationById(req, res) {
             const [reservation] = await db.getReservationById(conn, id)
 
             const passengers = await db.getPassengersByReservationId(conn, id);
+            const addons = await db.getReservationAddons(conn, id);
 
             reservation.passengers = passengers;
+            reservation.addons = addons;
 
             response = reservation
 
@@ -794,6 +797,32 @@ async function createReservationRange(req, res) {
 }
 
 
+async function getCancellationReasons(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            const cancellationReasons = await db.getCancellationReasons(conn);
+
+            response = { cancellationReasons };
+            status = 200;
+        } catch (e) {
+            let message = "An error has occurred while getting the cancellation reasons.";
+            if (typeof e == "string") { message = e }
+            status = 400;
+            response = { message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
 async function deleteReservation(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
         let response = {};
@@ -808,28 +837,37 @@ async function deleteReservation(req, res) {
                 throw "Not authorized."
             }
 
-            let { idReservation } = req.body;
+            let { idReservation, idCancellationReason, cancellationDetail } = req.body;
 
-            idReservation = idReservation != null && idReservation != "" ? idReservation : null
-
-            if (!idReservation) {
-                throw 'Missing reservation ID.';
+            if (!idReservation || !idCancellationReason) {
+                throw 'Missing required fields'
             }
 
-            // // Delete addons associated with the reservation
-            // await db.deleteReservationAddons(conn, idReservation);
+            const reasons = await db.getCancellationReasons(conn)
+            const selectedReason = reasons.find(r => r.idCancellationReason == idCancellationReason)
 
-            // // Delete passengers associated with the reservation
-            // await db.deleteReservationPassengers(conn, idReservation);
+            if (!selectedReason) {
+                throw 'Invalid cancellation reason'
+            }
 
-            // // Delete the reservation itself
-            // await db.deleteReservation(conn, idReservation);
+            let detail = null
+            if (selectedReason.cancellationReason.toUpperCase() === 'OTHER') {
+                if (!cancellationDetail) {
+                    throw 'Missing required fields'
+                }
+                detail = cancellationDetail
+            }
 
-            await db.updateReservationStatus(conn, {idStatus: 4, idReservation: idReservation })
+            await db.cancelReservation(conn, {
+                idReservation,
+                idCancellationReason,
+                cancellationDetail: detail
+            })
 
             response = { success: true, message: 'Reservation deleted successfully' };
             status = 200;
         } catch (e) {
+            console.log(e);
             let message = 'An error occurred while deleting the reservation.';
             if (typeof e === 'string') message = e;
             status = 400;

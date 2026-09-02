@@ -63,7 +63,7 @@ function safeFilename(name) {
         throw 'Invalid filename';
     }
     const base = path.basename(name);
-    if (base !== name || base.includes('..') || !/^[a-zA-Z0-9._-]+\.webp$/.test(base)) {
+    if (base !== name || base.includes('..') || !/^[a-zA-Z0-9._-]+\.(webp|jpg)$/i.test(base)) {
         throw 'Invalid filename';
     }
     return base;
@@ -91,7 +91,7 @@ async function listImages(req, res) {
 
         const images = [];
         for (const entry of entries) {
-            if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.webp')) continue;
+            if (!entry.isFile() || (!entry.name.toLowerCase().endsWith('.webp') && !entry.name.toLowerCase().endsWith('.jpg'))) continue;
             try {
                 safeFilename(entry.name);
             } catch {

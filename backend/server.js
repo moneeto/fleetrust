@@ -55,6 +55,7 @@ const aircrafts = require('./src/routes/aircrafts.js');
 const routes = require('./src/routes/routes.js');
 const experiences = require('./src/routes/experiences.js');
 const gallery = require('./src/routes/gallery.js');
+const addons = require('./src/routes/addons.js');
 
 app.use('/auth', auth);
 app.use('/reservations', reservations);
@@ -62,6 +63,7 @@ app.use('/aircrafts', aircrafts);
 app.use('/routes', routes);
 app.use('/experiences', experiences);
 app.use('/gallery', gallery);
+app.use('/addons', addons);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {

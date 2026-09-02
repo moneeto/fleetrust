@@ -62,6 +62,14 @@ export default function Sidebar({ open, onClose }) {
                                 </Link>
 
                                 <Link
+                                    href="/tours/addons"
+                                    className={pathname === "/tours/addons" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Addons
+                                </Link>
+
+                                <Link
                                     href="/tours/qr-scan"
                                     className={pathname === "/tours/qr-scan" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}

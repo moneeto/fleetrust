@@ -240,6 +240,21 @@ async function getPassengersByReservationId(conn, idReservation) {
     })
 }
 
+async function getReservationAddons(conn, idReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        SELECT a.idAddon, a.addon, a.price, ra.quantity
+        FROM reservationsAddons ra
+        JOIN addons a ON a.idAddon = ra.idAddon
+        WHERE ra.idReservation = ?
+        `;
+        conn.query(query, [idReservation], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 async function updateReservation(conn, params) {
     return new Promise((resolve, reject) => {
         let query = `
@@ -349,6 +364,31 @@ async function updateReservationStatus(conn, p) {
     })
 }
 
+async function getCancellationReasons(conn) {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT idCancellationReason, cancellationReason FROM cancellationReasons`;
+        conn.query(query, [], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function cancelReservation(conn, p) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        UPDATE reservations
+        SET idStatus = 4, idCancellationReason = ?, cancellationDetail = ?
+        WHERE idReservation = ?
+        `;
+        const params = [p.idCancellationReason, p.cancellationDetail, p.idReservation];
+        conn.query(query, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 async function updateReservationNotes(conn, p) {
     return new Promise((resolve, reject) => {
         let query = `
@@ -454,12 +494,15 @@ module.exports = {
     updateReservationHolder,
     insertPassengers,
     getPassengersByReservationId,
+    getReservationAddons,
     updateReservation,
     getRouteByCode,
     getExperienceByCode,
     getPremiumRouteValue,
     getReservationsInRange,
     updateReservationStatus,
+    getCancellationReasons,
+    cancelReservation,
     getAircrafts,
     updateReservationNotes,
     checkReservationOverlap,
