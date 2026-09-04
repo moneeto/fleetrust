@@ -69,6 +69,22 @@ export default function Sidebar({ open, onClose }) {
                                     QR scan
                                 </Link>
 
+                                <Link
+                                    href="/tours/reviews"
+                                    className={pathname === "/tours/reviews" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Reviews
+                                </Link>
+
+                                <Link
+                                    href="/tours/social"
+                                    className={pathname === "/tours/social" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Social media
+                                </Link>
+
                             </nav>
                         </div>
 
@@ -85,6 +101,20 @@ export default function Sidebar({ open, onClose }) {
                                     onClick={onClose}
                                 >
                                     Gallery
+                                </Link>
+                                <Link
+                                    href="/maintenance/reviews"
+                                    className={pathname === "/maintenance/reviews" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Reviews
+                                </Link>
+                                <Link
+                                    href="/maintenance/social"
+                                    className={pathname === "/maintenance/social" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Social media
                                 </Link>
                             </nav>
                         </div>

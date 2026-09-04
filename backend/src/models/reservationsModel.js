@@ -133,7 +133,7 @@ async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) 
             qParams.push(filters.idRoute);
         }
 
-        query += ` ORDER BY a.startDate ASC`;
+        query += ` ORDER BY a.startDate DESC, a.idReservation DESC`;
 
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);

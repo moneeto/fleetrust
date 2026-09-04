@@ -9,6 +9,7 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
         credentials: "include",
         method: method,
         mode: 'cors',
+        cache: 'no-store',
         headers: isFormData ? {} : {
             'Content-Type': 'application/json;charset=utf-8'
         }

@@ -1,0 +1,224 @@
+.page {
+    padding: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.toolbar {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.toolbar p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.empty {
+    background: #fff;
+    border: 1px dashed #d1d5db;
+    border-radius: 0.5rem;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: #6b7280;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem 1.15rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.85rem;
+    align-items: start;
+}
+
+.reviewCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 1rem;
+    padding: 1.15rem 1.25rem;
+    box-shadow: 0 8px 22px rgba(15, 39, 68, 0.08);
+}
+
+.reviewCardTours {
+    background: #fff5f9;
+    border-color: #fc088b;
+    border-left-width: 6px;
+}
+
+.reviewCardAviation {
+    background: #f0f7fc;
+    border-color: #005caa;
+    border-left-width: 6px;
+}
+
+.reviewCardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.reviewBrand {
+    margin: 0 0 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.reviewCardTours .reviewBrand {
+    color: #fc088b;
+}
+
+.reviewCardAviation .reviewBrand {
+    color: #005caa;
+}
+
+.reviewCardName {
+    margin: 0;
+    font-weight: 800;
+    color: #0f2744;
+}
+
+.avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    object-fit: cover;
+    background: #e5e7eb;
+}
+
+.stars {
+    color: #fbbc04;
+    letter-spacing: 0.05em;
+    font-size: 0.9rem;
+}
+
+.meta {
+    color: #6b7280;
+    font-size: 0.8rem;
+    margin: 0.15rem 0 0.4rem;
+}
+
+.excerpt {
+    margin: 0;
+    color: #374151;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: stretch;
+}
+
+.formRow {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 16rem;
+}
+
+.permalink {
+    margin: 0.35rem 0 0;
+    word-break: break-all;
+    font-size: 0.8rem;
+}
+
+.socialGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(328px, 1fr));
+    gap: 1rem;
+}
+
+.socialCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.socialCardHidden {
+    opacity: 0.55;
+}
+
+.socialEmbed {
+    width: 100%;
+    min-height: 520px;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #f3f4f6;
+    overflow: hidden;
+}
+
+.reviewEmbed {
+    width: 100%;
+    min-height: 360px;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #f3f4f6;
+}
+
+.socialMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.socialActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.hiddenBadge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+}
+
+@media (max-width: 768px) {
+    .card {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+}

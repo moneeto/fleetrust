@@ -316,10 +316,6 @@ export default function BookDatesPage() {
                             {((bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 4)) && (
                                 <div className={styles.scheduleStack}>
                                     <div className={styles.settingsPanel}>
-                                        {bookingType === 'me' ? (
-                                            <Label className="fw-bold small text-uppercase text-muted mb-3 d-block">Settings</Label>
-                                        ) : null}
-
                                         <FormGroup className="mb-3">
                                             <Label className="small fw-bold" for="selectAircraft">
                                                 Select Aircraft {customLength ? '(*)' : ''}
