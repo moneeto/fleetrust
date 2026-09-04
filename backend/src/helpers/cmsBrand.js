@@ -1,3 +1,4 @@
+const DESTINOS = new Set(['TOURS', 'MAINTENANCE']);
 const BRANDS = new Set(['tours', 'aviation']);
 
 function parseBrand(value) {
@@ -8,14 +9,19 @@ function parseBrand(value) {
     return brand;
 }
 
-function placeIdForBrand(brand) {
-    if (brand === 'tours') {
-        return process.env.GOOGLE_PLACE_ID_TOURS;
+function parseTarget(value) {
+    const raw = String(value || '').trim().toUpperCase();
+    if (raw === 'TOURS' || raw === 'MAINTENANCE') {
+        return raw;
     }
-    return process.env.GOOGLE_PLACE_ID_AVIATION;
+    const brand = String(value || '').trim().toLowerCase();
+    if (brand === 'tours') return 'TOURS';
+    if (brand === 'aviation' || brand === 'maintenance') return 'MAINTENANCE';
+    throw 'Invalid target. Use TOURS or MAINTENANCE.';
 }
 
 module.exports = {
     parseBrand,
-    placeIdForBrand,
+    parseTarget,
+    DESTINOS,
 };

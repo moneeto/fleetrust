@@ -50,6 +50,58 @@
     align-items: start;
 }
 
+.reviewCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 1rem;
+    padding: 1.15rem 1.25rem;
+    box-shadow: 0 8px 22px rgba(15, 39, 68, 0.08);
+}
+
+.reviewCardTours {
+    background: #fff5f9;
+    border-color: #fc088b;
+    border-left-width: 6px;
+}
+
+.reviewCardAviation {
+    background: #f0f7fc;
+    border-color: #005caa;
+    border-left-width: 6px;
+}
+
+.reviewCardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.reviewBrand {
+    margin: 0 0 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.reviewCardTours .reviewBrand {
+    color: #fc088b;
+}
+
+.reviewCardAviation .reviewBrand {
+    color: #005caa;
+}
+
+.reviewCardName {
+    margin: 0;
+    font-weight: 800;
+    color: #0f2744;
+}
+
 .avatar {
     width: 2.5rem;
     height: 2.5rem;
@@ -124,6 +176,14 @@
     border-radius: 0.5rem;
     background: #f3f4f6;
     overflow: hidden;
+}
+
+.reviewEmbed {
+    width: 100%;
+    min-height: 360px;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #f3f4f6;
 }
 
 .socialMeta {

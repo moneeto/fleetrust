@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../helpers/conexion-mysql.js');
 const db = require('../models/cmsModel.js');
-const { parseBrand } = require('../helpers/cmsBrand.js');
+const { parseBrand, parseTarget } = require('../helpers/cmsBrand.js');
 const { embedUrl } = require('../helpers/instagramPermalink.js');
 
 function withPool(handler) {
@@ -19,6 +19,7 @@ function withPool(handler) {
                 response = { ...result, success: true };
             } catch (e) {
                 const message = typeof e === 'string' ? e : (e.message || 'Request failed');
+                console.error('[publicCms]', message);
                 status = 400;
                 response = { message, success: false };
             } finally {
@@ -32,10 +33,9 @@ function withPool(handler) {
 }
 
 router.get('/reviews', withPool(async (req, conn) => {
-    const brand = parseBrand(req.query.brand);
-    const reviews = await db.listVisibleReviews(conn, brand);
-    const meta = await db.getPlaceMeta(conn, brand);
-    return { reviews, meta };
+    const target = parseTarget(req.query.target);
+    const reviews = await db.listReviews(conn, target);
+    return { reviews };
 }));
 
 router.get('/instagram', withPool(async (req, conn) => {

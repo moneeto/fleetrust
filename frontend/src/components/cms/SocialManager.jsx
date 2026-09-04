@@ -103,7 +103,7 @@ export default function SocialManager({ brand }) {
     return (
         <div className={styles.page}>
             <form className={styles.toolbar} onSubmit={addPost}>
-                <p>Paste an Instagram post or reel URL. Shown posts appear on the landing in this order.</p>
+                <p>Paste an Instagram post or reel URL.</p>
                 <div className={styles.formRow}>
                     <Input
                         value={url}

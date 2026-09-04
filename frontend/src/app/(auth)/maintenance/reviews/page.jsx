@@ -3,5 +3,5 @@
 import ReviewsManager from "@/components/cms/ReviewsManager";
 
 export default function MaintenanceReviewsPage() {
-    return <ReviewsManager brand="aviation" />;
+    return <ReviewsManager target="MAINTENANCE" />;
 }

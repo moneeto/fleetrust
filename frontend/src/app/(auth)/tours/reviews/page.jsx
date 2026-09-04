@@ -3,5 +3,5 @@
 import ReviewsManager from "@/components/cms/ReviewsManager";
 
 export default function ToursReviewsPage() {
-    return <ReviewsManager brand="tours" />;
+    return <ReviewsManager target="TOURS" />;
 }
