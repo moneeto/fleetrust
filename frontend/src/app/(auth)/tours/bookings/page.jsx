@@ -61,7 +61,9 @@ function BookingsContent() {
     const [debouncedClient, setDebouncedClient] = useState("");
     const [idAircraftFilter, setIdAircraftFilter] = useState("");
     const [idRouteFilter, setIdRouteFilter] = useState("");
+    const [idPilotFilter, setIdPilotFilter] = useState("");
     const [aircrafts, setAircrafts] = useState([]);
+    const [pilots, setPilots] = useState([]);
     const [routes, setRoutes] = useState([]);
     const [reservations, setReservations] = useState([]);
     const [listLoading, setListLoading] = useState(true);
@@ -105,9 +107,10 @@ function BookingsContent() {
         if (filterClient) count += 1;
         if (effectiveIdAircraft) count += 1;
         if (idRouteFilter) count += 1;
+        if (idPilotFilter) count += 1;
         if (effectiveView !== "day") count += 1;
         return count;
-    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, effectiveView]);
+    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -187,15 +190,17 @@ function BookingsContent() {
         let cancelled = false;
         (async () => {
             try {
-                const [rRoutes, rAc, rReasons] = await Promise.all([
+                const [rRoutes, rAc, rReasons, rPilots] = await Promise.all([
                     ApiComunicator(`/routes/getRoutes`, "GET"),
                     ApiComunicator(`/aircrafts`, "GET"),
                     ApiComunicator(`/reservations/cancellationReasons`, "GET"),
+                    ApiComunicator(`/pilots`, "GET"),
                 ]);
                 if (cancelled) return;
                 setRoutes(rRoutes.routes || []);
                 setAircrafts(rAc.aircrafts || []);
                 setCancellationReasons(rReasons.cancellationReasons);
+                setPilots(rPilots.pilots);
             } catch {
                 if (!cancelled) {
                     setRoutes([]);
@@ -354,6 +359,7 @@ function BookingsContent() {
                 q.set("idAircraft", String(effectiveIdAircraft));
             }
             if (idRouteFilter && idRouteFilter !== "all") q.set("idRoute", idRouteFilter);
+            if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
 
             const res = await ApiComunicator(
                 `/reservations/reservationsByDate?${q.toString()}`
@@ -383,6 +389,7 @@ function BookingsContent() {
         debouncedClient,
         effectiveIdAircraft,
         idRouteFilter,
+        idPilotFilter,
         searchParams.toString(),
     ]);
 
@@ -419,13 +426,14 @@ function BookingsContent() {
                 endDate: editFormData.endDate,
                 idRoute: editFormData.idRoute,
                 idExperience: editFormData.idExperience,
-                idAircraft: editFormData.idAircraft
+                idAircraft: editFormData.idAircraft,
+                idPilot: editFormData.idPilot
             };
 
             const response = await ApiComunicator(`/reservations/updateReservation`, "POST", updateData);
 
             if (response.success) {
-                setReservation(editFormData);
+                await getReservationById(editFormData.idReservation);
                 setIsEditMode(false);
                 toast({
                     variant: "default",
@@ -546,6 +554,7 @@ function BookingsContent() {
         setFilterClient("");
         setIdAircraftFilter("");
         setIdRouteFilter("");
+        setIdPilotFilter("");
         if (searchParams.toString()) {
             router.replace(pathname, { scroll: false });
         }
@@ -698,6 +707,24 @@ function BookingsContent() {
                     {routes.map((rt) => (
                         <option key={rt.idRoute} value={rt.idRoute}>
                             {rt.title || rt.code}
+                        </option>
+                    ))}
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}idPilotFilter`}>Pilot</Label>
+                <Input
+                    id={`${idPrefix}idPilotFilter`}
+                    type="select"
+                    value={idPilotFilter || "all"}
+                    onChange={(e) =>
+                        setIdPilotFilter(e.target.value === "all" ? "" : e.target.value)
+                    }
+                >
+                    <option value="all">All pilots</option>
+                    {pilots.map((p) => (
+                        <option key={p.idPilot} value={p.idPilot}>
+                            {p.pilotName}
                         </option>
                     ))}
                 </Input>
@@ -1076,9 +1103,13 @@ function BookingsContent() {
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
                                             <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
                                         </div>
-                                        <div style={{ flex: '1 1 100%' }}>
+                                        <div style={{ flex: '1 1 40%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
                                             <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Pilot</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation.pilotName ? reservation.pilotName : "-"}</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
@@ -1231,6 +1262,28 @@ function BookingsContent() {
                                                 }}
                                             />
                                         </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Pilot</label>
+                                            <select
+                                                value={editFormData.idPilot ? editFormData.idPilot : ""}
+                                                onChange={(e) => handleEditChange('idPilot', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            >
+                                                <option value="">Select a pilot</option>
+                                                {pilots.map((p) => (
+                                                    <option key={p.idPilot} value={p.idPilot}>
+                                                        {p.pilotName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <div style={{ flex: '1 1 100%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
                                             <textarea
@@ -1269,7 +1322,9 @@ function BookingsContent() {
                         {reservation.addons.map((addon) => (
                             <div key={addon.idAddon} style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
                                 <span>{addon.addon} x{addon.quantity}</span>
-                                <span style={{ marginLeft: '16px' }}>${addon.price * addon.quantity}</span>
+                                <span style={{ marginLeft: '16px' }}>
+                                    {Number(addon.price) === 0 ? 'Included' : `$${addon.price * addon.quantity}`}
+                                </span>
                             </div>
                         ))}
                         <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#111', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>

@@ -520,6 +520,9 @@ async function getReservationsByDate(req, res) {
             if (req.query.idRoute != null && String(req.query.idRoute).trim() !== '' && req.query.idRoute !== 'all') {
                 filters.idRoute = req.query.idRoute;
             }
+            if (req.query.idPilot != null && String(req.query.idPilot).trim() !== '' && req.query.idPilot !== 'all') {
+                filters.idPilot = req.query.idPilot;
+            }
 
             const reservations = await db.getReservationsByDateRange(conn, dateFrom, dateTo, filters)
 
@@ -645,7 +648,7 @@ async function updateReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft } = req.body;
+            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft, idPilot } = req.body;
 
             if (!idReservation) {
                 throw 'Missing reservation ID.'
@@ -670,7 +673,8 @@ async function updateReservation(req, res) {
                 endDate,
                 idRoute,
                 idExperience,
-                idAircraft
+                idAircraft,
+                idPilot: idPilot ? idPilot : null
             })
 
             response = { success: true, message: 'Reservation updated successfully' }

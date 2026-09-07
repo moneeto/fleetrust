@@ -3,6 +3,7 @@ async function getAddons(conn) {
         const query = `
         SELECT idAddon, addon, description, price, active
         FROM addons
+        ORDER BY addon ASC
         `;
         conn.query(query, [], (err, results) => {
             if (err) return reject(err);

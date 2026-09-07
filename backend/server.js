@@ -44,8 +44,8 @@ app.use(
 );
 
 app.use(logger('dev'));
-app.use(bodyParser.json({ limit: process.env.API_LIMIT }));
-app.use(bodyParser.urlencoded({ limit: process.env.API_LIMIT, extended: false }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: false }));
 app.use(cookieParser());
 
 //Rutas
@@ -55,7 +55,9 @@ const aircrafts = require('./src/routes/aircrafts.js');
 const routes = require('./src/routes/routes.js');
 const experiences = require('./src/routes/experiences.js');
 const gallery = require('./src/routes/gallery.js');
+const toursGallery = require('./src/routes/toursGallery.js');
 const addons = require('./src/routes/addons.js');
+const pilots = require('./src/routes/pilots.js');
 
 app.use('/auth', auth);
 app.use('/reservations', reservations);
@@ -63,7 +65,9 @@ app.use('/aircrafts', aircrafts);
 app.use('/routes', routes);
 app.use('/experiences', experiences);
 app.use('/gallery', gallery);
+app.use('/toursGallery', toursGallery);
 app.use('/addons', addons);
+app.use('/pilots', pilots);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {

@@ -8,6 +8,8 @@ const titleMap = {
   "/tours/bookings": "Bookings",
   "/tours/aircrafts": "Aircrafts",
   "/tours/addons": "Addons",
+  "/tours/pilots": "Pilots",
+  "/tours/gallery": "Gallery",
   "/users": "Users",
   "/tours/qr-scan": "QR Scan",
   "/maintenance/gallery": "Gallery",

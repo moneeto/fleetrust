@@ -67,7 +67,7 @@ export default function AddonList() {
         try {
             setLoading(true)
             await ApiComunicator(`/addons/edit`, "POST", { idAddon: id, ...selectedAddon });
-            setAddons(prev => prev.map(addon => addon.idAddon === id ? { ...addon, ...selectedAddon } : addon));
+            await fetchAddons();
             setSelectedAddon(null);
         } catch (error) {
             let message = "An error occurred while editing addon's information. Please try again.";
