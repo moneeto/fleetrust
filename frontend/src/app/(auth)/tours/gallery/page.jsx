@@ -95,9 +95,6 @@ export default function ToursGalleryPage() {
             <div className={styles.uploadCard}>
                 <div>
                     <h6 className="mb-1">Upload images</h6>
-                    <p className="mb-0 text-muted small">
-                        Images are automatically converted to WebP for better performance.
-                    </p>
                 </div>
                 <div>
                     <input

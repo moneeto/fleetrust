@@ -110,6 +110,7 @@ async function listImages(req, res) {
         response = { images, success: true };
         status = 200;
     } catch (e) {
+        console.log(e)
         let message = 'Error listing gallery images.';
         if (typeof e === 'string') { message = e; }
         status = 400;

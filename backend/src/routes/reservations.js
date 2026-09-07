@@ -207,7 +207,8 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
             console.log(req.body);
-            let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft } = req.body;
+            let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
+            idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
 
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
@@ -296,7 +297,8 @@ async function createReservation(req, res) {
                 deposit,
                 remainingBalance,
                 reservationExpiration,
-                idAircraft: idAircraft
+                idAircraft: idAircraft,
+                idPilot
             })
             // NOTE: reservation holder update and passenger insertion are handled
             // by the /confirmBooking endpoint to allow creating a draft reservation
@@ -747,7 +749,8 @@ async function createReservationRange(req, res) {
         try {
             if (errConn) throw errConn;
             connSuccess = true;
-            let { startDate, endDate, idAircraft, notes } = req.body;
+            let { startDate, endDate, idAircraft, notes, idPilot } = req.body;
+            idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
             if (!startDate || !endDate) {
                 throw 'Missing required fields';
             }
@@ -779,6 +782,7 @@ async function createReservationRange(req, res) {
                 remainingBalance: 0,
                 reservationExpiration: null,
                 idAircraft,
+                idPilot,
                 notes
             });
             response = { success: true, id: insertResult.insertId };

@@ -25,8 +25,8 @@ async function createReservation(conn, params) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO reservations (passengers, startDate, endDate,
-         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft, idPilot)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
             params.passengerCount,
@@ -39,7 +39,8 @@ async function createReservation(conn, params) {
             params.deposit,
             params.remainingBalance,
             params.reservationExpiration,
-            params.idAircraft
+            params.idAircraft,
+            params.idPilot || null
         ];
 
         conn.query(query, qParams, (err, results) => {
