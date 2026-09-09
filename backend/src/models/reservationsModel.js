@@ -61,6 +61,7 @@ async function getAvailableHours(conn, p) {
                 ON TIMESTAMP(?, a.hour) >= r.startDate
             AND TIMESTAMP(?, a.hour) <  r.endDate
             AND r.idStatus NOT IN (4, 5)
+            WHERE a.active = 1
 
         `;
         let qParams = [p.date, p.date]

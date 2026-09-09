@@ -78,6 +78,14 @@ export default function Sidebar({ open, onClose }) {
                                 </Link>
 
                                 <Link
+                                    href="/tours/hours"
+                                    className={pathname === "/tours/hours" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Hours
+                                </Link>
+
+                                <Link
                                     href="/tours/gallery"
                                     className={pathname === "/tours/gallery" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
