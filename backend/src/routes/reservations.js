@@ -30,6 +30,7 @@ router.post('/updateReservation', withAuth, updateReservation);
 router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
+router.get('/cancellationReasons', withAuth, getCancellationReasons);
 router.post('/validateQrConfirmation', withAuth, validateQrConfirmation);
 router.post('/qrBoardingPassPdf', withAuth, qrBoardingPassPdf);
 router.post('/completeQrValidation', withAuth, completeQrValidation);
@@ -206,7 +207,8 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
             console.log(req.body);
-            let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft } = req.body;
+            let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
+            idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
 
             if (!reservationDate || !reservationTime) {
                 throw 'Missing required fields'
@@ -295,7 +297,8 @@ async function createReservation(req, res) {
                 deposit,
                 remainingBalance,
                 reservationExpiration,
-                idAircraft: idAircraft
+                idAircraft: idAircraft,
+                idPilot
             })
             // NOTE: reservation holder update and passenger insertion are handled
             // by the /confirmBooking endpoint to allow creating a draft reservation
@@ -519,6 +522,9 @@ async function getReservationsByDate(req, res) {
             if (req.query.idRoute != null && String(req.query.idRoute).trim() !== '' && req.query.idRoute !== 'all') {
                 filters.idRoute = req.query.idRoute;
             }
+            if (req.query.idPilot != null && String(req.query.idPilot).trim() !== '' && req.query.idPilot !== 'all') {
+                filters.idPilot = req.query.idPilot;
+            }
 
             const reservations = await db.getReservationsByDateRange(conn, dateFrom, dateTo, filters)
 
@@ -610,8 +616,10 @@ async function getReservationById(req, res) {
             const [reservation] = await db.getReservationById(conn, id)
 
             const passengers = await db.getPassengersByReservationId(conn, id);
+            const addons = await db.getReservationAddons(conn, id);
 
             reservation.passengers = passengers;
+            reservation.addons = addons;
 
             response = reservation
 
@@ -642,7 +650,7 @@ async function updateReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft } = req.body;
+            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft, idPilot } = req.body;
 
             if (!idReservation) {
                 throw 'Missing reservation ID.'
@@ -667,7 +675,8 @@ async function updateReservation(req, res) {
                 endDate,
                 idRoute,
                 idExperience,
-                idAircraft
+                idAircraft,
+                idPilot: idPilot ? idPilot : null
             })
 
             response = { success: true, message: 'Reservation updated successfully' }
@@ -740,7 +749,8 @@ async function createReservationRange(req, res) {
         try {
             if (errConn) throw errConn;
             connSuccess = true;
-            let { startDate, endDate, idAircraft, notes } = req.body;
+            let { startDate, endDate, idAircraft, notes, idPilot } = req.body;
+            idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
             if (!startDate || !endDate) {
                 throw 'Missing required fields';
             }
@@ -772,6 +782,7 @@ async function createReservationRange(req, res) {
                 remainingBalance: 0,
                 reservationExpiration: null,
                 idAircraft,
+                idPilot,
                 notes
             });
             response = { success: true, id: insertResult.insertId };
@@ -794,6 +805,32 @@ async function createReservationRange(req, res) {
 }
 
 
+async function getCancellationReasons(req, res) {
+    poolTours.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            const cancellationReasons = await db.getCancellationReasons(conn);
+
+            response = { cancellationReasons };
+            status = 200;
+        } catch (e) {
+            let message = "An error has occurred while getting the cancellation reasons.";
+            if (typeof e == "string") { message = e }
+            status = 400;
+            response = { message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
 async function deleteReservation(req, res) {
     poolTours.getConnection(async (errConn, conn) => {
         let response = {};
@@ -808,28 +845,37 @@ async function deleteReservation(req, res) {
                 throw "Not authorized."
             }
 
-            let { idReservation } = req.body;
+            let { idReservation, idCancellationReason, cancellationDetail } = req.body;
 
-            idReservation = idReservation != null && idReservation != "" ? idReservation : null
-
-            if (!idReservation) {
-                throw 'Missing reservation ID.';
+            if (!idReservation || !idCancellationReason) {
+                throw 'Missing required fields'
             }
 
-            // // Delete addons associated with the reservation
-            // await db.deleteReservationAddons(conn, idReservation);
+            const reasons = await db.getCancellationReasons(conn)
+            const selectedReason = reasons.find(r => r.idCancellationReason == idCancellationReason)
 
-            // // Delete passengers associated with the reservation
-            // await db.deleteReservationPassengers(conn, idReservation);
+            if (!selectedReason) {
+                throw 'Invalid cancellation reason'
+            }
 
-            // // Delete the reservation itself
-            // await db.deleteReservation(conn, idReservation);
+            let detail = null
+            if (selectedReason.cancellationReason.toUpperCase() === 'OTHER') {
+                if (!cancellationDetail) {
+                    throw 'Missing required fields'
+                }
+                detail = cancellationDetail
+            }
 
-            await db.updateReservationStatus(conn, {idStatus: 4, idReservation: idReservation })
+            await db.cancelReservation(conn, {
+                idReservation,
+                idCancellationReason,
+                cancellationDetail: detail
+            })
 
             response = { success: true, message: 'Reservation deleted successfully' };
             status = 200;
         } catch (e) {
+            console.log(e);
             let message = 'An error occurred while deleting the reservation.';
             if (typeof e === 'string') message = e;
             status = 400;

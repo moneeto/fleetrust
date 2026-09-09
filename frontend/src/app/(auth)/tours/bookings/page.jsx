@@ -61,7 +61,9 @@ function BookingsContent() {
     const [debouncedClient, setDebouncedClient] = useState("");
     const [idAircraftFilter, setIdAircraftFilter] = useState("");
     const [idRouteFilter, setIdRouteFilter] = useState("");
+    const [idPilotFilter, setIdPilotFilter] = useState("");
     const [aircrafts, setAircrafts] = useState([]);
+    const [pilots, setPilots] = useState([]);
     const [routes, setRoutes] = useState([]);
     const [reservations, setReservations] = useState([]);
     const [listLoading, setListLoading] = useState(true);
@@ -79,6 +81,9 @@ function BookingsContent() {
     const [editFormData, setEditFormData] = useState(null);
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
+    const [cancellationReasons, setCancellationReasons] = useState([]);
+    const [selectedCancellationReason, setSelectedCancellationReason] = useState(null);
+    const [cancellationDetail, setCancellationDetail] = useState("");
     const [filtersOpen, setFiltersOpen] = useState(false);
     const isMobile = useIsMobile();
 
@@ -102,9 +107,10 @@ function BookingsContent() {
         if (filterClient) count += 1;
         if (effectiveIdAircraft) count += 1;
         if (idRouteFilter) count += 1;
+        if (idPilotFilter) count += 1;
         if (effectiveView !== "day") count += 1;
         return count;
-    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, effectiveView]);
+    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -184,13 +190,17 @@ function BookingsContent() {
         let cancelled = false;
         (async () => {
             try {
-                const [rRoutes, rAc] = await Promise.all([
+                const [rRoutes, rAc, rReasons, rPilots] = await Promise.all([
                     ApiComunicator(`/routes/getRoutes`, "GET"),
                     ApiComunicator(`/aircrafts`, "GET"),
+                    ApiComunicator(`/reservations/cancellationReasons`, "GET"),
+                    ApiComunicator(`/pilots`, "GET"),
                 ]);
                 if (cancelled) return;
                 setRoutes(rRoutes.routes || []);
                 setAircrafts(rAc.aircrafts || []);
+                setCancellationReasons(rReasons.cancellationReasons);
+                setPilots(rPilots.pilots);
             } catch {
                 if (!cancelled) {
                     setRoutes([]);
@@ -349,6 +359,7 @@ function BookingsContent() {
                 q.set("idAircraft", String(effectiveIdAircraft));
             }
             if (idRouteFilter && idRouteFilter !== "all") q.set("idRoute", idRouteFilter);
+            if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
 
             const res = await ApiComunicator(
                 `/reservations/reservationsByDate?${q.toString()}`
@@ -378,6 +389,7 @@ function BookingsContent() {
         debouncedClient,
         effectiveIdAircraft,
         idRouteFilter,
+        idPilotFilter,
         searchParams.toString(),
     ]);
 
@@ -414,13 +426,14 @@ function BookingsContent() {
                 endDate: editFormData.endDate,
                 idRoute: editFormData.idRoute,
                 idExperience: editFormData.idExperience,
-                idAircraft: editFormData.idAircraft
+                idAircraft: editFormData.idAircraft,
+                idPilot: editFormData.idPilot
             };
 
             const response = await ApiComunicator(`/reservations/updateReservation`, "POST", updateData);
 
             if (response.success) {
-                setReservation(editFormData);
+                await getReservationById(editFormData.idReservation);
                 setIsEditMode(false);
                 toast({
                     variant: "default",
@@ -456,6 +469,8 @@ function BookingsContent() {
     }
 
     const cancel = () => {
+        setSelectedCancellationReason(null);
+        setCancellationDetail("");
         setDeleteConfirmModal({ show: true, idReservation: reservation?.idReservation });
     }
 
@@ -463,11 +478,15 @@ function BookingsContent() {
         try {
             setLoading(true);
             const response = await ApiComunicator(`/reservations/deleteReservation`, "POST", {
-                idReservation: deleteConfirmModal.idReservation
+                idReservation: deleteConfirmModal.idReservation,
+                idCancellationReason: selectedCancellationReason.idCancellationReason,
+                cancellationDetail: selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' ? cancellationDetail : null
             });
 
             if (response.success) {
                 setDeleteConfirmModal({ show: false, idReservation: null });
+                setSelectedCancellationReason(null);
+                setCancellationDetail("");
                 setModalDetail({ show: false, reservation: null });
                 setIsEditMode(false);
                 setEditFormData(null);
@@ -535,6 +554,7 @@ function BookingsContent() {
         setFilterClient("");
         setIdAircraftFilter("");
         setIdRouteFilter("");
+        setIdPilotFilter("");
         if (searchParams.toString()) {
             router.replace(pathname, { scroll: false });
         }
@@ -691,6 +711,24 @@ function BookingsContent() {
                     ))}
                 </Input>
             </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}idPilotFilter`}>Pilot</Label>
+                <Input
+                    id={`${idPrefix}idPilotFilter`}
+                    type="select"
+                    value={idPilotFilter || "all"}
+                    onChange={(e) =>
+                        setIdPilotFilter(e.target.value === "all" ? "" : e.target.value)
+                    }
+                >
+                    <option value="all">All pilots</option>
+                    {pilots.map((p) => (
+                        <option key={p.idPilot} value={p.idPilot}>
+                            {p.pilotName}
+                        </option>
+                    ))}
+                </Input>
+            </FormGroup>
         </>
     );
 
@@ -706,6 +744,13 @@ function BookingsContent() {
 
     if (!hasFetchedOnce && listLoading) {
         return <Spinner />;
+    }
+
+    let addonsTotal = 0;
+    if (reservation) {
+        for (let i = 0; i < reservation.addons.length; i++) {
+            addonsTotal += reservation.addons[i].price * reservation.addons[i].quantity;
+        }
     }
 
     return (
@@ -1058,9 +1103,13 @@ function BookingsContent() {
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
                                             <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
                                         </div>
-                                        <div style={{ flex: '1 1 100%' }}>
+                                        <div style={{ flex: '1 1 40%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
                                             <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
+                                        </div>
+                                        <div style={{ flex: '1 1 40%' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Pilot</label>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation.pilotName ? reservation.pilotName : "-"}</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
@@ -1213,6 +1262,28 @@ function BookingsContent() {
                                                 }}
                                             />
                                         </div>
+                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Pilot</label>
+                                            <select
+                                                value={editFormData.idPilot ? editFormData.idPilot : ""}
+                                                onChange={(e) => handleEditChange('idPilot', e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            >
+                                                <option value="">Select a pilot</option>
+                                                {pilots.map((p) => (
+                                                    <option key={p.idPilot} value={p.idPilot}>
+                                                        {p.pilotName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <div style={{ flex: '1 1 100%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
                                             <textarea
@@ -1241,6 +1312,27 @@ function BookingsContent() {
                         </div>
                     )}
                 </ModalBody>
+
+                {reservation && (
+                    <ModalFooter style={{ backgroundColor: '#fff', display: 'block', textAlign: 'right' }}>
+                        <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
+                            <span>{reservation.experience ? reservation.experience : reservation.route}</span>
+                            <span style={{ marginLeft: '16px' }}>${reservation.totalValue - addonsTotal}</span>
+                        </div>
+                        {reservation.addons.map((addon) => (
+                            <div key={addon.idAddon} style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
+                                <span>{addon.addon} x{addon.quantity}</span>
+                                <span style={{ marginLeft: '16px' }}>
+                                    {Number(addon.price) === 0 ? 'Included' : `$${addon.price * addon.quantity}`}
+                                </span>
+                            </div>
+                        ))}
+                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#111', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+                            <span>Total</span>
+                            <span style={{ marginLeft: '16px' }}>${reservation.totalValue}</span>
+                        </div>
+                    </ModalFooter>
+                )}
 
                 <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
                     {!isEditMode ? (
@@ -1327,7 +1419,11 @@ function BookingsContent() {
             {/* Delete Confirmation Modal */}
             <Modal isOpen={deleteConfirmModal.show} centered>
                 <ModalHeader
-                    toggle={() => setDeleteConfirmModal({ show: false, idReservation: null })}
+                    toggle={() => {
+                        setDeleteConfirmModal({ show: false, idReservation: null });
+                        setSelectedCancellationReason(null);
+                        setCancellationDetail("");
+                    }}
                     style={{ backgroundColor: '#721c24', color: 'white' }}
                 >
                     <span style={{ color: 'white' }}>Confirm Deletion</span>
@@ -1335,13 +1431,44 @@ function BookingsContent() {
                 <ModalBody>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                         <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
-                        <div>
+                        <div style={{ flex: 1 }}>
                             <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
                                 Are you sure you want to cancel this reservation?
                             </p>
-                            <p style={{ marginBottom: '0', color: '#666', fontSize: '13px' }}>
+                            <p style={{ marginBottom: '16px', color: '#666', fontSize: '13px' }}>
                                 This action will cancel the reservation and make the slot available again.
                             </p>
+                            <FormGroup>
+                                <Label for="cancellationReason">Cancellation reason</Label>
+                                <Input
+                                    id="cancellationReason"
+                                    type="select"
+                                    value={selectedCancellationReason ? selectedCancellationReason.idCancellationReason : ""}
+                                    onChange={(e) => {
+                                        const selected = cancellationReasons.find(r => r.idCancellationReason == e.target.value);
+                                        setSelectedCancellationReason(selected);
+                                        setCancellationDetail("");
+                                    }}
+                                >
+                                    <option value="">Select a reason</option>
+                                    {cancellationReasons.map((r) => (
+                                        <option key={r.idCancellationReason} value={r.idCancellationReason}>
+                                            {r.cancellationReason}
+                                        </option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            {selectedCancellationReason && selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' && (
+                                <FormGroup>
+                                    <Label for="cancellationDetail">Detail</Label>
+                                    <Input
+                                        id="cancellationDetail"
+                                        type="textarea"
+                                        value={cancellationDetail}
+                                        onChange={(e) => setCancellationDetail(e.target.value)}
+                                    />
+                                </FormGroup>
+                            )}
                         </div>
                     </div>
                 </ModalBody>
@@ -1350,7 +1477,11 @@ function BookingsContent() {
                         style={{ fontSize: '13px', fontWeight: '600' }}
                         color="secondary"
                         outline
-                        onClick={() => setDeleteConfirmModal({ show: false, idReservation: null })}
+                        onClick={() => {
+                            setDeleteConfirmModal({ show: false, idReservation: null });
+                            setSelectedCancellationReason(null);
+                            setCancellationDetail("");
+                        }}
                         disabled={loading}
                     >
                         Cancel
@@ -1359,7 +1490,11 @@ function BookingsContent() {
                         style={{ fontSize: '13px', fontWeight: '600' }}
                         color="danger"
                         onClick={confirmDelete}
-                        disabled={loading}
+                        disabled={
+                            loading ||
+                            !selectedCancellationReason ||
+                            (selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' && !cancellationDetail)
+                        }
                     >
                         {loading ? 'Canceling...' : 'Cancel Reservation'}
                     </Button>

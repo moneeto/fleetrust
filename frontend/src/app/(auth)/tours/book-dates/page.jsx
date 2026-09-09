@@ -39,7 +39,9 @@ export default function BookDatesPage() {
         firstName: '', lastName: '', email: '', phone: ''
     });
     const [aircrafts, setAircrafts] = useState([]);
+    const [pilots, setPilots] = useState([]);
     const [idAircraft, setIdAircraft] = useState("all");
+    const [idPilot, setIdPilot] = useState("");
     const [reservationId, setReservationId] = useState(null);
     const [customLength, setCustomLength] = useState(false);
     const [dateRange, setDateRange] = useState({ from: null, to: null });
@@ -55,6 +57,7 @@ export default function BookDatesPage() {
 
     useEffect(() => {
         getAircrafts();
+        getPilots();
         getRoutes();
         getExperiences();
     }, []);
@@ -80,6 +83,13 @@ export default function BookDatesPage() {
         } catch (err) { console.error(err); }
     };
 
+    const getPilots = async () => {
+        try {
+            const res = await ApiComunicator(`/pilots`, 'GET');
+            setPilots(res.pilots || []);
+        } catch (err) { console.error(err); }
+    };
+
     const resetPilotFlow = () => {
         setCustomLength(false);
         setDateRange({ from: null, to: null });
@@ -87,6 +97,7 @@ export default function BookDatesPage() {
         setDate('');
         setTime('');
         setIdAircraft("all");
+        setIdPilot("");
     };
 
     const resetOfferSelection = () => {
@@ -131,6 +142,7 @@ export default function BookDatesPage() {
                 notes,
                 reservationHolder: {},
                 idAircraft,
+                idPilot: idPilot || null,
             };
 
             if (bookingType === 'me') {
@@ -179,7 +191,7 @@ export default function BookDatesPage() {
             const res = await ApiComunicator(`/reservations/createReservationRange`, 'POST', {
                 startDate: moment(dateRange.from).format('YYYY-MM-DD') + 'T' + timeRange.start + ':00',
                 endDate: moment(dateRange.to).format('YYYY-MM-DD') + 'T' + timeRange.end + ':00',
-                idAircraft, notes
+                idAircraft, idPilot: idPilot || null, notes
             });
             if (res.success) setShowSuccessModal(true);
         } catch (err) {
@@ -215,7 +227,7 @@ export default function BookDatesPage() {
     const nextDisabled =
         (bookingType === 'others' && step === 1 && !offerCategory) ||
         (bookingType === 'others' && step === 2 && !offerSelected) ||
-        (bookingType === 'others' && step === 4 && (!date || !time));
+        (bookingType === 'others' && step === 4 && (!date || !time || !idPilot));
 
     const renderOfferCard = (item, selected, onClick) => (
         <div key={item.code} className="col-12" onClick={onClick}>
@@ -342,6 +354,26 @@ export default function BookDatesPage() {
                                             </Input>
                                         </FormGroup>
 
+                                        <FormGroup className="mb-3">
+                                            <Label className="small fw-bold" for="selectPilot">
+                                                Select Pilot (*)
+                                            </Label>
+                                            <Input
+                                                id="selectPilot"
+                                                type="select"
+                                                className="form-select rounded-3"
+                                                value={idPilot}
+                                                onChange={(e) => setIdPilot(e.target.value)}
+                                            >
+                                                <option value="">Select a pilot</option>
+                                                {pilots.map((p) => (
+                                                    <option key={p.idPilot} value={p.idPilot}>
+                                                        {p.pilotName}
+                                                    </option>
+                                                ))}
+                                            </Input>
+                                        </FormGroup>
+
                                         {bookingType === 'me' && (
                                             <FormGroup check className="mb-0">
                                                 <Input
@@ -438,7 +470,7 @@ export default function BookDatesPage() {
                                         color="success"
                                         className="px-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
-                                        disabled={loading || (bookingType === 'others' && !isDetailsValid)}
+                                        disabled={loading || !idPilot || (bookingType === 'others' && !isDetailsValid)}
                                     >
                                         {loading ? 'Processing...' : 'Complete Booking'}
                                     </Button>
