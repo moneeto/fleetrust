@@ -9,14 +9,16 @@ import './SelectDateTime.css';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import { toZonedTime } from 'date-fns-tz';
 import useIsMobile from '@/hooks/useIsMobile';
+import { parseWeekdays } from '@/helpers/bookingConfig';
 
 
 const SUNSET_SLOT_TIME = '19:30';
 
-const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, experienceCode }) => {
+const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, experienceCode, routeCode, allowedWeekdays }) => {
   const TIMEZONE = 'America/New_York';
   const isMobile = useIsMobile();
-  const isSunsetExperience = String(experienceCode || '').toUpperCase() === 'SUN';
+  const weekdays = parseWeekdays(allowedWeekdays);
+  const isWeekdayAllowed = (dateObj) => weekdays.includes(dateObj.getDay());
 
   function getTodayInMiami() {
     const now = new Date();
@@ -51,6 +53,8 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
       }
       if (experienceCode) {
         url += `&experienceCode=${encodeURIComponent(experienceCode)}`;
+      } else if (routeCode) {
+        url += `&routeCode=${encodeURIComponent(routeCode)}`;
       }
 
       const data = await ApiComunicator(
@@ -76,7 +80,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
     if (selectedDate) {
       fetchAvailableHours(selectedDate);
     }
-  }, [date, idAircraft, experienceCode]);
+  }, [date, idAircraft, experienceCode, routeCode]);
 
   const noSlotsMessage = (
     <motion.div
@@ -106,6 +110,8 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
             min={minDateStr}
             value={date || ''}
             onChange={(e) => {
+              const next = parseLocalDate(e.target.value);
+              if (next && !isWeekdayAllowed(next)) return;
               onDateChange(e.target.value || '');
               if (time) onTimeChange('');
             }}
@@ -128,12 +134,6 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
               </option>
             ))}
           </select>
-
-          {isSunsetExperience && (
-            <p className="small text-muted mt-2 mb-0">
-              Sunset experience is only available at {SUNSET_SLOT_TIME} (Miami ET).
-            </p>
-          )}
 
           {selectedDate && !loading && timeSlots.length === 0 && noSlotsMessage}
         </div>
@@ -168,20 +168,19 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
           <DayPicker
             mode="single"
             selected={selectedDate}
-            onSelect={(d) =>
-              onDateChange(d ? formatLocalDate(d) : '')
-            }
+            onSelect={(d) => {
+              if (d && !isWeekdayAllowed(d)) return;
+              onDateChange(d ? formatLocalDate(d) : '');
+            }}
             className="custom-calendar"
-            disabled={{ before: initialDate }}
+            disabled={[
+              { before: initialDate },
+              (day) => !isWeekdayAllowed(day)
+            ]}
           />
         </div>
 
         <div className="time-wrapper">
-          {isSunsetExperience && (
-            <p className="small text-muted mb-2">
-              Sunset experience is only available at {SUNSET_SLOT_TIME} (Miami ET).
-            </p>
-          )}
           <div className="time-grid">
             {timeSlots && timeSlots?.length > 0 ? timeSlots?.map((slot) => (
               <motion.button

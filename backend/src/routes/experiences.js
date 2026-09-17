@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/experiencesModel.js');
+const bookingConfigDb = require('../models/bookingConfigModel.js');
 const { poolTours } = require('../helpers/conexion-mysql.js');
 const withAuth = require('../middleware/withAuth.js');
 
@@ -17,6 +18,7 @@ async function getExperiences(req, res) {
             connSuccess = true;
 
             const experiences = await db.getExperiences(conn);
+            await bookingConfigDb.attachExperienceBooking(conn, experiences);
             response = { success: true, experiences };
             status = 200;
         } catch (e) {

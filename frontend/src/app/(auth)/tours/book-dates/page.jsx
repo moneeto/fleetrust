@@ -15,6 +15,7 @@ import SelectBookingType from '@/components/booking/SelectBookingType';
 import SelectOfferCategory from '@/components/booking/SelectOfferCategory';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
+import { defaultPassengerCount } from '@/helpers/bookingConfig';
 
 export default function BookDatesPage() {
     const router = useRouter();
@@ -61,6 +62,14 @@ export default function BookDatesPage() {
         getRoutes();
         getExperiences();
     }, []);
+
+    useEffect(() => {
+        const product = offerCategory === 'experience'
+            ? experiences.find((e) => e.code === selectedExperience)
+            : routes.find((r) => r.code === selectedRoute);
+        if (!product) return;
+        setPassengers(defaultPassengerCount(product));
+    }, [selectedExperience, selectedRoute, offerCategory, experiences, routes]);
 
     const getRoutes = async () => {
         try {
@@ -221,6 +230,10 @@ export default function BookDatesPage() {
         (route) => route.visibleToClients !== 0 && route.visibleToClients !== false
     );
 
+    const selectedProduct = offerCategory === 'experience'
+        ? experiences.find((e) => e.code === selectedExperience)
+        : clientVisibleRoutes.find((r) => r.code === selectedRoute);
+
     const offerSelected =
         offerCategory === 'experience' ? !!selectedExperience : !!selectedRoute;
 
@@ -320,7 +333,11 @@ export default function BookDatesPage() {
                             {/* STEP 3 (Others): Pasajeros */}
                             {bookingType === 'others' && step === 3 && (
                                 <div className="text-center py-4">
-                                    <SelectPassengersNumber count={passengers} onCountChange={setPassengers} />
+                                    <SelectPassengersNumber
+                                        count={passengers}
+                                        onCountChange={setPassengers}
+                                        prices={selectedProduct?.prices}
+                                    />
                                 </div>
                             )}
 
@@ -413,6 +430,10 @@ export default function BookDatesPage() {
                                                 experienceCode={
                                                     offerCategory === 'experience' ? selectedExperience : null
                                                 }
+                                                routeCode={
+                                                    offerCategory === 'tour' ? selectedRoute : null
+                                                }
+                                                allowedWeekdays={selectedProduct?.allowedWeekdays}
                                             />
                                         )}
                                     </div>

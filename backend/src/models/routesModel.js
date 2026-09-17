@@ -1,6 +1,6 @@
 async function getRoutes(conn, p) {
     return new Promise((resolve, reject) => {
-        let query = ` SELECT idRoute, value2, value3, code, title, description, durationMinutes, duration, image, visibleToClients FROM routes WHERE 1=1 `
+        let query = ` SELECT idRoute, value2, value3, code, title, description, durationMinutes, duration, image, visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays FROM routes WHERE 1=1 `
         let params = []
 
         conn.query(query, params, (err, results) => {
