@@ -4,6 +4,13 @@ const crypto = require('crypto');
 const router = express.Router();
 const db = require('../models/reservationsModel.js')
 const dbAircrafts = require('../models/aircraftsModel.js')
+const bookingConfigDb = require('../models/bookingConfigModel.js')
+const {
+    weekdayOfDate,
+    formatHour,
+    findPriceForPassengers,
+    isStaffMeBooking
+} = require('../utils/bookingConfig')
 const { poolTours } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 const moment = require('moment');
@@ -30,6 +37,21 @@ router.post('/updateReservation', withAuth, updateReservation);
 router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
+
+async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode }) {
+    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode });
+    if ((experienceCode || routeCode) && !product) {
+        throw 'Invalid experience or route code';
+    }
+
+    if (product && !product.allowedWeekdays.includes(weekdayOfDate(date))) {
+        return [];
+    }
+
+    const occupancyHours = await db.getAvailableHours(conn, { date, idAircraft });
+    if (!product) return occupancyHours;
+    return bookingConfigDb.filterHoursForProduct(occupancyHours, product);
+}
 router.get('/cancellationReasons', withAuth, getCancellationReasons);
 router.post('/validateQrConfirmation', withAuth, validateQrConfirmation);
 router.post('/qrBoardingPassPdf', withAuth, qrBoardingPassPdf);
@@ -214,18 +236,17 @@ async function createReservation(req, res) {
                 throw 'Missing required fields'
             }
 
-            // Sunset experience (SUN) can only be booked at 19:30 (Miami ET)
-            if (String(experienceCode || '').trim().toUpperCase() === 'SUN' && reservationTime !== '19:30') {
-                throw 'Sunset experience can only be booked at 19:30.'
-            }
+            const paxCount = Number(passengerCount) || (Array.isArray(passengers) ? passengers.length : 0) || 2;
+            const staffMe = isStaffMeBooking({ experienceCode, routeCode, passengerCount: paxCount });
 
-            //Check if booking is available
             const availabilityParams = {
                 date: reservationDate,
                 idAircraft: idAircraft && idAircraft !== 'all' ? idAircraft : null,
+                experienceCode: staffMe ? '' : experienceCode,
+                routeCode: staffMe ? '' : routeCode,
             };
-            const availableHours = await db.getAvailableHours(conn, availabilityParams)
-            const isAvailable = availableHours.some(item => item.hour.substring(0, 5) === reservationTime);
+            const availableHours = await getBookableHours(conn, availabilityParams)
+            const isAvailable = availableHours.some(item => formatHour(item.hour) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
             const name = reservationHolder.firstName && reservationHolder.firstName != null ? reservationHolder.firstName : req.name;
@@ -258,24 +279,27 @@ async function createReservation(req, res) {
             const route = await db.getRouteByCode(conn, routeCode)
             if (!route) throw 'No route found'
 
-            const paxCount = Number(passengerCount) || (Array.isArray(passengers) ? passengers.length : 0) || 2;
-
             let experienceData = null;
             let totalValue = 0;
+
+            if (staffMe) {
+                totalValue = route.value2;
+            } else {
+                const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode });
+                if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
+                if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
+                    throw 'Selected date is not available for this flight.';
+                }
+                const priced = findPriceForPassengers(productConfig.prices, paxCount);
+                if (priced == null) {
+                    throw 'Selected flight is not available for this number of passengers.';
+                }
+                totalValue = priced;
+            }
 
             if (experienceCode && experienceCode?.length > 0) {
                 experienceData = await db.getExperienceByCode(conn, experienceCode)
                 if (!experienceData || experienceData?.length === 0) throw 'Invalid experience code'
-                const experience = experienceData[0];
-                totalValue = paxCount == 2 ? experience.value2 : experience.value3;
-                if (totalValue == null || totalValue === '') {
-                    throw 'Selected experience is not available for this number of passengers.'
-                }
-            } else {
-                totalValue = paxCount == 2 ? route.value2 : route.value3;
-                if (totalValue == null || totalValue === '') {
-                    throw 'Selected route is not available for this number of passengers.'
-                }
             }
 
             totalValue = new Currency(totalValue).value;
@@ -428,26 +452,23 @@ async function getAvailableHours(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            let params = {}
             const date = req.query.date;
             const idAircraft = req.query.idAircraft && req.query.idAircraft != null && req.query.idAircraft != "all" ? req.query.idAircraft : null
-            const experienceCode = (req.query.experienceCode || '').toString().trim().toUpperCase();
-
-            params = { date, idAircraft }
+            const experienceCode = (req.query.experienceCode || '').toString().trim();
+            const routeCode = (req.query.routeCode || '').toString().trim();
 
             if (!date) {
                 throw 'Missing date.'
             }
 
-            // lookup idTourType by code
-            let availableHours = await db.getAvailableHours(conn, params)
+            let availableHours = await getBookableHours(conn, {
+                date,
+                idAircraft,
+                experienceCode,
+                routeCode
+            })
 
-            // Sunset experience (SUN) can only be booked at 19:30 (Miami ET)
-            if (experienceCode === 'SUN') {
-                availableHours = availableHours.filter(item => item.hour.substring(0, 5) === '19:30');
-            }
-
-            response = { availableHours: availableHours.map(item => item.hour.substring(0, 5)) }
+            response = { availableHours: availableHours.map(item => formatHour(item.hour)) }
 
             status = 200
         }

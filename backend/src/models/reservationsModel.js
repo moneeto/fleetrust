@@ -303,7 +303,7 @@ async function updateReservation(conn, params) {
 
 async function getRouteByCode(conn, code) {
     return new Promise((resolve, reject) => {
-        const query = `SELECT idRoute, value2, value3 FROM routes WHERE code = ? LIMIT 1`;
+        const query = `SELECT idRoute, value2, value3, minDaysAhead, maxDaysAhead, allowedWeekdays FROM routes WHERE code = ? LIMIT 1`;
         const params = [code];
         conn.query(query, params, (err, results) => {
             if (err) return reject(err);
@@ -317,6 +317,7 @@ async function getExperienceByCode(conn, code) {
     return new Promise((resolve, reject) => {
         let query = `
         SELECT idExperience, code, title, description, value2, value3, image,
+            minDaysAhead, maxDaysAhead, allowedWeekdays,
             (SELECT duration FROM routes WHERE code = 'PRE') as duration
         FROM experiences 
         WHERE code = ?

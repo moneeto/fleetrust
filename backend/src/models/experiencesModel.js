@@ -12,6 +12,7 @@ async function getExperienceByCode(conn, code) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT idExperience, code, title, description, value2, value3, image,
+            minDaysAhead, maxDaysAhead, allowedWeekdays,
             (SELECT duration FROM routes WHERE code = 'PRE') as duration
         FROM experiences
         WHERE code = ?

@@ -2,6 +2,7 @@ const express = require('express');
 const Currency = require('currency.js');
 const router = express.Router();
 const db = require('../models/routesModel.js')
+const bookingConfigDb = require('../models/bookingConfigModel.js')
 const { poolTours } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
@@ -22,6 +23,7 @@ async function getRoutes(req, res) {
             let params = {}
 
             const routes = await db.getRoutes(conn, params)
+            await bookingConfigDb.attachRouteBooking(conn, routes)
 
             response = { success: true, routes }
             status = 200
