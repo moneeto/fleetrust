@@ -1,0 +1,25 @@
+{
+  "name": "fleetrust-backoffice",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "BackOffice de Fleetrust (app.fleetrust.io). Repositorio independiente de fleetrust-admin; no comparten código de aplicación.",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -ws --if-present",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm run test -ws --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "eslint": "^9.9.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.1.11"
+  }
+}

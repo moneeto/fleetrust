@@ -1,0 +1,50 @@
+name: CI — fleetrust-backoffice
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fleetrust
+          MYSQL_DATABASE: fleetrust
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -u root -pfleetrust"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: fleetrust
+      DB_NAME: fleetrust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      # El test de /health de F0 solo verifica que se puede conectar (SELECT 1),
+      # no necesita el esquema de fleetrust-admin todavía. A partir de F1, este
+      # repo tenga pruebas de integración que sí dependan de tablas reales, va
+      # a necesitar traer el esquema desde el repo fleetrust-admin (AD3) con un
+      # segundo `actions/checkout` apuntando a esa organización y rama — no
+      # resuelto todavía porque no hay remoto real (ver ARCHITECTURE.md).
+
+  # Paso de despliegue real: sin credenciales de infraestructura todavía.
+  # deploy:
+  #   needs: build-test-lint
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - run: echo "Pendiente: credenciales de despliegue a app.fleetrust.io"
