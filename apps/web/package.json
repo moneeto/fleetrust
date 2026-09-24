@@ -3,14 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "description": "Front del BackOffice de Fleetrust (app.fleetrust.io).",
+  "type": "module",
   "scripts": {
     "dev": "next dev -p ${WEB_PORT:-5000}",
     "build": "next build",
     "start": "next start -p ${WEB_PORT:-5000}",
-    "lint": "eslint app"
+    "lint": "eslint app i18n",
+    "test": "vitest run"
   },
   "dependencies": {
+    "lucide-react": "^1.47.0",
     "next": "^15.5.25",
+    "next-intl": "^4.14.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

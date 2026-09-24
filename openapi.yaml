@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Fleetrust BackOffice API
+  version: 0.1.0 # F1
+  description: >
+    API de app.fleetrust.io. Se actualiza junto con cada fase; esta versión
+    cubre F1 (login, sesión, perfil propio, menú dinámico).
+servers:
+  - url: /api
+    description: Mismo origen que el front (proxy vía next.config.mjs rewrites)
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: fleetrust_access
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: auth.invalidCredentials
+        message:
+          type: string
+    MeResponse:
+      type: object
+      properties:
+        idUser: { type: integer }
+        email: { type: string, format: email }
+        name: { type: string, nullable: true }
+        surname: { type: string, nullable: true }
+        locale: { type: string, nullable: true, enum: [es-AR, en-US, pt-BR] }
+        accountStatus:
+          type: string
+          enum: [TRIAL, ACTIVE, SUSPENDED, CANCELLED, EXPIRED]
+    NavigationItem:
+      type: object
+      properties:
+        moduleCode: { type: string }
+        moduleI18nKey: { type: string }
+        icon: { type: string, nullable: true }
+        path: { type: string }
+        i18nKey: { type: string }
+
+paths:
+  /auth/login:
+    post:
+      summary: Inicia sesión (RF-201, RF-206)
+      description: >
+        Devuelve siempre el mismo mensaje genérico ante credenciales
+        incorrectas, usuario inexistente, usuario inactivo/bloqueado o
+        cuenta CANCELLED/EXPIRED (CA-201.1). Una cuenta SUSPENDED permite
+        login con `readOnly: true` (RF-107).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login exitoso. Setea cookies httpOnly `fleetrust_access` y `fleetrust_refresh`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  readOnly: { type: boolean }
+        '400':
+          description: Payload inválido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Credenciales incorrectas (motivo real nunca se distingue).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/refresh:
+    post:
+      summary: Rota el refresh token y emite un access token nuevo (RF-206)
+      responses:
+        '204': { description: Cookies renovadas. }
+        '401':
+          description: Refresh token ausente, vencido, revocado o de una sesión inválida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/logout:
+    post:
+      summary: Cierra sesión y revoca el refresh token (RF-206/CA-206.1)
+      responses:
+        '204': { description: Cookies borradas, token revocado. }
+
+  /me:
+    get:
+      summary: Datos del usuario autenticado
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeResponse' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      summary: Actualiza nombre y/o idioma propio (RF-704)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                locale: { type: string, enum: [es-AR, en-US, pt-BR] }
+      responses:
+        '204': { description: Guardado. }
+        '400':
+          description: Payload inválido o vacío.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Cuenta SUSPENDED — modo solo lectura (RF-107).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /me/navigation:
+    get:
+      summary: Árbol de menú ya filtrado por permisos efectivos (RF-306)
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/NavigationItem' }

@@ -11,19 +11,57 @@ nunca escribe una migración.
 
 ## Desarrollo local
 
+Todo (MySQL + API + Web) se levanta con un solo comando, desde `fleetrust/`
+o desde `fleetrust/backoffice/` (Docker Compose busca el archivo en
+directorios padres si no lo encuentra en el actual):
+
 ```bash
-cp .env.example .env   # y ajustar si hace falta
-npm install
-npm run dev:api         # http://localhost:5001/health
-npm run dev:web         # http://localhost:5000
+docker compose up
 ```
 
-Requiere que la base MySQL 8 ya tenga aplicado el esquema de
-`../admin/db/init.sql` (ver `../admin/db/README.md`). Este repo apunta a la
-misma base que `fleetrust-admin` — nunca a la API del panel de
-administración.
+- Web: http://localhost:5000
+- API: http://localhost:5001/health
+- Panel de administración (mismo `docker compose up`): http://localhost:4000
 
-## Estado (F0)
+La primera vez descarga la imagen de MySQL, instala las dependencias de
+Node dentro de los contenedores (`node_modules` vive en volúmenes propios,
+no se mezcla con el host) y aplica el esquema completo (`admin/db/init.sql`)
+más el seed de demo de este repo (`db/seed/001-f1-demo.sql`) — ambos
+corren automáticamente la primera vez que el volumen de datos está vacío.
+`api`/`web` corren en modo desarrollo (hot-reload sobre el código montado).
 
-Solo existe el healthcheck de cada app. No hay login, ni módulos de
-negocio: eso arranca en F1. Ver `../REQUERIMIENTO-FLEETRUST.md` sección 16.
+```bash
+docker compose down       # apaga todo, conserva los datos
+docker compose down -v    # apaga todo y borra los datos (reset total)
+docker compose logs -f api
+```
+
+Si el puerto 3306 ya está en uso por un MySQL nativo instalado en la
+máquina, hay que pararlo antes (`sudo systemctl stop mysql`), porque
+Docker necesita ese puerto libre para el `mysql` de este `docker-compose.yml`.
+
+Este repo apunta a la misma base que `fleetrust-admin` — nunca a la API del
+panel de administración.
+
+### Usuarios de prueba (seed F1)
+
+| Email | Password | Rol |
+|---|---|---|
+| `owner@demo.fleetrust.io` | `Fleetrust2026!` | OWNER |
+| `operador@demo.fleetrust.io` | `Fleetrust2026!` | OPERATOR |
+
+## Estado (F3 — en curso)
+
+F1 y F2 están cerradas. F3 ya tiene, en el backoffice, flota (tipos, atributos
+dinámicos y unidades), profesionales con invitación, horarios y reservas
+cargadas a mano. Falta cerrar la fase: agenda del profesional como pantalla
+de aterrizaje pulida, exportación de reservas y el resto de criterios de
+RF-510/520/530/560. El asistente de disponibilidad es F4.
+
+Login con sesión (access token 15 min + refresh rotable 30 días, cookies
+httpOnly), aislamiento por `idAccount`, motor de permisos (contrato ∩
+autorización), menú de navegación dinámico según permisos reales, pantalla
+de perfil (nombre/idioma), i18n completo (es-AR/en-US/pt-BR) sin URLs por
+locale. Todavía sin módulos de negocio (reservas, flota, etc.): eso es F3+.
+Ver `../REQUERIMIENTO-FLEETRUST.md` sección 16 y `../ARCHITECTURE.md`
+sección 8.

@@ -1,0 +1,96 @@
+/**
+ * Tokens del sistema de diseño Fleetrust (DESIGN.md). Valores exactos del
+ * documento — no se inventa ni se redondea nada acá.
+ */
+:root {
+  /* Colores */
+  --color-ink: #11243d;
+  --color-muted: #6c7b90;
+  --color-line: #e4e9f0;
+  --color-surface: #ffffff;
+  --color-canvas: #f2f5f8;
+  --color-navy: #092d56;
+  --color-blue: #0875e1;
+  --color-cyan: #16c7d5;
+  --color-ice: #eaf9ff;
+  --color-green: #20b486;
+  --color-amber: #f6a723;
+  --color-red: #dc5961;
+
+  /* Radios: tres escalas nada más (DESIGN.md, "la regla de los tres radios") */
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 14px;
+  --radius-xl: 17px;
+  --radius-pill: 12px;
+
+  /* Espaciado */
+  --space-xs: 8px;
+  --space-sm: 14px;
+  --space-md: 20px;
+  --space-lg: 34px;
+
+  /* Sombra ambiental única de tarjeta */
+  --shadow-card: 0 8px 28px rgba(16, 44, 76, 0.07);
+  --shadow-float: 0 12px 35px rgba(7, 34, 60, 0.25);
+
+  /* Fuentes: se inyectan como variables CSS desde next/font en layout.tsx */
+  --font-display: var(--font-manrope), sans-serif;
+  --font-body: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* RF-808/WCAG AA: foco visible en todo elemento interactivo, sin excepción. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Texto solo para lectores de pantalla: da estructura semántica (h1/h2,
+   etiquetas de landmark) sin duplicar visualmente lo que ya se ve. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
