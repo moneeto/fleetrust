@@ -52,39 +52,31 @@ async function createReservation(conn, params) {
 
 async function getAvailableHours(conn, p) {
     return new Promise((resolve, reject) => {
-        let query = `
-            SELECT 
-                a.hour,
-                COUNT(r.idReservation) AS reservationsCount
+        // A slot stays visible only when some aircraft is free for the whole hour.
+        // Overlap matches getAircrafts: existing start < slot end AND existing end > slot start.
+        const idAircraft = p.idAircraft || null;
+        const query = `
+            SELECT a.hour
             FROM availableHours a
-            LEFT JOIN reservations r
-                ON TIMESTAMP(?, a.hour) >= r.startDate
-            AND TIMESTAMP(?, a.hour) <  r.endDate
-            AND r.idStatus NOT IN (4, 5)
             WHERE a.active = 1
-
-        `;
-        let qParams = [p.date, p.date]
-
-        if (p.idAircraft) {
-            query += ` AND r.idAircraft = ?`
-            qParams.push(p.idAircraft)
-        }
-
-        query += `
-        GROUP BY a.hour
-            HAVING reservationsCount < (
-                SELECT COUNT(1)
-                FROM aircrafts
-                WHERE available = 1
-                ${p.idAircraft ? 'AND idAircraft = ?' : ''}
+            AND EXISTS (
+                SELECT 1
+                FROM aircrafts ac
+                WHERE ac.available = 1
+                AND (ac.deleted = 0 OR ac.deleted IS NULL)
+                AND (? IS NULL OR ac.idAircraft = ?)
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM reservations r
+                    WHERE r.idAircraft = ac.idAircraft
+                    AND r.idStatus NOT IN (4, 5)
+                    AND r.startDate < DATE_ADD(TIMESTAMP(?, a.hour), INTERVAL 1 HOUR)
+                    AND r.endDate > TIMESTAMP(?, a.hour)
+                )
             )
-        ORDER BY a.hour ASC
-        `
-
-        if (p.idAircraft) {
-            qParams.push(p.idAircraft)
-        }
+            ORDER BY a.hour ASC
+        `;
+        const qParams = [idAircraft, idAircraft, p.date, p.date];
 
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
