@@ -6,6 +6,8 @@ const titleMap = {
   "/tours": "Tours",
   "/tours/book-dates": "Book Dates",
   "/tours/bookings": "Bookings",
+  "/tours/calendar": "Calendar",
+  "/tours/services": "Services",
   "/tours/aircrafts": "Aircrafts",
   "/tours/addons": "Addons",
   "/tours/pilots": "Pilots",

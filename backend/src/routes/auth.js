@@ -105,6 +105,7 @@ async function login(req, res) {
         }
         catch (e) {
             let msg = errMsg;
+            console.log(e)
             if (typeof e == String) { msg = e }
             if (e.message) { msg = e.message }
             if (typeof msg == "object") { msg = JSON.stringify(msg) }

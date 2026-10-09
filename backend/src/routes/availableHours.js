@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/availableHoursModel.js')
-const { poolTours } = require('../helpers/conexion-mysql.js')
+const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
 router.get('/', withAuth, getHours);
 router.post('/edit', withAuth, editHour);
 
 async function getHours(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -40,7 +40,7 @@ async function getHours(req, res) {
 }
 
 async function editHour(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400

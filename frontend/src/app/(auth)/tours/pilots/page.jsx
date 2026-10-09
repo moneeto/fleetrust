@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import Config from "@/config";
-import { FormGroup, Label, Input, Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Form, FormGroup, Label, Input, Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
-import { CheckIcon, EditIcon, TrashIcon, XIcon } from "lucide-react";
+import { CheckIcon, EditIcon, Filter, TrashIcon, XIcon } from "lucide-react";
 import { FaExclamationCircle } from "react-icons/fa";
 import styles from './page.module.css';
 import Spinner from "@/components/ui/Spinner";
+import useIsMobile from "@/hooks/useIsMobile";
+import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
 
 export default function PilotList() {
     const [pilots, setPilots] = useState([]);
@@ -18,6 +20,10 @@ export default function PilotList() {
     const [error, setError] = useState(null);
     const [creatingPilot, setCreatingPilot] = useState(null);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, pilot: null });
+    const [showDeleted, setShowDeleted] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [filters, setFilters] = useState({ pilotName: "", phoneNumber: "", active: "all" });
+    const isMobile = useIsMobile();
 
     const { toast } = useToast();
 
@@ -37,7 +43,7 @@ export default function PilotList() {
             setLoading(true);
             setError(null);
 
-            const res = await ApiComunicator(`/pilots`, 'GET');
+            const res = await ApiComunicator(`/pilots?includeDeleted=1`, 'GET');
 
             setPilots(res.pilots);
         } catch (err) {
@@ -221,6 +227,49 @@ export default function PilotList() {
         return <Spinner />
     }
 
+    const visiblePilots = pilots.filter((row) => {
+        if (!showDeleted && row.deleted) return false;
+        if (filters.pilotName && !String(row.pilotName || "").toLowerCase().includes(filters.pilotName.toLowerCase())) return false;
+        if (filters.phoneNumber && !String(row.phoneNumber || "").toLowerCase().includes(filters.phoneNumber.toLowerCase())) return false;
+        if (filters.active === "yes" && !row.active) return false;
+        if (filters.active === "no" && row.active) return false;
+        return true;
+    });
+    const updateFilter = (field, value) => setFilters((prev) => ({ ...prev, [field]: value }));
+    const resetFilters = () => {
+        setFilters({ pilotName: "", phoneNumber: "", active: "all" });
+        setShowDeleted(false);
+    };
+    const activeFilterCount = [filters.pilotName, filters.phoneNumber].filter(Boolean).length + (filters.active !== "all" ? 1 : 0) + (showDeleted ? 1 : 0);
+    const fieldMin = isMobile ? "100%" : undefined;
+    const filterFields = (idPrefix = "") => (
+        <>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}filterName`}>Name</Label>
+                <Input id={`${idPrefix}filterName`} value={filters.pilotName} onChange={(e) => updateFilter("pilotName", e.target.value)} />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "160px" }}>
+                <Label for={`${idPrefix}filterPhone`}>Phone</Label>
+                <Input id={`${idPrefix}filterPhone`} value={filters.phoneNumber} onChange={(e) => updateFilter("phoneNumber", e.target.value)} />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "140px" }}>
+                <Label for={`${idPrefix}filterActive`}>Active</Label>
+                <Input id={`${idPrefix}filterActive`} type="select" value={filters.active} onChange={(e) => updateFilter("active", e.target.value)}>
+                    <option value="all">All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "140px" }}>
+                {isMobile ? <Label for={`${idPrefix}showDeleted`}>Show deleted</Label> : <Label className="d-block invisible">Show deleted</Label>}
+                <div className="d-flex align-items-center" style={{ minHeight: "38px" }}>
+                    <Input id={`${idPrefix}showDeleted`} type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
+                    {!isMobile && <Label for={`${idPrefix}showDeleted`} check className="ms-2 mb-0">Show deleted</Label>}
+                </div>
+            </FormGroup>
+        </>
+    );
+
     return (
         <div className={styles.page}>
             {error && (
@@ -229,15 +278,31 @@ export default function PilotList() {
                 </p>
             )}
 
+            <div className={styles.mobileToolbar}>
+                <Button color="primary" outline className={styles.filtersBtn} type="button" onClick={() => setFiltersOpen(true)}>
+                    <Filter size={16} />
+                    Filters
+                    {activeFilterCount > 0 && <span className={styles.filtersBadge}>{activeFilterCount}</span>}
+                </Button>
+            </div>
+            <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
+                <div className="d-flex flex-wrap gap-3 align-items-end">
+                    {filterFields()}
+                </div>
+            </Form>
+            <MobileFiltersModal isOpen={filtersOpen} toggle={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onReset={resetFilters}>
+                {filterFields("mobile-")}
+            </MobileFiltersModal>
+
             <div className={styles.cardsList}>
-                {pilots.length === 0 && (
+                {visiblePilots.length === 0 && (
                     <div className={styles.card}>
                         <p className="mb-0 text-sm text-gray-500 text-center">No pilots found.</p>
                     </div>
                 )}
 
-                {pilots.map((r) => (
-                        <div key={r.idPilot} className={styles.card}>
+                {visiblePilots.map((r) => (
+                        <div key={r.idPilot} className={styles.card} style={{ opacity: r.deleted ? 0.55 : 1 }}>
                                 <div className={styles.cardRow}>
                                     <div className={styles.photoWrap}>
                                         {r.pilotPicture && (
@@ -277,14 +342,16 @@ export default function PilotList() {
                                             >
                                                 <EditIcon size={16} /> Edit
                                             </Button>
-                                            <Button
-                                                color="danger"
-                                                size="sm"
-                                                outline
-                                                onClick={() => openDeleteModal(r)}
-                                            >
-                                                <TrashIcon size={16} /> Delete
-                                            </Button>
+                                            {!r.deleted && (
+                                                <Button
+                                                    color="danger"
+                                                    size="sm"
+                                                    outline
+                                                    onClick={() => openDeleteModal(r)}
+                                                >
+                                                    <TrashIcon size={16} /> Delete
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

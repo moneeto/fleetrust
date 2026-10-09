@@ -7,9 +7,6 @@ import { User, Users } from 'lucide-react';
 const SelectBookingType = ({ onSelect }) => {
     return (
         <div className="d-flex flex-column gap-4 align-items-center">
-            <p className="text-muted text-center mb-4">
-                I'm booking...
-            </p>
             
             <div className="d-flex gap-4">
                 <motion.button
@@ -20,7 +17,7 @@ const SelectBookingType = ({ onSelect }) => {
                     onClick={() => onSelect('me')}
                 >
                     <User size={32} />
-                    <span>To pilot</span>
+                    <span>Single</span>
                 </motion.button>
                 
                 <motion.button

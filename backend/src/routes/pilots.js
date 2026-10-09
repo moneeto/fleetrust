@@ -5,7 +5,7 @@ const fsSync = require('fs');
 const path = require('path');
 const multer = require('multer');
 const db = require('../models/pilotsModel.js')
-const { poolTours } = require('../helpers/conexion-mysql.js')
+const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
 const uploadDir = path.join(__dirname, '../uploads/pilots');
@@ -75,11 +75,17 @@ router.post('/delete', withAuth, deletePilot);
 
 async function removePilotFile(filename) {
     const safe = safeFilename(filename);
-    await fs.unlink(path.join(uploadDir, safe));
+    const filePath = path.join(uploadDir, safe);
+    try {
+        await fs.access(filePath);
+    } catch {
+        return;
+    }
+    await fs.unlink(filePath);
 }
 
 async function createPilot(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -122,7 +128,7 @@ async function createPilot(req, res) {
 }
 
 async function editPilot(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -177,7 +183,7 @@ async function editPilot(req, res) {
 }
 
 async function getPilots(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -188,7 +194,8 @@ async function getPilots(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const pilots = await db.getPilots(conn)
+            const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
+            const pilots = await db.getPilots(conn, includeDeleted)
 
             response = { pilots }
 
@@ -225,7 +232,7 @@ async function getPilotPhoto(req, res) {
 }
 
 async function deletePilot(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400

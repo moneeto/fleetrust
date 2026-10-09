@@ -5,13 +5,14 @@ const router = express.Router();
 const db = require('../models/reservationsModel.js')
 const dbAircrafts = require('../models/aircraftsModel.js')
 const bookingConfigDb = require('../models/bookingConfigModel.js')
+const servicesDb = require('../models/servicesModel.js')
 const {
     weekdayOfDate,
     formatHour,
     findPriceForPassengers,
     isStaffMeBooking
 } = require('../utils/bookingConfig')
-const { poolTours } = require('../helpers/conexion-mysql.js')
+const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 const moment = require('moment');
 const { generateBoardingPass } = require('../utils/boardingPass.js');
@@ -38,9 +39,9 @@ router.post('/checkAvailability', withAuth, checkAvailability);
 router.post('/createReservationRange', withAuth, createReservationRange);
 router.post('/deleteReservation', withAuth, deleteReservation);
 
-async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode }) {
-    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode });
-    if ((experienceCode || routeCode) && !product) {
+async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode, serviceCode }) {
+    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
+    if ((experienceCode || routeCode || serviceCode) && !product) {
         throw 'Invalid experience or route code';
     }
 
@@ -101,7 +102,7 @@ function passengersForQrPreview(passengerRows) {
 }
 
 async function validateQrConfirmation(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let response = { success: false };
         let status = 400;
         let connSuccess = false;
@@ -140,7 +141,7 @@ async function validateQrConfirmation(req, res) {
 }
 
 async function qrBoardingPassPdf(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let connSuccess = false;
         try {
             if (errConn) throw errConn;
@@ -182,7 +183,7 @@ async function qrBoardingPassPdf(req, res) {
 }
 
 async function completeQrValidation(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let response = { success: false };
         let status = 400;
         let connSuccess = false;
@@ -218,7 +219,7 @@ async function completeQrValidation(req, res) {
 }
 
 async function createReservation(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -229,7 +230,7 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
             console.log(req.body);
-            let { experienceCode, routeCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
+            let { experienceCode, routeCode, serviceCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
             idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
 
             if (!reservationDate || !reservationTime) {
@@ -244,6 +245,7 @@ async function createReservation(req, res) {
                 idAircraft: idAircraft && idAircraft !== 'all' ? idAircraft : null,
                 experienceCode: staffMe ? '' : experienceCode,
                 routeCode: staffMe ? '' : routeCode,
+                serviceCode: staffMe ? '' : serviceCode,
             };
             const availableHours = await getBookableHours(conn, availabilityParams)
             const isAvailable = availableHours.some(item => formatHour(item.hour) === reservationTime);
@@ -275,17 +277,32 @@ async function createReservation(req, res) {
             if (experienceCode && experienceCode?.length > 0) {
                 routeCode = 'PRE'
             }
-            if (!routeCode) throw 'Invalid route code'
-            const route = await db.getRouteByCode(conn, routeCode)
-            if (!route) throw 'No route found'
+            if (serviceCode && serviceCode.length > 0) {
+                routeCode = routeCode || serviceCode
+            }
+            if (!routeCode && !serviceCode) throw 'Invalid route code'
+            const route = routeCode ? await db.getRouteByCode(conn, routeCode) : null
+            if (!route && !serviceCode) throw 'No route found'
 
-            let experienceData = null;
+            let service = null;
             let totalValue = 0;
+
+            if (serviceCode && serviceCode.length > 0) {
+                service = await servicesDb.getServiceByCode(conn, serviceCode);
+                if (!service) throw 'Invalid service code';
+            }
+            if (!service && experienceCode) {
+                service = await servicesDb.getServiceByCode(conn, experienceCode);
+                if (!service) throw 'Invalid experience code';
+            }
+            if (!service && routeCode) {
+                service = await servicesDb.getServiceByCode(conn, routeCode);
+            }
 
             if (staffMe) {
                 totalValue = route.value2;
             } else {
-                const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode });
+                const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
                 if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
                 if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
                     throw 'Selected date is not available for this flight.';
@@ -295,11 +312,6 @@ async function createReservation(req, res) {
                     throw 'Selected flight is not available for this number of passengers.';
                 }
                 totalValue = priced;
-            }
-
-            if (experienceCode && experienceCode?.length > 0) {
-                experienceData = await db.getExperienceByCode(conn, experienceCode)
-                if (!experienceData || experienceData?.length === 0) throw 'Invalid experience code'
             }
 
             totalValue = new Currency(totalValue).value;
@@ -313,8 +325,9 @@ async function createReservation(req, res) {
             const insertResult = await db.createReservation(conn, {
                 startDate,
                 endDate,
-                idRoute: route.idRoute,
-                idExperience: experienceData ? experienceData[0].idExperience : null,
+                idRoute: route ? route.idRoute : null,
+                idExperience: null,
+                idService: service ? service.idService : null,
                 passengerCount: paxCount,
                 idStatus: 1,
                 totalValue,
@@ -346,7 +359,7 @@ async function createReservation(req, res) {
 }
 
 async function confirmBooking(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -391,6 +404,21 @@ async function confirmBooking(req, res) {
 
             const reservationRows = await db.getReservationById(conn, idReservation);
             const reservation = reservationRows && reservationRows[0];
+
+            if (reservation?.idService) {
+                const included = await db.getServiceAddons(conn, reservation.idService);
+                const stored = await db.getReservationAddons(conn, idReservation);
+                const present = new Set(stored.map((item) => Number(item.idAddon)));
+                for (const item of included) {
+                    if (present.has(Number(item.idAddon))) continue;
+                    await db.insertReservationAddon(conn, {
+                        idReservation,
+                        idAddon: item.idAddon,
+                        quantity: 1,
+                        price: 0,
+                    });
+                }
+            }
             const passengerRows = await db.getPassengersByReservationId(conn, idReservation);
             const holderEmail = reservationHolder?.email || reservation?.email;
 
@@ -441,7 +469,7 @@ async function confirmBooking(req, res) {
 }
 
 async function getAvailableHours(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -456,6 +484,7 @@ async function getAvailableHours(req, res) {
             const idAircraft = req.query.idAircraft && req.query.idAircraft != null && req.query.idAircraft != "all" ? req.query.idAircraft : null
             const experienceCode = (req.query.experienceCode || '').toString().trim();
             const routeCode = (req.query.routeCode || '').toString().trim();
+            const serviceCode = (req.query.serviceCode || '').toString().trim();
 
             if (!date) {
                 throw 'Missing date.'
@@ -465,7 +494,8 @@ async function getAvailableHours(req, res) {
                 date,
                 idAircraft,
                 experienceCode,
-                routeCode
+                routeCode,
+                serviceCode
             })
 
             response = { availableHours: availableHours.map(item => formatHour(item.hour)) }
@@ -500,7 +530,7 @@ function validateDateParam(d, label) {
 }
 
 async function getReservationsByDate(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -540,6 +570,9 @@ async function getReservationsByDate(req, res) {
             if (req.query.idAircraft != null && String(req.query.idAircraft).trim() !== '' && req.query.idAircraft !== 'all') {
                 filters.idAircraft = req.query.idAircraft;
             }
+            if (req.query.idService != null && String(req.query.idService).trim() !== '' && req.query.idService !== 'all') {
+                filters.idService = req.query.idService;
+            }
             if (req.query.idRoute != null && String(req.query.idRoute).trim() !== '' && req.query.idRoute !== 'all') {
                 filters.idRoute = req.query.idRoute;
             }
@@ -569,7 +602,7 @@ async function getReservationsByDate(req, res) {
 
 
 async function getReservationsByAircraft(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -616,7 +649,7 @@ async function getReservationsByAircraft(req, res) {
 }
 
 async function getReservationById(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -637,7 +670,7 @@ async function getReservationById(req, res) {
             const [reservation] = await db.getReservationById(conn, id)
 
             const passengers = await db.getPassengersByReservationId(conn, id);
-            const addons = await db.getReservationAddons(conn, id);
+            const addons = await db.reservationAddonsWithIncluded(conn, id, reservation.idService);
 
             reservation.passengers = passengers;
             reservation.addons = addons;
@@ -660,7 +693,7 @@ async function getReservationById(req, res) {
 }
 
 async function updateReservation(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -718,7 +751,7 @@ async function updateReservation(req, res) {
 }
 
 async function checkAvailability(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -763,7 +796,7 @@ async function checkAvailability(req, res) {
 }
 
 async function createReservationRange(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let response = {};
         let status = 400;
         let connSuccess = false;
@@ -827,7 +860,7 @@ async function createReservationRange(req, res) {
 
 
 async function getCancellationReasons(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let response = {};
         let status = 400;
         let connSuccess = false;
@@ -853,7 +886,7 @@ async function getCancellationReasons(req, res) {
 }
 
 async function deleteReservation(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
         let response = {};
         let status = 400;
         let connSuccess = false;

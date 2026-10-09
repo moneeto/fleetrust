@@ -2,7 +2,7 @@ import "./globals.css";
 import 'bootstrap/dist/css/bootstrap.css';
 
 export const metadata = {
-  title: "Back Office | Frassi Aviation",
+  title: "Back Office | Fleetrust",
   description: "",
 };
 

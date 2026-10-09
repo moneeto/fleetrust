@@ -25,8 +25,8 @@ async function createReservation(conn, params) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO reservations (passengers, startDate, endDate,
-         idRoute, idExperience, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft, idPilot)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         idRoute, idExperience, idService, idStatus, totalValue, deposit, remainingBalance, reservationExpiration, idAircraft, idPilot)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
             params.passengerCount,
@@ -34,6 +34,7 @@ async function createReservation(conn, params) {
             params.endDate,
             params.idRoute,
             params.idExperience,
+            params.idService || null,
             params.idStatus,
             params.totalValue,
             params.deposit,
@@ -57,7 +58,7 @@ async function getAvailableHours(conn, p) {
         const idAircraft = p.idAircraft || null;
         const query = `
             SELECT a.hour
-            FROM availableHours a
+            FROM available_hours a
             WHERE a.active = 1
             AND EXISTS (
                 SELECT 1
@@ -92,10 +93,10 @@ async function getAvailableHours(conn, p) {
 async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) {
     return new Promise((resolve, reject) => {
         let query = `
-        SELECT a.*, b.title AS route, c.title AS experience, d.aircraft, d.registrationNumber
+        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, d.aircraft, d.registrationNumber
         FROM reservations a
         LEFT JOIN routes b ON a.idRoute = b.idRoute
-        LEFT JOIN experiences c ON a.idExperience = c.idExperience
+        LEFT JOIN services s ON a.idService = s.idService
         LEFT JOIN aircrafts d ON a.idAircraft = d.idAircraft
         WHERE DATE(a.endDate) >= ?
         AND DATE(a.startDate) <= ?
@@ -126,6 +127,10 @@ async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) 
             query += ` AND a.idRoute = ?`;
             qParams.push(filters.idRoute);
         }
+        if (filters.idService != null && String(filters.idService) !== '' && filters.idService !== 'all') {
+            query += ` AND a.idService = ?`;
+            qParams.push(filters.idService);
+        }
         if (filters.idPilot != null && String(filters.idPilot) !== '' && filters.idPilot !== 'all') {
             query += ` AND a.idPilot = ?`;
             qParams.push(filters.idPilot);
@@ -147,11 +152,11 @@ async function getReservationsByDate(conn, date) {
 async function getReservationById(conn, id) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, b.title AS route, d.title AS experience, c.aircraft, c.registrationNumber, e.pilotName
+        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, c.aircraft, c.registrationNumber, e.pilotName
         from reservations a
         LEFT JOIN routes b on a.idRoute = b.idRoute
         LEFT JOIN aircrafts c on a.idAircraft = c.idAircraft
-        LEFT JOIN experiences d ON d.idExperience=a.idExperience
+        LEFT JOIN services s ON a.idService = s.idService
         LEFT JOIN pilots e ON a.idPilot = e.idPilot
         WHERE a.idReservation = ?
         `;
@@ -166,11 +171,11 @@ async function getReservationById(conn, id) {
 async function getReservationByConfirmationHash(conn, confirmationHash) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, b.title AS route, d.title AS experience, c.aircraft, c.registrationNumber
+        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, c.aircraft, c.registrationNumber
         FROM reservations a
         LEFT JOIN routes b ON a.idRoute = b.idRoute
         LEFT JOIN aircrafts c ON a.idAircraft = c.idAircraft
-        LEFT JOIN experiences d ON d.idExperience = a.idExperience
+        LEFT JOIN services s ON a.idService = s.idService
         WHERE a.confirmationHash = ?
         LIMIT 1
         `;
@@ -243,7 +248,7 @@ async function getReservationAddons(conn, idReservation) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT a.idAddon, a.addon, ra.price, ra.quantity
-        FROM reservationsAddons ra
+        FROM reservations_addons ra
         JOIN addons a ON a.idAddon = ra.idAddon
         WHERE ra.idReservation = ?
         `;
@@ -252,6 +257,45 @@ async function getReservationAddons(conn, idReservation) {
             resolve(results);
         });
     });
+}
+
+async function getServiceAddons(conn, idService) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        SELECT a.idAddon, a.addon, 0 AS price, 1 AS quantity
+        FROM services_addons ea
+        JOIN addons a ON a.idAddon = ea.idAddon
+        WHERE ea.idService = ?
+        `;
+        conn.query(query, [idService], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function insertReservationAddon(conn, p) {
+    return new Promise((resolve, reject) => {
+        const query = `
+        INSERT INTO reservations_addons (idReservation, idAddon, quantity, price) VALUES (?, ?, ?, ?)
+        `;
+        conn.query(query, [p.idReservation, p.idAddon, p.quantity, p.price], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function reservationAddonsWithIncluded(conn, idReservation, idService) {
+    const addons = await getReservationAddons(conn, idReservation);
+    if (!idService) return addons;
+
+    const included = await getServiceAddons(conn, idService);
+    const present = new Set(addons.map((item) => Number(item.idAddon)));
+    for (const item of included) {
+        if (!present.has(Number(item.idAddon))) addons.push(item);
+    }
+    return addons;
 }
 
 async function updateReservation(conn, params) {
@@ -295,7 +339,7 @@ async function updateReservation(conn, params) {
 
 async function getRouteByCode(conn, code) {
     return new Promise((resolve, reject) => {
-        const query = `SELECT idRoute, value2, value3, minDaysAhead, maxDaysAhead, allowedWeekdays FROM routes WHERE code = ? LIMIT 1`;
+        const query = `SELECT idRoute, value2, value3, minDaysAhead, maxDaysAhead, allowedWeekdays FROM routes WHERE code = ? AND deleted = 0 LIMIT 1`;
         const params = [code];
         conn.query(query, params, (err, results) => {
             if (err) return reject(err);
@@ -303,25 +347,6 @@ async function getRouteByCode(conn, code) {
             resolve(results[0]);
         });
     });
-}
-
-async function getExperienceByCode(conn, code) {
-    return new Promise((resolve, reject) => {
-        let query = `
-        SELECT idExperience, code, title, description, value2, value3, image,
-            minDaysAhead, maxDaysAhead, allowedWeekdays,
-            (SELECT duration FROM routes WHERE code = 'PRE') as duration
-        FROM experiences 
-        WHERE code = ?
-        `
-        let params = [code]
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err)
-
-            resolve(results)
-        })
-
-    })
 }
 
 async function saveConfirmationHash(conn, p) {
@@ -368,7 +393,7 @@ async function updateReservationStatus(conn, p) {
 
 async function getCancellationReasons(conn) {
     return new Promise((resolve, reject) => {
-        const query = `SELECT idCancellationReason, cancellationReason FROM cancellationReasons`;
+        const query = `SELECT idCancellationReason, cancellationReason FROM cancellation_reasons`;
         conn.query(query, [], (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -452,7 +477,7 @@ async function getAircrafts(conn, startDate, endDate) {
 // Delete reservation addons
 async function deleteReservationAddons(conn, idReservation) {
     return new Promise((resolve, reject) => {
-        const query = `DELETE FROM reservationsAddons WHERE idReservation = ?`;
+        const query = `DELETE FROM reservations_addons WHERE idReservation = ?`;
         const params = [idReservation];
         conn.query(query, params, (err, results) => {
             if (err) return reject(err);
@@ -497,9 +522,11 @@ module.exports = {
     insertPassengers,
     getPassengersByReservationId,
     getReservationAddons,
+    getServiceAddons,
+    insertReservationAddon,
+    reservationAddonsWithIncluded,
     updateReservation,
     getRouteByCode,
-    getExperienceByCode,
     getPremiumRouteValue,
     getReservationsInRange,
     updateReservationStatus,

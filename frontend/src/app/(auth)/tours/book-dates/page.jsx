@@ -12,7 +12,6 @@ import SelectDateRange from '@/components/booking/SelectDateRange';
 import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
 import SelectBookingType from '@/components/booking/SelectBookingType';
-import SelectOfferCategory from '@/components/booking/SelectOfferCategory';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
 import { defaultPassengerCount } from '@/helpers/bookingConfig';
@@ -20,11 +19,8 @@ import { defaultPassengerCount } from '@/helpers/bookingConfig';
 export default function BookDatesPage() {
     const router = useRouter();
     const [step, setStep] = useState(0);
-    const [routes, setRoutes] = useState([]);
-    const [experiences, setExperiences] = useState([]);
-    const [selectedRoute, setSelectedRoute] = useState(null);
-    const [selectedExperience, setSelectedExperience] = useState(null);
-    const [offerCategory, setOfferCategory] = useState(null); // 'tour' | 'experience'
+    const [services, setServices] = useState([]);
+    const [selectedService, setSelectedService] = useState(null);
     const [bookingType, setBookingType] = useState(null);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
@@ -59,29 +55,19 @@ export default function BookDatesPage() {
     useEffect(() => {
         getAircrafts();
         getPilots();
-        getRoutes();
-        getExperiences();
+        getServices();
     }, []);
 
     useEffect(() => {
-        const product = offerCategory === 'experience'
-            ? experiences.find((e) => e.code === selectedExperience)
-            : routes.find((r) => r.code === selectedRoute);
+        const product = services.find((item) => item.code === selectedService);
         if (!product) return;
         setPassengers(defaultPassengerCount(product));
-    }, [selectedExperience, selectedRoute, offerCategory, experiences, routes]);
+    }, [selectedService, services]);
 
-    const getRoutes = async () => {
+    const getServices = async () => {
         try {
-            const res = await ApiComunicator(`/routes/getRoutes`, 'GET');
-            setRoutes(res.routes || []);
-        } catch (err) { console.error(err); }
-    };
-
-    const getExperiences = async () => {
-        try {
-            const res = await ApiComunicator(`/experiences/getExperiences`, 'GET');
-            setExperiences((res.experiences || []).filter((e) => e.code !== 'STAN'));
+            const res = await ApiComunicator(`/services/getServices`, 'GET');
+            setServices(res.services || []);
         } catch (err) { console.error(err); }
     };
 
@@ -110,9 +96,7 @@ export default function BookDatesPage() {
     };
 
     const resetOfferSelection = () => {
-        setOfferCategory(null);
-        setSelectedRoute(null);
-        setSelectedExperience(null);
+        setSelectedService(null);
     };
 
     const handleBack = () => {
@@ -122,21 +106,11 @@ export default function BookDatesPage() {
             resetOfferSelection();
             setPassengers(2);
         }
-        if (bookingType === 'others' && step === 2) {
-            setSelectedRoute(null);
-            setSelectedExperience(null);
-        }
         setStep((prev) => prev - 1);
     };
 
-    const handleNext = async () => {
+    const handleNext = () => {
         setError(null);
-        // Draft se crea al salir del schedule (step 4 en others)
-        if (bookingType === 'others' && step === 4) {
-            const draft = await createDraftReservation();
-            if (draft && draft.id) setStep((s) => s + 1);
-            return;
-        }
         setStep((s) => s + 1);
     };
 
@@ -156,10 +130,8 @@ export default function BookDatesPage() {
 
             if (bookingType === 'me') {
                 data.routeCode = 'BAS';
-            } else if (offerCategory === 'experience') {
-                data.experienceCode = selectedExperience;
             } else {
-                data.routeCode = selectedRoute;
+                data.serviceCode = selectedService;
             }
 
             const res = await ApiComunicator(`/reservations/createReservation`, 'POST', data);
@@ -211,36 +183,26 @@ export default function BookDatesPage() {
 
     const isDetailsValid = reservationHolder.firstName.trim() !== '' &&
         reservationHolder.email.trim() !== '' &&
-        (bookingType === 'me' || passengersData.every(p => p.firstName?.trim() !== ''));
+        passengersData.every(p => p.firstName?.trim() !== '');
 
-    const setStepTitle = () => {
-        if (step === 0) return 'Booking Experience';
-        if (bookingType === 'me') return 'Schedule your Flight';
-        const titles = [
-            'Tour or Experience',
-            offerCategory === 'experience' ? 'Select Experience' : 'Select Tour',
-            'Passengers',
-            'Flight Schedule',
-            'Confirm Details',
-        ];
-        return titles[step - 1] || '';
-    };
+    // Pantallas del flujo; `current` es la clave de la pantalla activa
+    const flow = bookingType === 'me'
+        ? ['type', 'resource', 'when']
+        : ['type', 'service', 'pax', 'resource', 'when'];
+    const current = flow[step];
+    const isLast = step === flow.length - 1;
+    const titles = { type: 'Book', service: 'Select a service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
 
-    const clientVisibleRoutes = routes.filter(
-        (route) => route.visibleToClients !== 0 && route.visibleToClients !== false
+    const clientServices = services.filter(
+        (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
     );
 
-    const selectedProduct = offerCategory === 'experience'
-        ? experiences.find((e) => e.code === selectedExperience)
-        : clientVisibleRoutes.find((r) => r.code === selectedRoute);
-
-    const offerSelected =
-        offerCategory === 'experience' ? !!selectedExperience : !!selectedRoute;
+    const selectedProduct = clientServices.find((item) => item.code === selectedService);
 
     const nextDisabled =
-        (bookingType === 'others' && step === 1 && !offerCategory) ||
-        (bookingType === 'others' && step === 2 && !offerSelected) ||
-        (bookingType === 'others' && step === 4 && (!date || !time || !idPilot));
+        (current === 'service' && !selectedService) ||
+        (current === 'pax' && !isDetailsValid) ||
+        (current === 'resource' && !idPilot);
 
     const renderOfferCard = (item, selected, onClick) => (
         <div key={item.code} className="col-12" onClick={onClick}>
@@ -263,9 +225,9 @@ export default function BookDatesPage() {
         <div className={styles.page}>
 
             <div className={styles.header}>
-                <h2 className="fw-bold text-dark">{setStepTitle()}</h2>
+                <h2 className="fw-bold text-dark">{titles[current]}</h2>
                 <div className="d-flex justify-content-center gap-2 mt-3">
-                    {[0, 1, 2, 3, 4, 5].slice(0, bookingType === 'me' ? 2 : 6).map((s) => (
+                    {flow.map((_, s) => (
                         <div key={s} className={`rounded-pill ${step >= s ? 'bg-primary' : 'bg-light'}`}
                             style={{ width: '40px', height: '6px', transition: '0.3s' }} />
                     ))}
@@ -282,68 +244,45 @@ export default function BookDatesPage() {
                             exit={{ opacity: 0, y: -15 }}
                             transition={{ duration: 0.25 }}
                         >
-                            {/* STEP 0: Piloto / Pasajeros */}
-                            {step === 0 && (
+                            {current === 'type' && (
                                 <div className="py-4">
                                     <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
                                 </div>
                             )}
 
-                            {/* STEP 1 (Others): Tour o Experience */}
-                            {bookingType === 'others' && step === 1 && (
-                                <div className="py-4">
-                                    <SelectOfferCategory
-                                        onSelect={(category) => {
-                                            setOfferCategory(category);
-                                            setSelectedRoute(null);
-                                            setSelectedExperience(null);
-                                            setStep(2);
-                                        }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* STEP 2 (Others): Lista de tours o experiences */}
-                            {bookingType === 'others' && step === 2 && (
+                            {current === 'service' && (
                                 <div className="row g-3">
-                                    {offerCategory === 'experience'
-                                        ? experiences.map((experience) =>
-                                            renderOfferCard(
-                                                experience,
-                                                selectedExperience === experience.code,
-                                                () => setSelectedExperience(experience.code)
-                                            )
+                                    {clientServices.map((service) =>
+                                        renderOfferCard(
+                                            service,
+                                            selectedService === service.code,
+                                            () => setSelectedService(service.code)
                                         )
-                                        : clientVisibleRoutes.map((route) =>
-                                            renderOfferCard(
-                                                route,
-                                                selectedRoute === route.code,
-                                                () => setSelectedRoute(route.code)
-                                            )
-                                        )}
-                                    {offerCategory === 'experience' && experiences.length === 0 && (
-                                        <p className="text-muted text-center">No experiences available.</p>
                                     )}
-                                    {offerCategory === 'tour' && clientVisibleRoutes.length === 0 && (
-                                        <p className="text-muted text-center">No tours available.</p>
+                                    {clientServices.length === 0 && (
+                                        <p className="text-muted text-center">No services available.</p>
                                     )}
                                 </div>
                             )}
 
-                            {/* STEP 3 (Others): Pasajeros */}
-                            {bookingType === 'others' && step === 3 && (
-                                <div className="text-center py-4">
-                                    <SelectPassengersNumber
-                                        count={passengers}
-                                        onCountChange={setPassengers}
-                                        prices={selectedProduct?.prices}
+                            {current === 'pax' && (
+                                <div className={styles.scheduleStack}>
+                                    <div className={styles.settingsPanel}>
+                                        <SelectPassengersNumber
+                                            count={passengers}
+                                            onCountChange={setPassengers}
+                                            prices={selectedProduct?.prices}
+                                        />
+                                    </div>
+                                    <PassengerDetails
+                                        count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
+                                        reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
                                     />
                                 </div>
                             )}
 
-                            {/* STEP 1 (Me) o STEP 4 (Others): Aircraft + fecha/hora */}
-                            {((bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 4)) && (
-                                <div className={styles.scheduleStack}>
+                            {current === 'resource' && (
+                                <div className={`${styles.scheduleStack} ${styles.narrow}`}>
                                     <div className={styles.settingsPanel}>
                                         <FormGroup className="mb-3">
                                             <Label className="small fw-bold" for="selectAircraft">
@@ -411,7 +350,11 @@ export default function BookDatesPage() {
                                             </FormGroup>
                                         )}
                                     </div>
+                                </div>
+                            )}
 
+                            {current === 'when' && (
+                                <div className={styles.scheduleStack}>
                                     <div className={styles.scheduleMain}>
                                         {customLength ? (
                                             <SelectDateRange
@@ -427,12 +370,7 @@ export default function BookDatesPage() {
                                                 onDateChange={setDate}
                                                 onTimeChange={setTime}
                                                 idAircraft={idAircraft}
-                                                experienceCode={
-                                                    offerCategory === 'experience' ? selectedExperience : null
-                                                }
-                                                routeCode={
-                                                    offerCategory === 'tour' ? selectedRoute : null
-                                                }
+                                                serviceCode={bookingType === 'others' ? selectedService : null}
                                                 allowedWeekdays={selectedProduct?.allowedWeekdays}
                                             />
                                         )}
@@ -444,7 +382,7 @@ export default function BookDatesPage() {
                                             <Input
                                                 type="textarea"
                                                 className="rounded-3"
-                                                rows={4}
+                                                rows={3}
                                                 value={notes}
                                                 onChange={(e) => setNotes(e.target.value)}
                                                 placeholder=""
@@ -452,14 +390,6 @@ export default function BookDatesPage() {
                                         </FormGroup>
                                     </div>
                                 </div>
-                            )}
-
-                            {/* STEP 5 (Others): Detalles finales */}
-                            {bookingType === 'others' && step === 5 && (
-                                <PassengerDetails
-                                    count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
-                                    notes={notes} setNotes={setNotes} reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
-                                />
                             )}
                         </motion.div>
                     </AnimatePresence>
@@ -473,7 +403,6 @@ export default function BookDatesPage() {
 
                         <div className="d-flex gap-3">
                             {(() => {
-                                const isLast = (bookingType === 'me' && step === 1) || (bookingType === 'others' && step === 5);
                                 if (!isLast) {
                                     return (
                                         <Button
@@ -491,7 +420,7 @@ export default function BookDatesPage() {
                                         color="success"
                                         className="px-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
-                                        disabled={loading || !idPilot || (bookingType === 'others' && !isDetailsValid)}
+                                        disabled={loading || (!customLength && (!date || !time))}
                                     >
                                         {loading ? 'Processing...' : 'Complete Booking'}
                                     </Button>

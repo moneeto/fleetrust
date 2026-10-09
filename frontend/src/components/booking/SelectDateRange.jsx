@@ -106,9 +106,9 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
     return (
       <div className="d-flex flex-column gap-3">
         <div className="mobile-native-fields">
-          <div className="d-flex align-items-center gap-2 mb-3">
+          {/* <div className="d-flex align-items-center gap-2 mb-3">
             <span className="fw-bold text-dark">Select Date Range</span>
-          </div>
+          </div> */}
           <Label className="small fw-bold text-uppercase text-muted" htmlFor="range-from">From</Label>
           <input
             id="range-from"
@@ -141,11 +141,11 @@ const SelectDateRange = ({ range, timeRange, onDateChange, onTimeChange }) => {
 
       {/* CONTENEDOR 1: El Calendario (Tarjeta Superior) */}
       <div className="bg-white border rounded-4 shadow-sm p-3 overflow-hidden">
-        <div className="d-flex align-items-center gap-2 mb-3 px-2">
+        {/* <div className="d-flex align-items-center gap-2 mb-3 px-2">
           <span className="fw-bold text-dark">Select Date Range</span>
-        </div>
+        </div> */}
 
-        <div className="d-flex justify-content-center overflow-auto">
+        <div className="d-flex justify-content-between overflow-auto">
           <DayPicker
             mode="range"
             selected={selectedRange}

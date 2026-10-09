@@ -141,7 +141,6 @@ export default function ReviewsManager({ target }) {
                         >
                             <div className={styles.reviewCardTop}>
                                 <div>
-                                    <p className={styles.reviewBrand}>{isTours ? "Frassi Tours" : "Frassi Aviation"}</p>
                                     <p className={styles.reviewCardName}>{item.name}</p>
                                     <div className={styles.stars}>{starsLabel(item.stars)}</div>
                                 </div>

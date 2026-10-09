@@ -1,0 +1,1 @@
+Si no está configurado el rol, por mas que intentes crear el usuario no te vas a poder logear. asegurate de asignar el rol.

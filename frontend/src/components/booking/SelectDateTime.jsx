@@ -14,7 +14,7 @@ import { parseWeekdays } from '@/helpers/bookingConfig';
 
 const SUNSET_SLOT_TIME = '19:30';
 
-const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, experienceCode, routeCode, allowedWeekdays }) => {
+const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, experienceCode, routeCode, serviceCode, allowedWeekdays }) => {
   const TIMEZONE = 'America/New_York';
   const isMobile = useIsMobile();
   const weekdays = parseWeekdays(allowedWeekdays);
@@ -51,7 +51,9 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
       if (idAircraft) {
         url += `&idAircraft=${idAircraft}`;
       }
-      if (experienceCode) {
+      if (serviceCode) {
+        url += `&serviceCode=${encodeURIComponent(serviceCode)}`;
+      } else if (experienceCode) {
         url += `&experienceCode=${encodeURIComponent(experienceCode)}`;
       } else if (routeCode) {
         url += `&routeCode=${encodeURIComponent(routeCode)}`;
@@ -80,7 +82,7 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
     if (selectedDate) {
       fetchAvailableHours(selectedDate);
     }
-  }, [date, idAircraft, experienceCode, routeCode]);
+  }, [date, idAircraft, experienceCode, routeCode, serviceCode]);
 
   const noSlotsMessage = (
     <motion.div

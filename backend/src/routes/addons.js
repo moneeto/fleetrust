@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/addonsModel.js')
-const { poolTours } = require('../helpers/conexion-mysql.js')
+const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
 router.get('/', withAuth, getAddons);
@@ -11,7 +11,7 @@ router.post('/delete', withAuth, deleteAddon);
 
 
 async function createAddon(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -52,7 +52,7 @@ async function createAddon(req, res) {
 }
 
 async function editAddon(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -94,7 +94,7 @@ async function editAddon(req, res) {
 }
 
 async function getAddons(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -105,7 +105,8 @@ async function getAddons(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const addons = await db.getAddons(conn)
+            const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
+            const addons = await db.getAddons(conn, includeDeleted)
 
             response = { addons }
 
@@ -127,7 +128,7 @@ async function getAddons(req, res) {
 
 
 async function deleteAddon(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400

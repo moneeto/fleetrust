@@ -2,7 +2,7 @@ async function getHours(conn) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT hour, active
-        FROM availableHours
+        FROM available_hours
         ORDER BY hour ASC
         `;
         conn.query(query, [], (err, results) => {
@@ -15,7 +15,7 @@ async function getHours(conn) {
 async function updateHourActive(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
-        UPDATE availableHours
+        UPDATE available_hours
         SET active = ?
         WHERE hour = ?
         `;

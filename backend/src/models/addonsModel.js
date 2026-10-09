@@ -1,11 +1,12 @@
-async function getAddons(conn) {
+async function getAddons(conn, includeDeleted) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT idAddon, addon, description, price, active
+        SELECT idAddon, addon, description, price, active, deleted
         FROM addons
+        WHERE deleted = 0 OR ? = 1
         ORDER BY addon ASC
         `;
-        conn.query(query, [], (err, results) => {
+        conn.query(query, [includeDeleted], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -44,8 +45,9 @@ async function updateAddon(conn, p) {
 async function deleteAddon(conn, idAddon) {
     return new Promise((resolve, reject) => {
         const query = `
-        DELETE FROM addons
-        WHERE idAddon = ?
+        UPDATE addons
+        SET deleted = 1
+        WHERE idAddon = ? AND deleted = 0
         `;
         const qParams = [idAddon];
         conn.query(query, qParams, (err, results) => {

@@ -37,7 +37,7 @@ function getTransporter() {
 
 async function sendBookingDetails(mailOptions) {
   let { codeReservation, email, passengers, passengerCount, startDate, title, confirmationHash } = mailOptions;
-  const frassiLogo = (process.env.FRONTEND_URL || 'https://frassitours.com') + '/logo.png';
+  const fleetrustLogo = (process.env.FRONTEND_URL) + '/logo.png';
 
   if (!process.env.MAILER_HOST || !process.env.MAILER_ADMIN) {
     throw new Error('Mailer is not configured (MAILER_HOST / MAILER_ADMIN).');
@@ -53,7 +53,7 @@ async function sendBookingDetails(mailOptions) {
   );
 
   await getTransporter().sendMail({
-    from: `"Frassi Tours" <${process.env.MAILER_ADMIN}>`,
+    from: `"Fleetrust" <${process.env.MAILER_ADMIN}>`,
     to: email,
     replyTo: process.env.MAILER_ADMIN,
     subject: `Booking Confirmed! - #${codeReservation}`,
@@ -62,7 +62,7 @@ async function sendBookingDetails(mailOptions) {
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
         
         <div style="padding: 30px 20px; text-align: center; border-bottom: 1px solid #f0f0f0;">
-          <img src="${frassiLogo}" style="width: 240px; height: auto; margin-bottom: 5px;" alt="Frassi Aviation Tours">
+          <img src="${fleetrustLogo}" style="width: 240px; height: auto; margin-bottom: 5px;" alt="Fleetrust">
         </div>
 
         <div style="padding: 40px;">
@@ -97,13 +97,13 @@ async function sendBookingDetails(mailOptions) {
         <div style="background-color: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f0f0f0;">
           <p style="color: #999; font-size: 12px; line-height: 1.4; margin: 0;">
             This is an automated confirmation of your booking.<br>
-            <strong>Frassi Aviation Tours</strong>
+            <strong>Fleetrust</strong>
           </p>
         </div>
       </div>
       
       <div style="text-align: center; margin-top: 20px; color: #bbb; font-size: 11px;">
-        &copy; ${new Date().getFullYear()} Frassi Aviation Tours. All rights reserved.
+        &copy; ${new Date().getFullYear()} Fleetrust. All rights reserved.
       </div>
     </div>
   `,

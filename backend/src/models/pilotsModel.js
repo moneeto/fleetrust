@@ -1,10 +1,11 @@
-async function getPilots(conn) {
+async function getPilots(conn, includeDeleted) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT idPilot, pilotName, pilotPicture, phoneNumber, active
+        SELECT idPilot, pilotName, pilotPicture, phoneNumber, active, deleted
         FROM pilots
+        WHERE deleted = 0 OR ? = 1
         `;
-        conn.query(query, [], (err, results) => {
+        conn.query(query, [includeDeleted], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -57,8 +58,8 @@ async function updatePilot(conn, p) {
 async function deletePilot(conn, idPilot) {
     return new Promise((resolve, reject) => {
         const query = `
-        DELETE FROM pilots
-        WHERE idPilot = ?
+        UPDATE pilots SET deleted = 1
+        WHERE idPilot = ? AND deleted = 0
         `;
         const qParams = [idPilot];
         conn.query(query, qParams, (err, results) => {

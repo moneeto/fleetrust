@@ -119,7 +119,7 @@ export default function SocialManager({ brand }) {
 
             {!posts.length ? (
                 <div className={styles.empty}>
-                    No Instagram posts for {brand === 'tours' ? 'Frassi Tours' : 'Frassi Aviation'} yet.
+                    No Instagram posts yet.
                 </div>
             ) : (
                 <div className={styles.socialGrid}>

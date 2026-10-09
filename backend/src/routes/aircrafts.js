@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/aircraftsModel.js')
-const { poolTours } = require('../helpers/conexion-mysql.js')
+const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
 
 router.get('/', withAuth, getAircrafts);
@@ -12,7 +12,7 @@ router.post('/restore', withAuth, restoreAircraft);
 
 
 async function createAircraft(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -52,7 +52,7 @@ async function createAircraft(req, res) {
     })
 }
 async function editAircraft(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -94,7 +94,7 @@ async function editAircraft(req, res) {
 }
 
 async function getAircrafts(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -105,7 +105,7 @@ async function getAircrafts(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const includeDeleted = req.query.includeDeleted === '1' || req.query.includeDeleted === 'true';
+            const includeDeleted = (req.query.includeDeleted === '1' || req.query.includeDeleted === 'true') ? 1 : 0;
             const aircrafts = await db.getAircrafts(conn, includeDeleted)
 
             response = { aircrafts }
@@ -128,7 +128,7 @@ async function getAircrafts(req, res) {
 
 
 async function deleteAircraft(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400
@@ -168,7 +168,7 @@ async function deleteAircraft(req, res) {
 }
 
 async function restoreAircraft(req, res) {
-    poolTours.getConnection(async (errConn, conn) => {
+    pool.getConnection(async (errConn, conn) => {
 
         let response = {}
         let status = 400

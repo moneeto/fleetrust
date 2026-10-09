@@ -64,7 +64,7 @@ function BookingsContent() {
     const [idPilotFilter, setIdPilotFilter] = useState("");
     const [aircrafts, setAircrafts] = useState([]);
     const [pilots, setPilots] = useState([]);
-    const [routes, setRoutes] = useState([]);
+    const [services, setServices] = useState([]);
     const [reservations, setReservations] = useState([]);
     const [listLoading, setListLoading] = useState(true);
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
@@ -190,20 +190,20 @@ function BookingsContent() {
         let cancelled = false;
         (async () => {
             try {
-                const [rRoutes, rAc, rReasons, rPilots] = await Promise.all([
-                    ApiComunicator(`/routes/getRoutes`, "GET"),
+                const [rServices, rAc, rReasons, rPilots] = await Promise.all([
+                    ApiComunicator(`/services/getServices`, "GET"),
                     ApiComunicator(`/aircrafts`, "GET"),
                     ApiComunicator(`/reservations/cancellationReasons`, "GET"),
                     ApiComunicator(`/pilots`, "GET"),
                 ]);
                 if (cancelled) return;
-                setRoutes(rRoutes.routes || []);
+                setServices(rServices.services || []);
                 setAircrafts(rAc.aircrafts || []);
                 setCancellationReasons(rReasons.cancellationReasons);
                 setPilots(rPilots.pilots);
             } catch {
                 if (!cancelled) {
-                    setRoutes([]);
+                    setServices([]);
                     setAircrafts([]);
                 }
             }
@@ -239,7 +239,7 @@ function BookingsContent() {
                 const pax = r.passengers ? r.passengers : '-';
                 const client = r.name && r.lastname ? `${r.name} ${r.lastname}` : '-';
                 const email = r.email ? r.email : '-';
-                const flightType = r.route ? r.route : '-';
+                const flightType = r.service || r.route || '-';
                 const notes = r.notes ? r.notes : '-';
                 return `<tr>
                     <td class="px-4 py-3 text-sm">#${r.codeReservation}</td>
@@ -358,7 +358,7 @@ function BookingsContent() {
             if (effectiveIdAircraft && effectiveIdAircraft !== "all") {
                 q.set("idAircraft", String(effectiveIdAircraft));
             }
-            if (idRouteFilter && idRouteFilter !== "all") q.set("idRoute", idRouteFilter);
+            if (idRouteFilter && idRouteFilter !== "all") q.set("idService", idRouteFilter);
             if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
 
             const res = await ApiComunicator(
@@ -704,8 +704,8 @@ function BookingsContent() {
                     }
                 >
                     <option value="all">All types</option>
-                    {routes.map((rt) => (
-                        <option key={rt.idRoute} value={rt.idRoute}>
+                    {services.map((rt) => (
+                        <option key={rt.idService} value={rt.idService}>
                             {rt.title || rt.code}
                         </option>
                     ))}
@@ -732,25 +732,15 @@ function BookingsContent() {
         </>
     );
 
-    const periodSummary = (
-        <>
-            Showing{" "}
-            {dateRange.from === dateRange.to
-                ? moment(dateRange.from).format("MMM D, YYYY")
-                : `${moment(dateRange.from).format("MMM D")} — ${moment(dateRange.to).format("MMM D, YYYY")}`}
-            {listLoading && hasFetchedOnce ? " · Updating…" : ""}
-        </>
-    );
 
     if (!hasFetchedOnce && listLoading) {
         return <Spinner />;
     }
 
+    const reservationAddons = reservation?.addons || [];
     let addonsTotal = 0;
-    if (reservation) {
-        for (let i = 0; i < reservation.addons.length; i++) {
-            addonsTotal += reservation.addons[i].price * reservation.addons[i].quantity;
-        }
+    for (let i = 0; i < reservationAddons.length; i++) {
+        addonsTotal += reservationAddons[i].price * reservationAddons[i].quantity;
     }
 
     return (
@@ -782,9 +772,6 @@ function BookingsContent() {
                 </div>
             </div>
 
-            <div className={styles.summary + " " + styles.mobileOnly}>
-                {periodSummary}
-            </div>
 
             <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
                 <div className="d-flex flex-wrap gap-3 align-items-end">
@@ -802,9 +789,6 @@ function BookingsContent() {
                             </Button>
                         </FormGroup>
                     )}
-                </div>
-                <div className="mt-2 text-sm text-gray-500">
-                    {periodSummary}
                 </div>
             </Form>
 
@@ -901,7 +885,7 @@ function BookingsContent() {
                                         {r.phoneNumber ? r.phoneNumber : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.route ? r.route : `-`}
+                                        {r.service || r.route || `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                         {r.aircraft
@@ -969,7 +953,7 @@ function BookingsContent() {
                                     </div>
                                     <div>
                                         <span className={styles.cardMetaLabel}>Flight type</span>
-                                        {r.route || "—"}
+                                        {r.service || r.route || "—"}
                                     </div>
                                 </div>
                                 <div className={styles.cardActions}>
@@ -1081,7 +1065,7 @@ function BookingsContent() {
                                     }}>
                                         <div style={{ flex: '1 1 40%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.route}</span>
+                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.service || reservation?.route}</span>
                                         </div>
                                         <div style={{ flex: '1 1 40%' }}>
                                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
@@ -1124,6 +1108,20 @@ function BookingsContent() {
                                             ))
                                         }
                                     </div>
+
+                                    {reservationAddons.length > 0 && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '6px' }}>Addons</label>
+                                            <div style={{ maxHeight: '88px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '4px' }}>
+                                                {reservationAddons.map((addon) => (
+                                                    <div key={addon.idAddon} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '6px 10px', fontSize: '13px', color: '#222', borderBottom: '1px solid #f5f5f5' }}>
+                                                        <span style={{ fontWeight: '600' }}>{addon.addon} × {addon.quantity}</span>
+                                                        <span>{Number(addon.price) === 0 ? 'Included' : `$${addon.price * addon.quantity}`}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {reservation?.notes && (
                                         <>
@@ -1316,17 +1314,15 @@ function BookingsContent() {
                 {reservation && (
                     <ModalFooter style={{ backgroundColor: '#fff', display: 'block', textAlign: 'right' }}>
                         <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
-                            <span>{reservation.experience ? reservation.experience : reservation.route}</span>
+                            <span>{reservation.service || reservation.experience || reservation.route}</span>
                             <span style={{ marginLeft: '16px' }}>${reservation.totalValue - addonsTotal}</span>
                         </div>
-                        {reservation.addons.map((addon) => (
-                            <div key={addon.idAddon} style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
-                                <span>{addon.addon} x{addon.quantity}</span>
-                                <span style={{ marginLeft: '16px' }}>
-                                    {Number(addon.price) === 0 ? 'Included' : `$${addon.price * addon.quantity}`}
-                                </span>
+                        {addonsTotal > 0 && (
+                            <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
+                                <span>Addons</span>
+                                <span style={{ marginLeft: '16px' }}>${addonsTotal}</span>
                             </div>
-                        ))}
+                        )}
                         <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#111', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
                             <span>Total</span>
                             <span style={{ marginLeft: '16px' }}>${reservation.totalValue}</span>

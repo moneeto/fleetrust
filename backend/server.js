@@ -54,6 +54,7 @@ const reservations = require('./src/routes/reservations.js');
 const aircrafts = require('./src/routes/aircrafts.js');
 const routes = require('./src/routes/routes.js');
 const experiences = require('./src/routes/experiences.js');
+const services = require('./src/routes/services.js');
 const gallery = require('./src/routes/gallery.js');
 const reviews = require('./src/routes/reviews.js');
 const instagram = require('./src/routes/instagram.js');
@@ -68,6 +69,7 @@ app.use('/reservations', reservations);
 app.use('/aircrafts', aircrafts);
 app.use('/routes', routes);
 app.use('/experiences', experiences);
+app.use('/services', services);
 app.use('/gallery', gallery);
 app.use('/reviews', reviews);
 app.use('/instagram', instagram);
@@ -121,5 +123,5 @@ function onError(error) {
                 ? 'pipe ' + addr
                 : 'port ' + addr.port;
                 
-                console.log('FRASSI Backoffice Backend running in ' + bind + '...')
+                console.log('Fleetrust API running in ' + bind + '...')
             }

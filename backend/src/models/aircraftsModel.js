@@ -1,4 +1,4 @@
-async function getAircrafts(conn, includeDeleted = false) {
+async function getAircrafts(conn, includeDeleted) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT a.*,
@@ -10,9 +10,9 @@ async function getAircrafts(conn, includeDeleted = false) {
                   AND DATE(r.endDate) >= CURDATE()
             ) AS plannedBookings
         FROM aircrafts a
-        ${includeDeleted ? '' : 'WHERE (a.deleted = 0 OR a.deleted IS NULL)'}
+        WHERE (a.deleted = 0 OR a.deleted IS NULL) OR ? = 1
         `;
-        const qParams = [];
+        const qParams = [includeDeleted];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

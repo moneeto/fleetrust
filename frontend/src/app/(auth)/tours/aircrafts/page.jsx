@@ -427,70 +427,7 @@ export default function AircraftList() {
                                 </td>
                             </tr>
                         )}
-                        {filteredAircrafts.map((r) =>
-                            (selectedAircraft && selectedAircraft.idAircraft === r.idAircraft) ? (
-                                <tr key={r.idAircraft}>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            type="text"
-                                            size="sm"
-                                            defaultValue={selectedAircraft.aircraft}
-                                            onChange={(e) => setSelectedAircraft({ ...selectedAircraft, aircraft: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            size="sm"
-                                            type="number"
-                                            defaultValue={selectedAircraft.capacity}
-                                            onChange={(e) => setSelectedAircraft({ ...selectedAircraft, capacity: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            size="sm"
-                                            type="text"
-                                            defaultValue={selectedAircraft.registrationNumber}
-                                            onChange={(e) => setSelectedAircraft({ ...selectedAircraft, registrationNumber: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <FormGroup switch>
-                                            <Input
-                                                type="switch"
-                                                id={`available-${r.idAircraft}`}
-                                                checked={selectedAircraft.available}
-                                                style={{ cursor: 'pointer' }}
-                                                onChange={(e) => setSelectedAircraft({ ...selectedAircraft, available: e.target.checked })}
-                                            />
-                                            <Label for={`available-${r.idAircraft}`} />
-                                        </FormGroup>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-400">
-                                        —
-                                    </td>
-                                    <td>
-                                        <div className="d-flex gap-2 align-items-center">
-                                            <Button
-                                                color="success"
-                                                size="sm"
-                                                onClick={() => { editAircraft(selectedAircraft.idAircraft) }}
-                                            >
-                                                Save
-                                            </Button>
-                                            <Button
-                                                color="danger"
-                                                size="sm"
-                                                outline
-                                                className="ml-2"
-                                                onClick={() => { setSelectedAircraft(null); }}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
+                        {filteredAircrafts.map((r) =>(
                                 <tr
                                     key={r.idAircraft}
                                     className={`${isDeleted(r) ? styles.deletedRow : "transition-colors duration-150 hover:bg-sky-100"}`}
@@ -568,83 +505,6 @@ export default function AircraftList() {
                                     </td>
                                 </tr>
                             ))}
-                        {creatingAircraft && (
-                            <tr>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        value={creatingAircraft.aircraft}
-                                        onChange={(e) =>
-                                            setCreatingAircraft({ ...creatingAircraft, aircraft: e.target.value })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        type="number"
-                                        value={creatingAircraft.capacity}
-                                        onChange={(e) =>
-                                            setCreatingAircraft({ ...creatingAircraft, capacity: e.target.value })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        value={creatingAircraft.registrationNumber}
-                                        onChange={(e) =>
-                                            setCreatingAircraft({
-                                                ...creatingAircraft,
-                                                registrationNumber: e.target.value
-                                            })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <FormGroup switch>
-                                        <Input
-                                            type="switch"
-                                            checked={creatingAircraft.available}
-                                            onChange={(e) =>
-                                                setCreatingAircraft({
-                                                    ...creatingAircraft,
-                                                    available: e.target.checked
-                                                })
-                                            }
-                                        />
-                                        <Label />
-                                    </FormGroup>
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-400">
-                                    —
-                                </td>
-                                <td>
-                                    <div className="d-flex gap-2">
-                                        <Button
-                                            color="success"
-                                            size="sm"
-                                            disabled={
-                                                !creatingAircraft.aircraft ||
-                                                !creatingAircraft.capacity ||
-                                                !creatingAircraft.registrationNumber
-                                            }
-                                            onClick={createAircraft}
-                                        >
-                                            Save
-                                        </Button>
-                                        <Button
-                                            color="danger"
-                                            size="sm"
-                                            outline
-                                            onClick={() => setCreatingAircraft(null)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </Table>
             </div>
@@ -658,35 +518,12 @@ export default function AircraftList() {
                 )}
 
                 {filteredAircrafts.map((r) => {
-                    const editing = selectedAircraft && selectedAircraft.idAircraft === r.idAircraft;
                     return (
                         <div
                             key={r.idAircraft}
                             className={`${styles.card} ${isDeleted(r) ? styles.cardDeleted : ""}`}
                         >
-                            {editing ? (
-                                <>
-                                    {renderEditFields(selectedAircraft, setSelectedAircraft, r.idAircraft)}
-                                    <div className={`${styles.cardActions} mt-3`}>
-                                        <Button
-                                            color="success"
-                                            size="sm"
-                                            onClick={() => editAircraft(selectedAircraft.idAircraft)}
-                                        >
-                                            Save
-                                        </Button>
-                                        <Button
-                                            color="danger"
-                                            size="sm"
-                                            outline
-                                            onClick={() => setSelectedAircraft(null)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
+<>
                                     <div
                                         className={`${styles.cardTitle} ${isDeleted(r) ? styles.cardTitleDeleted : ""}`}
                                         onClick={() => goToBookings(r)}
@@ -752,39 +589,10 @@ export default function AircraftList() {
                                         )}
                                     </div>
                                 </>
-                            )}
                         </div>
                     );
                 })}
 
-                {creatingAircraft && (
-                    <div className={styles.card}>
-                        <p className="fw-semibold mb-3">New aircraft</p>
-                        {renderEditFields(creatingAircraft, setCreatingAircraft, "new")}
-                        <div className={`${styles.cardActions} mt-3`}>
-                            <Button
-                                color="success"
-                                size="sm"
-                                disabled={
-                                    !creatingAircraft.aircraft ||
-                                    !creatingAircraft.capacity ||
-                                    !creatingAircraft.registrationNumber
-                                }
-                                onClick={createAircraft}
-                            >
-                                Save
-                            </Button>
-                            <Button
-                                color="danger"
-                                size="sm"
-                                outline
-                                onClick={() => setCreatingAircraft(null)}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className={styles.newBtnWrap}>
@@ -810,6 +618,32 @@ export default function AircraftList() {
                     Loading aircrafts...
                 </div>
             )}
+
+
+            <Modal isOpen={!!creatingAircraft || !!selectedAircraft} centered size="lg" toggle={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
+                <ModalHeader toggle={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
+                    {creatingAircraft ? "New aircraft" : "Edit aircraft"}
+                </ModalHeader>
+                <ModalBody>
+                    {creatingAircraft
+                        ? renderEditFields(creatingAircraft, setCreatingAircraft, "new")
+                        : selectedAircraft && renderEditFields(selectedAircraft, setSelectedAircraft, selectedAircraft.idAircraft)}
+                </ModalBody>
+                <ModalFooter>
+                    <Button color="secondary" outline onClick={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        color="success"
+                        disabled={creatingAircraft
+                            ? !creatingAircraft.aircraft || !creatingAircraft.capacity || !creatingAircraft.registrationNumber
+                            : !selectedAircraft}
+                        onClick={creatingAircraft ? createAircraft : () => editAircraft(selectedAircraft.idAircraft)}
+                    >
+                        Save
+                    </Button>
+                </ModalFooter>
+            </Modal>
 
             <Modal isOpen={deleteConfirmModal.show} centered>
                 <ModalHeader

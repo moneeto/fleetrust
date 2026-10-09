@@ -1,5 +1,5 @@
 .page {
-    max-width: 1200px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 3rem 1rem;
     font-family: Inter, sans-serif;
@@ -18,11 +18,17 @@
 }
 
 .cardBody {
-    padding: 1.5rem;
+    padding: 2rem;
+}
+
+.narrow {
+    max-width: 520px;
+    margin: 0 auto;
 }
 
 .navBar {
-    background: #f8f9fa;
+    background: #fff;
+    border-top: 1px solid #eef0f3;
     padding: 1rem 1.5rem;
     display: flex;
     justify-content: space-between;
@@ -41,8 +47,8 @@
 }
 
 .settingsPanel {
-    background: #f8f9fa;
-    padding: 1.5rem;
+
+    padding: 0rem;
     border-radius: 1rem;
 }
 

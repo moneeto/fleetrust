@@ -1,5 +1,5 @@
 {
-  "name": "frassi",
+  "name": "Fleetrust",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "@daypilot/daypilot-lite-react": "^5.3.1",
     "@radix-ui/react-label": "^2.1.8",
     "bootstrap": "^5.3.8",
+    "calendarkit-pro": "^1.1.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",

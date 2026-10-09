@@ -80,6 +80,10 @@ function normalizeProduct(product) {
     return product;
 }
 
+function serializeWeekdays(value) {
+    return JSON.stringify(parseWeekdays(value));
+}
+
 function isStaffMeBooking({ experienceCode, routeCode, passengerCount }) {
     return !experienceCode
         && String(routeCode || '').toUpperCase() === 'BAS'
@@ -88,6 +92,7 @@ function isStaffMeBooking({ experienceCode, routeCode, passengerCount }) {
 
 module.exports = {
     parseWeekdays,
+    serializeWeekdays,
     todayMiami,
     weekdayOfDate,
     isDateInWindow,

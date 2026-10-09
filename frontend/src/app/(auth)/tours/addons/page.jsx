@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
-import { CheckIcon, EditIcon, TrashIcon, XIcon } from "lucide-react";
+import { CheckIcon, EditIcon, Filter, TrashIcon, XIcon } from "lucide-react";
 import { FaExclamationCircle } from "react-icons/fa";
 import styles from './page.module.css';
 import Spinner from "@/components/ui/Spinner";
+import useIsMobile from "@/hooks/useIsMobile";
+import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
 
 export default function AddonList() {
     const [addons, setAddons] = useState([]);
@@ -17,6 +19,10 @@ export default function AddonList() {
     const [error, setError] = useState(null);
     const [creatingAddon, setCreatingAddon] = useState(null);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, addon: null });
+    const [showDeleted, setShowDeleted] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [filters, setFilters] = useState({ addon: "", description: "", price: "", active: "all" });
+    const isMobile = useIsMobile();
 
     const { toast } = useToast();
 
@@ -25,7 +31,7 @@ export default function AddonList() {
             setLoading(true);
             setError(null);
 
-            const res = await ApiComunicator(`/addons`, 'GET');
+            const res = await ApiComunicator(`/addons?includeDeleted=1`, 'GET');
 
             setAddons(res.addons);
         } catch (err) {
@@ -174,6 +180,54 @@ export default function AddonList() {
         return <Spinner />
     }
 
+    const visible = addons.filter((row) => {
+        if (!showDeleted && row.deleted) return false;
+        if (filters.addon && !String(row.addon || "").toLowerCase().includes(filters.addon.toLowerCase())) return false;
+        if (filters.description && !String(row.description || "").toLowerCase().includes(filters.description.toLowerCase())) return false;
+        if (filters.price && !String(row.price ?? "").includes(filters.price)) return false;
+        if (filters.active === "yes" && !row.active) return false;
+        if (filters.active === "no" && row.active) return false;
+        return true;
+    });
+    const updateFilter = (field, value) => setFilters((prev) => ({ ...prev, [field]: value }));
+    const resetFilters = () => {
+        setFilters({ addon: "", description: "", price: "", active: "all" });
+        setShowDeleted(false);
+    };
+    const activeFilterCount = [filters.addon, filters.description, filters.price].filter(Boolean).length + (filters.active !== "all" ? 1 : 0) + (showDeleted ? 1 : 0);
+    const fieldMin = isMobile ? "100%" : undefined;
+    const filterFields = (idPrefix = "") => (
+        <>
+            <FormGroup style={{ minWidth: fieldMin || "160px" }}>
+                <Label for={`${idPrefix}filterAddon`}>Addon name</Label>
+                <Input id={`${idPrefix}filterAddon`} value={filters.addon} onChange={(e) => updateFilter("addon", e.target.value)} />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "180px" }}>
+                <Label for={`${idPrefix}filterDescription`}>Description</Label>
+                <Input id={`${idPrefix}filterDescription`} value={filters.description} onChange={(e) => updateFilter("description", e.target.value)} />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "120px" }}>
+                <Label for={`${idPrefix}filterPrice`}>Unit price</Label>
+                <Input id={`${idPrefix}filterPrice`} value={filters.price} onChange={(e) => updateFilter("price", e.target.value)} />
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "140px" }}>
+                <Label for={`${idPrefix}filterActive`}>Active</Label>
+                <Input id={`${idPrefix}filterActive`} type="select" value={filters.active} onChange={(e) => updateFilter("active", e.target.value)}>
+                    <option value="all">All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </Input>
+            </FormGroup>
+            <FormGroup style={{ minWidth: fieldMin || "140px" }}>
+                {isMobile ? <Label for={`${idPrefix}showDeleted`}>Show deleted</Label> : <Label className="d-block invisible">Show deleted</Label>}
+                <div className="d-flex align-items-center" style={{ minHeight: "38px" }}>
+                    <Input id={`${idPrefix}showDeleted`} type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
+                    {!isMobile && <Label for={`${idPrefix}showDeleted`} check className="ms-2 mb-0">Show deleted</Label>}
+                </div>
+            </FormGroup>
+        </>
+    );
+
     return (
         <div className={styles.page}>
             {error && (
@@ -181,6 +235,21 @@ export default function AddonList() {
                     {error}
                 </p>
             )}
+            <div className={styles.mobileToolbar}>
+                <Button color="primary" outline className={styles.filtersBtn} type="button" onClick={() => setFiltersOpen(true)}>
+                    <Filter size={16} />
+                    Filters
+                    {activeFilterCount > 0 && <span className={styles.filtersBadge}>{activeFilterCount}</span>}
+                </Button>
+            </div>
+            <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
+                <div className="d-flex flex-wrap gap-3 align-items-end">
+                    {filterFields()}
+                </div>
+            </Form>
+            <MobileFiltersModal isOpen={filtersOpen} toggle={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onReset={resetFilters}>
+                {filterFields("mobile-")}
+            </MobileFiltersModal>
 
             <div className={`${styles.tableCard} ${styles.desktopOnly}`}>
                 <Table>
@@ -205,77 +274,18 @@ export default function AddonList() {
                     </thead>
 
                     <tbody className="divide-y">
-                        {addons.length === 0 && (
+                        {visible.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="px-4 py-6 text-sm text-gray-500 text-center">
                                     No addons found.
                                 </td>
                             </tr>
                         )}
-                        {addons.map((r) =>
-                            (selectedAddon && selectedAddon.idAddon === r.idAddon) ? (
-                                <tr key={r.idAddon}>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            type="text"
-                                            size="sm"
-                                            defaultValue={selectedAddon.addon}
-                                            onChange={(e) => setSelectedAddon({ ...selectedAddon, addon: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            type="text"
-                                            size="sm"
-                                            defaultValue={selectedAddon.description}
-                                            onChange={(e) => setSelectedAddon({ ...selectedAddon, description: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <Input
-                                            size="sm"
-                                            type="number"
-                                            defaultValue={selectedAddon.price}
-                                            onChange={(e) => setSelectedAddon({ ...selectedAddon, price: e.target.value })}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <FormGroup switch>
-                                            <Input
-                                                type="switch"
-                                                id={`active-${r.idAddon}`}
-                                                checked={selectedAddon.active}
-                                                style={{ cursor: 'pointer' }}
-                                                onChange={(e) => setSelectedAddon({ ...selectedAddon, active: e.target.checked })}
-                                            />
-                                            <Label for={`active-${r.idAddon}`} />
-                                        </FormGroup>
-                                    </td>
-                                    <td>
-                                        <div className="d-flex gap-2 align-items-center">
-                                            <Button
-                                                color="success"
-                                                size="sm"
-                                                onClick={() => { editAddon(selectedAddon.idAddon) }}
-                                            >
-                                                Save
-                                            </Button>
-                                            <Button
-                                                color="danger"
-                                                size="sm"
-                                                outline
-                                                className="ml-2"
-                                                onClick={() => { setSelectedAddon(null); }}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
+                        {visible.map((r) =>(
                                 <tr
                                     key={r.idAddon}
                                     className="transition-colors duration-150 hover:bg-sky-100"
+                                    style={{ opacity: r.deleted ? 0.55 : 1 }}
                                 >
                                     <td className="px-4 py-3 text-sm">
                                         {r.addon}
@@ -305,126 +315,35 @@ export default function AddonList() {
                                             >
                                                 <EditIcon size={16} /> Edit
                                             </Button>
-                                            <Button
-                                                color="danger"
-                                                size="sm"
-                                                outline
-                                                onClick={(e) => openDeleteModal(r, e)}
-                                            >
-                                                <TrashIcon size={16} /> Delete
-                                            </Button>
+                                            {!r.deleted && (
+                                                <Button
+                                                    color="danger"
+                                                    size="sm"
+                                                    outline
+                                                    onClick={(e) => openDeleteModal(r, e)}
+                                                >
+                                                    <TrashIcon size={16} /> Delete
+                                                </Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
                             ))}
-                        {creatingAddon && (
-                            <tr>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        value={creatingAddon.addon}
-                                        onChange={(e) =>
-                                            setCreatingAddon({ ...creatingAddon, addon: e.target.value })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        value={creatingAddon.description}
-                                        onChange={(e) =>
-                                            setCreatingAddon({ ...creatingAddon, description: e.target.value })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <Input
-                                        size="sm"
-                                        type="number"
-                                        value={creatingAddon.price}
-                                        onChange={(e) =>
-                                            setCreatingAddon({ ...creatingAddon, price: e.target.value })
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <FormGroup switch>
-                                        <Input
-                                            type="switch"
-                                            checked={creatingAddon.active}
-                                            onChange={(e) =>
-                                                setCreatingAddon({
-                                                    ...creatingAddon,
-                                                    active: e.target.checked
-                                                })
-                                            }
-                                        />
-                                        <Label />
-                                    </FormGroup>
-                                </td>
-                                <td>
-                                    <div className="d-flex gap-2">
-                                        <Button
-                                            color="success"
-                                            size="sm"
-                                            disabled={
-                                                !creatingAddon.addon ||
-                                                !creatingAddon.price
-                                            }
-                                            onClick={createAddon}
-                                        >
-                                            Save
-                                        </Button>
-                                        <Button
-                                            color="danger"
-                                            size="sm"
-                                            outline
-                                            onClick={() => setCreatingAddon(null)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </Table>
             </div>
 
             <div className={`${styles.mobileOnly} ${styles.cardsList}`}>
-                {addons.length === 0 && !creatingAddon && (
+                {visible.length === 0 && !creatingAddon && (
                     <div className={styles.card}>
                         <p className="mb-0 text-sm text-gray-500 text-center">No addons found.</p>
                     </div>
                 )}
 
-                {addons.map((r) => {
-                    const editing = selectedAddon && selectedAddon.idAddon === r.idAddon;
+                {visible.map((r) => {
                     return (
                         <div key={r.idAddon} className={styles.card}>
-                            {editing ? (
-                                <>
-                                    {renderEditFields(selectedAddon, setSelectedAddon, r.idAddon)}
-                                    <div className={`${styles.cardActions} mt-3`}>
-                                        <Button
-                                            color="success"
-                                            size="sm"
-                                            onClick={() => editAddon(selectedAddon.idAddon)}
-                                        >
-                                            Save
-                                        </Button>
-                                        <Button
-                                            color="danger"
-                                            size="sm"
-                                            outline
-                                            onClick={() => setSelectedAddon(null)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
+<>
                                     <div className={styles.cardTitle}>
                                         {r.addon}
                                     </div>
@@ -456,48 +375,22 @@ export default function AddonList() {
                                         >
                                             <EditIcon size={16} /> Edit
                                         </Button>
-                                        <Button
-                                            color="danger"
-                                            size="sm"
-                                            outline
-                                            onClick={(e) => openDeleteModal(r, e)}
-                                        >
-                                            <TrashIcon size={16} /> Delete
-                                        </Button>
+                                        {!r.deleted && (
+                                            <Button
+                                                color="danger"
+                                                size="sm"
+                                                outline
+                                                onClick={(e) => openDeleteModal(r, e)}
+                                            >
+                                                <TrashIcon size={16} /> Delete
+                                            </Button>
+                                        )}
                                     </div>
                                 </>
-                            )}
                         </div>
                     );
                 })}
 
-                {creatingAddon && (
-                    <div className={styles.card}>
-                        <p className="fw-semibold mb-3">New addon</p>
-                        {renderEditFields(creatingAddon, setCreatingAddon, "new")}
-                        <div className={`${styles.cardActions} mt-3`}>
-                            <Button
-                                color="success"
-                                size="sm"
-                                disabled={
-                                    !creatingAddon.addon ||
-                                    !creatingAddon.price
-                                }
-                                onClick={createAddon}
-                            >
-                                Save
-                            </Button>
-                            <Button
-                                color="danger"
-                                size="sm"
-                                outline
-                                onClick={() => setCreatingAddon(null)}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className={styles.newBtnWrap}>
@@ -523,6 +416,30 @@ export default function AddonList() {
                     Loading addons...
                 </div>
             )}
+
+
+            <Modal isOpen={!!creatingAddon || !!selectedAddon} centered size="lg" toggle={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
+                <ModalHeader toggle={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
+                    {creatingAddon ? "New addon" : "Edit addon"}
+                </ModalHeader>
+                <ModalBody>
+                    {creatingAddon
+                        ? renderEditFields(creatingAddon, setCreatingAddon, "new")
+                        : selectedAddon && renderEditFields(selectedAddon, setSelectedAddon, selectedAddon.idAddon)}
+                </ModalBody>
+                <ModalFooter>
+                    <Button color="secondary" outline onClick={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        color="success"
+                        disabled={creatingAddon ? !creatingAddon.addon || !creatingAddon.price : !selectedAddon}
+                        onClick={creatingAddon ? createAddon : () => editAddon(selectedAddon.idAddon)}
+                    >
+                        Save
+                    </Button>
+                </ModalFooter>
+            </Modal>
 
             <Modal isOpen={deleteConfirmModal.show} centered>
                 <ModalHeader
