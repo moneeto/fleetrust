@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mariadb:10.11
-    container_name: frassi-mysql
+    container_name: fleetrust-mysql
     restart: unless-stopped
     ports:
       - "3306:3306"
@@ -9,14 +9,15 @@ services:
       MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: fleetrust
     volumes:
-      - frassi_mysql_data:/var/lib/mysql
-      - ./frassi_enlatado.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - fleetrust_mysql_data:/var/lib/mysql
+      - ./fleetrust_enlatado.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./backend/sql/002_unify_tours.sql:/docker-entrypoint-initdb.d/02-unify-tours.sql:ro
       - ./backend/sql/003_soft_delete.sql:/docker-entrypoint-initdb.d/03-soft-delete.sql:ro
       - ./backend/sql/004_services.sql:/docker-entrypoint-initdb.d/04-services.sql:ro
       - ./backend/sql/005_pilots_deleted.sql:/docker-entrypoint-initdb.d/05-pilots-deleted.sql:ro
       - ./backend/sql/006_normalize_tables.sql:/docker-entrypoint-initdb.d/06-normalize-tables.sql:ro
       - ./backend/sql/007_snake_case_tables.sql:/docker-entrypoint-initdb.d/07-snake-case-tables.sql:ro
+      - ./backend/sql/008_roles_code.sql:/docker-entrypoint-initdb.d/08-roles-code.sql:ro
 
 volumes:
-  frassi_mysql_data:
+  fleetrust_mysql_data:

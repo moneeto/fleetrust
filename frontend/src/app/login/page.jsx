@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 import {
-  Badge,
-  Card,
-  CardBody,
   Button,
   Form,
   Input,
@@ -12,13 +9,11 @@ import {
   FormGroup,
   Alert,
   Spinner,
-  Container,
-  Row,
-  Col
 } from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { getRecaptchaToken } from "@/helpers/recaptcha";
 import { useRouter } from "next/navigation";
+import styles from "./login.module.css";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -55,12 +50,16 @@ export default function Login() {
   };
 
   return (
-    <Container fluid className="vh-100 bg-light">
-      <Row className="h-100 justify-content-center align-items-center">
-        <Col xs="12" sm="10" md="6" lg="4">
-          <Card className="shadow-md" style={{ border: '0px' }}>
-            <CardBody className="p-4">
-              <img src="/images/logo-bw.svg" alt="Logo" className="mb-4 d-block mx-auto" style={{ maxWidth: '250px' }} />
+    <div className={styles.page}>
+      <div className={styles.brandPanel}>
+        <h1 className={`brand ${styles.brandName}`}>Fleetrust</h1>
+      </div>
+
+      <div className={styles.formPanel}>
+        <div className={styles.formBox}>
+          <h1 className={`brand ${styles.formBrand}`}>Fleetrust</h1>
+          <h2 className={styles.title}>Sign in</h2>
+          <p className={styles.subtitle}>Enter your credentials to access the back office.</p>
 
               <Form onSubmit={handleSubmit}>
                 <FormGroup className="mb-3" floating>
@@ -103,8 +102,8 @@ export default function Login() {
 
                 <Button
                   type="submit"
-                  className="w-100"
-                  style={{backgroundColor: "black"}}
+                  color="primary"
+                  className={`w-100 ${styles.submit}`}
                   disabled={loading}
                 >
                   {loading ? (
@@ -117,10 +116,8 @@ export default function Login() {
                   )}
                 </Button>
               </Form>
-            </CardBody>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+        </div>
+      </div>
+    </div>
   );
 }

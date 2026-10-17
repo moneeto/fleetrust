@@ -262,6 +262,13 @@ async function createReservation(req, res) {
                 idAircraft = aircrafts[0].idAircraft;
             }
 
+            if (idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, 0);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw `There is already a reservation scheduled for the pilot during this time period. Overlapping reservation: ${pilotOverlaps[0].codeReservation}`;
+                }
+            }
+
 
             // const insertResult = await db.createReservation(conn, {
             //     startDate: reservationDate + ' ' + reservationTime + ':00',
@@ -718,6 +725,13 @@ async function updateReservation(req, res) {
                 }
             }
 
+            if (startDate && endDate && idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, idReservation);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw `There is already a reservation scheduled for the pilot during this time period. Overlapping reservation: ${pilotOverlaps[0].codeReservation}`;
+                }
+            }
+
             const updateResult = await db.updateReservation(conn, {
                 idReservation,
                 name,
@@ -819,6 +833,13 @@ async function createReservationRange(req, res) {
             if (overlapping && overlapping.length > 0) {
                 throw { overlapping, message: 'There are already reservations in this range.' };
             }
+
+            if (idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, 0);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw { overlapping: pilotOverlaps, message: 'The pilot already has a reservation in this range.' };
+                }
+            }
             
             const pilotRoute = await db.getRouteByCode(conn, '000');
             if (!pilotRoute) throw 'No route found for pilot booking.';
@@ -895,7 +916,7 @@ async function deleteReservation(req, res) {
             if (errConn) throw errConn;
             connSuccess = true;
 
-            if (req.idRole != 1) {
+            if (req.code != "ADM") {
                 throw "Not authorized."
             }
 

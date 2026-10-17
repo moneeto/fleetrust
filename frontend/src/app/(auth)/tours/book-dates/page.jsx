@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from "next/navigation";
-import { Modal, ModalBody, Button, FormGroup, Label, Input } from 'reactstrap';
+import { Button, FormGroup, Label, Input } from 'reactstrap';
+import MessageModal from '@/components/ui/MessageModal';
 import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
 import moment from 'moment';
 
@@ -16,14 +17,14 @@ import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
 import { defaultPassengerCount } from '@/helpers/bookingConfig';
 
-export default function BookDatesPage() {
+export default function BookDatesPage({ initialDate = "", initialTime = "", onDone } = {}) {
     const router = useRouter();
     const [step, setStep] = useState(0);
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
     const [bookingType, setBookingType] = useState(null);
-    const [date, setDate] = useState('');
-    const [time, setTime] = useState('');
+    const [date, setDate] = useState(initialDate);
+    const [time, setTime] = useState(initialTime);
     const [passengers, setPassengers] = useState(2);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -191,7 +192,7 @@ export default function BookDatesPage() {
         : ['type', 'service', 'pax', 'resource', 'when'];
     const current = flow[step];
     const isLast = step === flow.length - 1;
-    const titles = { type: 'Book', service: 'Select a service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
+    const titles = { type: 'New Book', service: 'Select a service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
 
     const clientServices = services.filter(
         (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
@@ -451,32 +452,31 @@ export default function BookDatesPage() {
                 </motion.div>
             )}
 
-            <Modal isOpen={showSuccessModal} centered contentClassName="border-0 rounded-4 shadow-lg text-center p-4">
-                <ModalBody>
-                    <div className="mb-4"><FaCheckCircle className="text-success" size={60} /></div>
-                    <h3 className="fw-bold">Reservation Confirmed!</h3>
-                    <p className="text-muted">
-                        Your flight for <strong>{date}</strong> is ready.
-                        {reservationHolder?.email ? (
-                            <> A boarding pass was sent to <strong>{reservationHolder.email}</strong>.</>
-                        ) : null}
-                    </p>
-                    <Button color="success" className="w-100 py-2 rounded-pill fw-bold mt-3" onClick={() => router.push('/tours/bookings')}>Finish</Button>
-                </ModalBody>
-            </Modal>
+            <MessageModal
+                isOpen={showSuccessModal}
+                type="success"
+                title="Reservation confirmed"
+                confirmLabel="Finish"
+                onClose={() => onDone ? onDone() : router.push('/tours/bookings')}
+            >
+                Your flight for {date} is ready.
+                {reservationHolder?.email ? <> A boarding pass was sent to {reservationHolder.email}.</> : null}
+            </MessageModal>
 
-            <Modal isOpen={showErrorModal} centered contentClassName="border-0 rounded-4 shadow-lg p-4" toggle={() => setShowErrorModal(false)}>
-                <ModalBody className="text-center">
-                    <h5 className="fw-bold text-danger mb-3">Scheduling Conflict</h5>
-                    <p className="small text-muted">{overlappingData?.message || 'Selected time is unavailable.'}</p>
-                    <ul className="text-start list-unstyled bg-light p-3 rounded-3 small">
-                        {overlappingData?.overlapping?.map((item, i) => (
-                            <li key={i} className="mb-1">• {item.startDate} to {item.endDate}</li>
-                        ))}
-                    </ul>
-                    <Button color="danger" className="w-100 py-2 rounded-pill mt-3" onClick={() => setShowErrorModal(false)}>Retry</Button>
-                </ModalBody>
-            </Modal>
+            <MessageModal
+                isOpen={showErrorModal}
+                type="error"
+                title="Scheduling conflict"
+                confirmLabel="Retry"
+                onClose={() => setShowErrorModal(false)}
+            >
+                <p className="mb-2">{overlappingData?.message || "Selected time is unavailable."}</p>
+                <ul className="mb-0">
+                    {overlappingData?.overlapping?.map((item, i) => (
+                        <li key={i}>{item.startDate} to {item.endDate}</li>
+                    ))}
+                </ul>
+            </MessageModal>
         </div>
     );
 }

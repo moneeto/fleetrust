@@ -1,0 +1,309 @@
+/* Modal shell */
+.modal {
+    border: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.28);
+}
+
+.modal :global(.modal-header) {
+    border-bottom: 0;
+    padding: 1.25rem 1.5rem 0;
+}
+
+.modal :global(.modal-title) {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.modal :global(.modal-footer) {
+    border-top: 1px solid var(--color-border);
+    padding: 0.875rem 1.5rem;
+    background: var(--color-bg);
+}
+
+.modal :global(.modal-footer) > * {
+    margin: 0;
+}
+
+.body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.body :global(.form-label),
+.body label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.4rem;
+}
+
+.body :global(.form-control),
+.body :global(.form-select) {
+    min-height: 42px;
+    border-radius: 10px;
+    border-color: var(--color-border);
+    font-size: 0.9rem;
+}
+
+.body :global(.form-control):focus,
+.body :global(.form-select):focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.body :global(.btn) {
+    border-radius: 10px;
+}
+
+/* Stepper */
+.stepper {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1.75rem;
+}
+
+.step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-muted);
+    font-size: 0.8rem;
+}
+
+/* line that joins this step with the previous one */
+.step:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    top: 15px;
+    right: 50%;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--color-border);
+}
+
+.stepDone:not(:first-child)::before,
+.stepActive:not(:first-child)::before {
+    background: var(--color-primary);
+}
+
+.circle {
+    position: relative;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.step:hover .circle {
+    border-color: var(--color-primary);
+}
+
+.stepActive .circle {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.18);
+}
+
+.stepDone .circle {
+    background: rgba(var(--color-primary-rgb), 0.1);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.stepActive,
+.stepDone {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+/* Section headings */
+.title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.15rem;
+}
+
+.subtitle {
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+}
+
+.hint {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    background: var(--color-bg);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+}
+
+/* Selectable buttons: days, presets, addons share the same on/off look */
+.day,
+.preset,
+.chip {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.day:hover,
+.preset:hover,
+.chip:hover {
+    border-color: var(--color-primary);
+}
+
+.day:active,
+.preset:active,
+.chip:active {
+    transform: scale(0.98);
+}
+
+.dayOn,
+.presetOn,
+.chipOn {
+    background: rgba(var(--color-primary-rgb), 0.1);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.dayGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+}
+
+.day {
+    min-height: 48px;
+    font-size: 0.85rem;
+}
+
+.presetRow,
+.advanceRow {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.presetRow {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.advanceRow {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.preset {
+    min-height: 40px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
+.chip {
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .body {
+        padding: 1rem;
+    }
+
+    .dayGrid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .presetRow,
+    .advanceRow {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* keep only the active step name so three steps fit on a phone */
+    .step:not(.stepActive) .label {
+        display: none;
+    }
+}
+
+/* Hours */
+.hoursBox {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.rangeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.rangeRow > :global(.form-control),
+.rangeRow > :global(.form-select) {
+    flex: 1 1 120px;
+    max-width: 160px;
+}
+
+.hour {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.25rem 0.35rem 0.25rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+.hourRemove {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-muted);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.hourRemove:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Prices */
+.priceRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}

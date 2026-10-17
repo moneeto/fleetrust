@@ -44,6 +44,15 @@ async function getServiceByCode(conn, code) {
     });
 }
 
+async function findServiceIdByCode(conn, code) {
+    return new Promise((resolve, reject) => {
+        conn.query('SELECT idService FROM services WHERE code = ? LIMIT 1', [code], (err, results) => {
+            if (err) return reject(err);
+            resolve(results[0] || null);
+        });
+    });
+}
+
 async function createService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
@@ -163,6 +172,7 @@ module.exports = {
     getServiceHours,
     getServiceAddons,
     getServiceByCode,
+    findServiceIdByCode,
     createService,
     updateService,
     deleteServicePrices,

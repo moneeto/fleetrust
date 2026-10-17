@@ -1,0 +1,81 @@
+/*
+ * TEMA GLOBAL: unico lugar para probar colores y fuentes de toda la plataforma.
+ * Cambia un valor aca y se actualizan sidebar, header, botones, filtros, tablas y tarjetas.
+ *
+ * Fuente del logo "Fleetrust": se carga en app/layout.js (next/font, Michroma) y llega como --font-brand.
+ * Fuente del resto de la app: --font-body (para una fuente de Google, cargala en layout.js
+ * con next/font y usa su variable aca, igual que Michroma).
+ */
+:root {
+    /* Fuentes */
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+        Cantarell, "Helvetica Neue", Arial, sans-serif;
+    --font-brand: var(--font-michroma), "Michroma", sans-serif;
+
+    /* Paleta */
+    --color-primary: #0d6efd;
+    --color-primary-rgb: 13, 110, 253;
+    --color-sidebar: #212529;
+    --color-bg: #f8f9fa;
+    --color-surface: #ffffff;
+    --color-border: #e5e7eb;
+    --color-text: #111827;
+    --color-muted: #6b7280;
+
+    /* Formas */
+    --radius: 12px;
+    --radius-sm: 8px;
+
+    /* Puente hacia Bootstrap (no tocar) */
+    --bs-primary: var(--color-primary);
+    --bs-primary-rgb: var(--color-primary-rgb);
+    --bs-link-color: var(--color-primary);
+    --bs-link-color-rgb: var(--color-primary-rgb);
+    --bs-body-font-family: var(--font-body);
+    --bs-body-color: var(--color-text);
+}
+
+body {
+    font-family: var(--font-body);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--color-primary);
+    --bs-btn-border-color: var(--color-primary);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--color-primary) 85%, #000);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--color-primary) 85%, #000);
+    --bs-btn-active-bg: color-mix(in srgb, var(--color-primary) 75%, #000);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--color-primary) 75%, #000);
+    --bs-btn-disabled-bg: var(--color-primary);
+    --bs-btn-disabled-border-color: var(--color-primary);
+    --bs-btn-focus-shadow-rgb: var(--color-primary-rgb);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--color-primary);
+    --bs-btn-border-color: var(--color-primary);
+    --bs-btn-hover-bg: var(--color-primary);
+    --bs-btn-hover-border-color: var(--color-primary);
+    --bs-btn-active-bg: var(--color-primary);
+    --bs-btn-active-border-color: var(--color-primary);
+    --bs-btn-disabled-color: var(--color-primary);
+    --bs-btn-disabled-border-color: var(--color-primary);
+    --bs-btn-focus-shadow-rgb: var(--color-primary-rgb);
+}
+
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--color-primary-rgb), 0.15);
+}
+
+.brand {
+    font-family: var(--font-brand);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}

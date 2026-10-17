@@ -61,6 +61,7 @@ async function login(req, res) {
                 username: userData[0].username,
                 idRole: userData[0].idRole,
                 role: userData[0].role,
+                code: userData[0].code,
                 name: userData[0].name,
                 surname: userData[0].surname,
                 active: userData[0].active,

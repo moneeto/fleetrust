@@ -1,0 +1,77 @@
+.page {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: 5fr 4fr;
+    background: var(--color-bg);
+}
+
+.brandPanel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--color-sidebar);
+    color: #fff;
+}
+
+.brandName {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1.1;
+}
+
+.formPanel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+}
+
+.formBox {
+    width: 100%;
+    max-width: 360px;
+}
+
+.formBrand {
+    display: none;
+    margin: 0 0 2rem;
+    font-size: 1.75rem;
+    text-align: center;
+    color: var(--color-text);
+}
+
+.title {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+    color: var(--color-text);
+}
+
+.subtitle {
+    margin: 0 0 1.75rem;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+}
+
+.submit {
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 1rem;
+    font-weight: 500;
+}
+
+.submit:active {
+    transform: scale(0.98);
+}
+
+@media (max-width: 768px) {
+    .page {
+        grid-template-columns: 1fr;
+    }
+
+    .brandPanel {
+        display: none;
+    }
+
+    .formBrand {
+        display: block;
+    }
+}

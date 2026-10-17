@@ -93,7 +93,7 @@ async function getAvailableHours(conn, p) {
 async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) {
     return new Promise((resolve, reject) => {
         let query = `
-        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, d.aircraft, d.registrationNumber
+        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, COALESCE(s.code, b.code) AS serviceCode, d.aircraft, d.registrationNumber
         FROM reservations a
         LEFT JOIN routes b ON a.idRoute = b.idRoute
         LEFT JOIN services s ON a.idService = s.idService
@@ -449,6 +449,23 @@ async function checkReservationOverlap(conn, startDate, endDate, idAircraft, exc
     });
 }
 
+async function checkPilotOverlap(conn, startDate, endDate, idPilot, excludeIdReservation) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT * FROM reservations
+            WHERE idPilot = ?
+            AND idStatus IN (3, 2, 1)
+            AND ((startDate < ? AND endDate > ?))
+            AND idReservation != ?
+        `;
+        const qParams = [idPilot, endDate, startDate, excludeIdReservation];
+        conn.query(query, qParams, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 async function getAircrafts(conn, startDate, endDate) {
     return new Promise((resolve, reject) => {
         let query = `
@@ -535,6 +552,7 @@ module.exports = {
     getAircrafts,
     updateReservationNotes,
     checkReservationOverlap,
+    checkPilotOverlap,
     deleteReservationAddons,
     deleteReservationPassengers,
     deleteReservation,
