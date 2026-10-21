@@ -127,13 +127,8 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                 reservationHolder: {},
                 idAircraft,
                 idPilot: idPilot || null,
+                serviceCode,
             };
-
-            if (bookingType === 'me') {
-                data.routeCode = 'BAS';
-            } else {
-                data.serviceCode = selectedService;
-            }
 
             const res = await ApiComunicator(`/reservations/createReservation`, 'POST', data);
             if (res?.id) setReservationId(res.id);
@@ -198,7 +193,8 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
     );
 
-    const selectedProduct = clientServices.find((item) => item.code === selectedService);
+    const serviceCode = bookingType === 'me' ? 'MANUAL' : selectedService;
+    const product = services.find((item) => item.code === serviceCode);
 
     const nextDisabled =
         (current === 'service' && !selectedService) ||
@@ -272,7 +268,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                         <SelectPassengersNumber
                                             count={passengers}
                                             onCountChange={setPassengers}
-                                            prices={selectedProduct?.prices}
+                                            prices={product?.prices}
                                         />
                                     </div>
                                     <PassengerDetails
@@ -371,8 +367,8 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                                 onDateChange={setDate}
                                                 onTimeChange={setTime}
                                                 idAircraft={idAircraft}
-                                                serviceCode={bookingType === 'others' ? selectedService : null}
-                                                allowedWeekdays={selectedProduct?.allowedWeekdays}
+                                                serviceCode={serviceCode}
+                                                allowedWeekdays={product?.allowedWeekdays}
                                             />
                                         )}
                                     </div>

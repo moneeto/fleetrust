@@ -444,7 +444,7 @@ function BookingsContent() {
                             key={p}
                             type="button"
                             aria-pressed={effectiveView === p}
-                            className={effectiveView === p ? styles.segmentedActive : ""}
+                            className={effectiveView === p ? local.segmentedActive : ""}
                             onClick={() => handlePeriodChange(p)}
                         >
                             {p === "day" ? "Day" : p === "week" ? "Week" : "Month"}
@@ -651,12 +651,10 @@ function BookingsContent() {
             <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
                 <div className={local.filterGroups}>
                     <div className={local.group}>
-                        <h2 className={local.groupTitle}>Bookings</h2>
-                        {bookingFields()}
                         {periodFields()}
                     </div>
                     <div className={local.group}>
-                        {/* <h2 className={local.groupTitle}>Period</h2> */}
+                        {bookingFields()}
                         {reservations && reservations.length > 0 && (
                             <div className={local.groupActions}>
                                 <Button
@@ -862,16 +860,16 @@ function BookingsContent() {
                 <div className={styles.emptyCard}>
                     <div>
                         <div className={local.emptyTitle}>No bookings found</div>
-                        <div className={local.emptyText}>Try another period or clear the filters.</div>
+                        <div className={local.emptyText}>Try again changing the filters.</div>
                         <Button
                             color="primary"
                             size="lg"
-                            className="mt-3"
+                            className={`mt-3 ${local.startBooking}`}
                             onClick={() => {
                                 router.push("/tours/book-dates");
                             }}
                         >
-                            Start booking 
+                            Start booking
                         </Button>
                     </div>
                 </div>

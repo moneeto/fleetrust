@@ -12,7 +12,7 @@ export function proxy(request: NextRequest) {
 
   // 2. Si HAY token y estás en la raíz o en login -> A Tours
   if (token && (pathname === "/" || pathname === "/login")) {
-    return NextResponse.redirect(new URL("/tours/bookings", request.url));
+    return NextResponse.redirect(new URL("/tours/calendar", request.url));
   }
 
   return NextResponse.next();

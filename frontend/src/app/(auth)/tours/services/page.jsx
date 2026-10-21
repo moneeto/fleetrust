@@ -75,8 +75,65 @@ const ADVANCE = [
     { label: "At least one month", days: 30 }
 ];
 
+function money(amount) {
+    const n = Math.round(amount * 100) / 100;
+    return `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
+}
+
+function durationLabel(minutes) {
+    const n = Number(minutes);
+    if (!Number.isInteger(n) || n <= 0) return "—";
+    return `${n} min`;
+}
+
+function priceRange(prices) {
+    const each = [];
+    for (const row of prices || []) {
+        const passengers = Number(row.passengers);
+        const price = Number(row.price);
+        if (!(passengers > 0) || !Number.isFinite(price)) continue;
+        each.push(Math.round((price / passengers) * 100) / 100);
+    }
+    if (!each.length) return "—";
+    const low = Math.min(...each);
+    const high = Math.max(...each);
+    return low === high ? money(low) : `${money(low)} – ${money(high)}`;
+}
+
+function daysLabel(value) {
+    const days = parseWeekdays(value);
+    if (!days.length) return "—";
+    const preset = DAY_PRESETS.find((item) => sameDays(days, item.days));
+    if (preset) return preset.label;
+    return [1, 2, 3, 4, 5, 6, 0].filter((day) => days.includes(day)).map((day) => WEEKDAYS[day].slice(0, 3)).join(", ");
+}
+
+function hoursLabel(hours) {
+    const list = (hours || []).map((hour) => String(hour).slice(0, 5)).filter((hour) => hour.includes(":")).sort();
+    if (!list.length) return "—";
+    if (list.length === 1) return hourLabel(list[0]);
+    return `${hourLabel(list[0])} – ${hourLabel(list[list.length - 1])}`;
+}
+
+function advanceLabel(days) {
+    if (days == null || days === "") return "—";
+    const n = Number(days);
+    if (!Number.isFinite(n)) return "—";
+    const preset = ADVANCE.find((item) => item.days === n);
+    return preset ? preset.label : `${n} days`;
+}
+
+function serviceFacts(row) {
+    return [
+        ["Duration", durationLabel(row.durationMinutes)],
+        ["Price / person", priceRange(row.prices)],
+        ["Days", daysLabel(row.allowedWeekdays)],
+        ["Hours", hoursLabel(row.hours)],
+        ["Advance", advanceLabel(row.minDaysAhead)]
+    ];
+}
+
 const emptyForm = {
-    code: "",
     title: "",
     description: "",
     image: "",
@@ -95,7 +152,6 @@ function toForm(row) {
     if (!row) return { ...emptyForm, prices: [{ passengers: "", price: "" }], hours: [], addons: [], allowedWeekdays: [0, 1, 2, 3, 4, 5, 6] };
     return {
         idService: row.idService,
-        code: row.code || "",
         title: row.title || "",
         description: row.description || "",
         image: row.image || "",
@@ -125,7 +181,7 @@ export default function ServiceList() {
     const [rangeTo, setRangeTo] = useState("17:00");
     const [pendingDelete, setPendingDelete] = useState(null);
     const [result, setResult] = useState(null);
-    const [filters, setFilters] = useState({ code: "", title: "" });
+    const [filters, setFilters] = useState({ title: "" });
     const [showDeleted, setShowDeleted] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const { toast } = useToast();
@@ -161,21 +217,11 @@ export default function ServiceList() {
     }, []);
 
     async function save() {
-        const code = String(form.code || "").trim();
         const title = String(form.title || "").trim();
         const minutes = Number(form.durationMinutes);
-        const duplicate = rows.some((row) => (
-            String(row.code || "").trim().toLowerCase() === code.toLowerCase()
-            && Number(row.idService) !== Number(form.idService || 0)
-        ));
-        if (!code || !title || title.length > 32 || !Number.isInteger(minutes) || minutes <= 0) {
+        if (!title || title.length > 32 || !Number.isInteger(minutes) || minutes <= 0) {
             setStep(0);
-            toast({ variant: "destructive", title: "Missing data", description: "Code, title (max 32 characters) and duration are required." });
-            return;
-        }
-        if (duplicate) {
-            setStep(0);
-            toast({ variant: "destructive", title: "Code already used", description: "Another service already has this code." });
+            toast({ variant: "destructive", title: "Missing data", description: "Title (max 32 characters) and duration are required." });
             return;
         }
         if (!form.allowedWeekdays.length || !form.hours.length) {
@@ -229,25 +275,20 @@ export default function ServiceList() {
 
     const visible = rows.filter((row) => {
         if (!showDeleted && row.deleted) return false;
-        if (filters.code && !String(row.code || "").toLowerCase().includes(filters.code.toLowerCase())) return false;
         if (filters.title && !String(row.title || "").toLowerCase().includes(filters.title.toLowerCase())) return false;
         return true;
     });
 
     const updateFilter = (field, value) => setFilters((prev) => ({ ...prev, [field]: value }));
     const resetFilters = () => {
-        setFilters({ code: "", title: "" });
+        setFilters({ title: "" });
         setShowDeleted(false);
     };
-    const activeFilterCount = [filters.code, filters.title].filter(Boolean).length + (showDeleted ? 1 : 0);
+    const activeFilterCount = (filters.title ? 1 : 0) + (showDeleted ? 1 : 0);
     const fieldMin = isMobile ? "100%" : undefined;
 
     const filterFields = (idPrefix = "") => (
         <>
-            <FormGroup style={{ minWidth: fieldMin || "120px" }}>
-                <Label for={`${idPrefix}filterCode`}>Code</Label>
-                <Input id={`${idPrefix}filterCode`} value={filters.code} onChange={(e) => updateFilter("code", e.target.value)} />
-            </FormGroup>
             <FormGroup style={{ minWidth: fieldMin || "180px" }}>
                 <Label for={`${idPrefix}filterTitle`}>Title</Label>
                 <Input id={`${idPrefix}filterTitle`} value={filters.title} onChange={(e) => updateFilter("title", e.target.value)} />
@@ -371,18 +412,16 @@ export default function ServiceList() {
             <Table>
                 <thead>
                     <tr>
-                        <th>Code</th>
                         <th>Title</th>
-                        {/* <th>Visible</th> */}
+                        {serviceFacts({}).map(([label]) => <th key={label}>{label}</th>)}
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {visible.map((row) => (
                         <tr key={row.idService} className={row.deleted ? styles.deletedRow : ""}>
-                            <td>{row.code}</td>
                             <td>{row.title}</td>
-                            {/* <td><span className={`${styles.badge} ${row.visibleToClients ? styles.badgeOk : styles.badgeNo}`}>{row.visibleToClients ? "Visible" : "Hidden"}</span></td> */}
+                            {serviceFacts(row).map(([label, value]) => <td key={label} style={{ whiteSpace: "nowrap" }}>{value}</td>)}
                             <td>
                                 <Button color="primary" size="sm" outline className="me-2" onClick={() => openForm(row)}>
                                     <EditIcon size={16} /> Edit
@@ -412,10 +451,12 @@ export default function ServiceList() {
                             <span className={`${styles.badge} ${row.visibleToClients ? styles.badgeOk : styles.badgeNo}`}>{row.visibleToClients ? "Visible" : "Hidden"}</span>
                         </div>
                         <div className={styles.cardMeta}>
-                            <div>
-                                <span className={styles.cardMetaLabel}>Code</span>
-                                {row.code}
-                            </div>
+                            {serviceFacts(row).map(([label, value]) => (
+                                <div key={label} className={label === "Hours" || label === "Advance" ? styles.cardMetaFull : ""}>
+                                    <span className={styles.cardMetaLabel}>{label}</span>
+                                    {value}
+                                </div>
+                            ))}
                         </div>
                         <div className={styles.cardActions}>
                             <Button color="primary" size="sm" outline onClick={() => openForm(row)}>
@@ -454,20 +495,10 @@ export default function ServiceList() {
                                 <>
                                     <div className={form_.title}>Service details</div>
                                     <div className={form_.subtitle}>General settings of the service.</div>
-                                    <div className="row">
-                                        <div className="col-md-4">
-                                            <FormGroup>
-                                                <Label>Code</Label>
-                                                <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-                                            </FormGroup>
-                                        </div>
-                                        <div className="col-md-8">
-                                            <FormGroup>
-                                                <Label>Title</Label>
-                                                <Input maxLength={32} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-                                            </FormGroup>
-                                        </div>
-                                    </div>
+                                    <FormGroup>
+                                        <Label>Title</Label>
+                                        <Input maxLength={32} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                                    </FormGroup>
                                     <FormGroup>
                                         <Label>Description</Label>
                                         <Input type="textarea" rows={7} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -481,9 +512,15 @@ export default function ServiceList() {
                                         <Label>Addons included w/service</Label>
                                         <div className="d-flex flex-wrap gap-2">
                                             {addons.map((addon) => (
-                                                <Button key={addon.idAddon} size="sm" className={form_.chip} color="primary" outline={!form.addons.includes(Number(addon.idAddon))} onClick={() => toggleAddon(addon.idAddon)}>
+                                                <button
+                                                    type="button"
+                                                    key={addon.idAddon}
+                                                    className={`${form_.chip} ${form.addons.includes(Number(addon.idAddon)) ? form_.chipOn : ""}`}
+                                                    aria-pressed={form.addons.includes(Number(addon.idAddon))}
+                                                    onClick={() => toggleAddon(addon.idAddon)}
+                                                >
                                                     {addon.addon}
-                                                </Button>
+                                                </button>
                                             ))}
                                         </div>
                                     </FormGroup>

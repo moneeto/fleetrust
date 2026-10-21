@@ -18,6 +18,7 @@ services:
       - ./backend/sql/006_normalize_tables.sql:/docker-entrypoint-initdb.d/06-normalize-tables.sql:ro
       - ./backend/sql/007_snake_case_tables.sql:/docker-entrypoint-initdb.d/07-snake-case-tables.sql:ro
       - ./backend/sql/008_roles_code.sql:/docker-entrypoint-initdb.d/08-roles-code.sql:ro
+      - ./backend/sql/009_manual_service.sql:/docker-entrypoint-initdb.d/09-manual-service.sql:ro
 
 volumes:
   fleetrust_mysql_data:

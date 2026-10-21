@@ -1,0 +1,3 @@
+USE `fleetrust`;
+
+ALTER TABLE pilots ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0;

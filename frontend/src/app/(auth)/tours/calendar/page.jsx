@@ -71,6 +71,15 @@ function formatWhen(start, end) {
     return `${start.toLocaleString(undefined, dateOpts)} – ${end.toLocaleString(undefined, dateOpts)}`;
 }
 
+function CalendarCreate({ isOpen, event, initialDate, onClose, onCreate }) {
+    useEffect(() => {
+        if (!isOpen || event) return;
+        onCreate(initialDate || new Date());
+        onClose();
+    }, [isOpen, event]);
+    return null;
+}
+
 export default function Calendar() {
     const [events, setEvents] = useState([]);
     const [aircrafts, setAircrafts] = useState([]);
@@ -121,7 +130,7 @@ export default function Calendar() {
                     if (next) el.style.backgroundColor = next;
                 }
                 if (el.style.borderLeftColor) el.style.color = el.style.borderLeftColor;
-                el.classList.toggle("can-stretch", eventFrom(el)?.row?.serviceCode === "000");
+                el.classList.toggle("can-stretch", eventFrom(el)?.row?.serviceCode === "MANUAL");
             });
             root.querySelectorAll(".glass, .rounded-lg.truncate").forEach((el) => {
                 const id = eventId(el);
@@ -139,7 +148,7 @@ export default function Calendar() {
                     list.style.display = "none";
                     cell.style.position = "relative";
                     countEl.dataset.big = "1";
-                    countEl.style.cssText = "position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);width:3.25rem;height:3.25rem;display:flex;align-items:center;justify-content:center;margin:0;padding:0;border-radius:9999px;background:#e5e7eb;font-size:1.35rem;font-weight:600;color:#374151;cursor:pointer;z-index:2;";
+                    countEl.style.cssText = "position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);width:3.25rem;height:3.25rem;display:flex;align-items:center;justify-content:center;margin:0;padding:0;border-radius:9999px;background:#dc2626;font-size:1.35rem;font-weight:600;color:#fff;cursor:pointer;z-index:2;";
                     countEl.onclick = (event) => {
                         event.stopPropagation();
                         event.preventDefault();
@@ -219,14 +228,6 @@ export default function Calendar() {
         if (!root) return;
         let drag = null;
         const onClick = (event) => {
-            const button = event.target.closest?.("button");
-            if (button && root.contains(button) && button.textContent.trim() === "Create") {
-                event.preventDefault();
-                event.stopPropagation();
-                setNewBook(new Date());
-                setBookOpen(true);
-                return;
-            }
             const slot = event.target.closest?.(".bg-transparent.cursor-pointer");
             if (!slot || slot.closest(".glass") || !root.contains(slot)) return;
             event.preventDefault();
@@ -241,7 +242,7 @@ export default function Calendar() {
             const side = fromTop <= 8 ? "top" : fromBottom <= 8 ? "bottom" : "";
             if (!side) return;
             const booking = eventFrom(block);
-            if (booking?.row?.serviceCode !== "000") return;
+            if (booking?.row?.serviceCode !== "MANUAL") return;
             event.preventDefault();
             event.stopPropagation();
             let box = block;
@@ -409,6 +410,15 @@ export default function Calendar() {
                     background-color: hsl(221 83% 53% / 0.12);
                     color: hsl(221 83% 53%);
                   }
+                  @media (max-width: 639px) {
+                    .calendar-root .bg-muted\\/50 button svg { display: none; }
+                    .calendar-root .bg-muted\\/50 button span { display: inline; }
+                  }
+                  @media (max-width: 767px) {
+                    .calendar-root .min-w-\\[800px\\] { min-width: 0; }
+                    .calendar-root .w-9.h-9 { width: 1.75rem; height: 1.75rem; }
+                    .calendar-root .h-\\[130px\\].p-2 { padding: 0.25rem !important; }
+                  }
                 `}</style>
                 <Scheduler
                     events={shown}
@@ -422,7 +432,12 @@ export default function Calendar() {
                     translations={{ calendars: "Aircraft" }}
                     onEventClick={openDetail}
                     onEventUpdate={moveEvent}
-                    renderEventForm={() => null}
+                    renderEventForm={(props) => (
+                        <CalendarCreate
+                            {...props}
+                            onCreate={(date) => { setNewBook(date); setBookOpen(true); }}
+                        />
+                    )}
                 />
             </div>
             <Modal isOpen={dayOpen && !detailId} toggle={() => setDayOpen(false)} onClosed={() => { if (!dayOpen) setDay(null); }} centered>

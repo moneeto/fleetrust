@@ -9,8 +9,7 @@ const servicesDb = require('../models/servicesModel.js')
 const {
     weekdayOfDate,
     formatHour,
-    findPriceForPassengers,
-    isStaffMeBooking
+    findPriceForPassengers
 } = require('../utils/bookingConfig')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
@@ -238,14 +237,13 @@ async function createReservation(req, res) {
             }
 
             const paxCount = Number(passengerCount) || (Array.isArray(passengers) ? passengers.length : 0) || 2;
-            const staffMe = isStaffMeBooking({ experienceCode, routeCode, passengerCount: paxCount });
 
             const availabilityParams = {
                 date: reservationDate,
                 idAircraft: idAircraft && idAircraft !== 'all' ? idAircraft : null,
-                experienceCode: staffMe ? '' : experienceCode,
-                routeCode: staffMe ? '' : routeCode,
-                serviceCode: staffMe ? '' : serviceCode,
+                experienceCode,
+                routeCode,
+                serviceCode,
             };
             const availableHours = await getBookableHours(conn, availabilityParams)
             const isAvailable = availableHours.some(item => formatHour(item.hour) === reservationTime);
@@ -306,20 +304,16 @@ async function createReservation(req, res) {
                 service = await servicesDb.getServiceByCode(conn, routeCode);
             }
 
-            if (staffMe) {
-                totalValue = route.value2;
-            } else {
-                const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
-                if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
-                if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
-                    throw 'Selected date is not available for this flight.';
-                }
-                const priced = findPriceForPassengers(productConfig.prices, paxCount);
-                if (priced == null) {
-                    throw 'Selected flight is not available for this number of passengers.';
-                }
-                totalValue = priced;
+            const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
+            if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
+            if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
+                throw 'Selected date is not available for this flight.';
             }
+            const priced = findPriceForPassengers(productConfig.prices, paxCount);
+            if (priced == null) {
+                throw 'Selected flight is not available for this number of passengers.';
+            }
+            totalValue = priced;
 
             totalValue = new Currency(totalValue).value;
             const deposit = 50;
@@ -841,16 +835,17 @@ async function createReservationRange(req, res) {
                 }
             }
             
-            const pilotRoute = await db.getRouteByCode(conn, '000');
-            if (!pilotRoute) throw 'No route found for pilot booking.';
+            const manualService = await servicesDb.getServiceByCode(conn, 'MANUAL');
+            if (!manualService) throw 'MANUAL service not found.';
 
             // Crear reserva de bloqueo
             const insertResult = await db.createReservation(conn, {
                 passengers: 0,
                 startDate,
                 endDate,
-                idRoute: pilotRoute.idRoute,
+                idRoute: null,
                 idExperience: null,
+                idService: manualService.idService,
                 idStatus: 3, // Confirmed
                 totalValue: 0,
                 deposit: 0,

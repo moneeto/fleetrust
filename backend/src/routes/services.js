@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/servicesModel.js');
-const { serializeWeekdays } = require('../utils/bookingConfig.js');
+const { serializeWeekdays, codeFromTitle } = require('../utils/bookingConfig.js');
 const { pool } = require('../helpers/conexion-mysql.js');
 const withAuth = require('../middleware/withAuth.js');
 
@@ -19,7 +19,6 @@ function payload(body, idService) {
     const visible = body.visibleToClients === true || body.visibleToClients === 1 || body.visibleToClients === '1';
     return {
         idService,
-        code: String(body.code || '').trim(),
         title: String(body.title || '').trim(),
         description: body.description || null,
         image: body.image || null,
@@ -135,25 +134,28 @@ async function getServices(req, res) {
 
 function assertService(body, row) {
     const minutes = Number(body.durationMinutes);
-    if (!row.code || !row.title) throw 'Code and title are required';
+    if (!row.title) throw 'Title is required';
     if (row.title.length > 32) throw 'Title must be 32 characters or less';
     if (!Number.isInteger(minutes) || minutes <= 0) throw 'Service duration is required';
     if (!Array.isArray(body.allowedWeekdays) || body.allowedWeekdays.length === 0) throw 'Days of service are required';
     if (hourRows(body).length === 0) throw 'Hours of service are required';
 }
 
-async function assertUniqueCode(conn, code, idService) {
-    const existing = await db.findServiceIdByCode(conn, code);
-    if (existing && Number(existing.idService) !== Number(idService || 0)) {
-        throw 'A service with this code already exists';
+// ponytail: 35 variants per 3-letter prefix (base + 2-9 + A-Z), then it gives up.
+async function uniqueCode(conn, title) {
+    const base = codeFromTitle(title);
+    for (const suffix of ['', ...'23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ']) {
+        const code = suffix ? base.slice(0, 3) + suffix : base;
+        if (!await db.findServiceIdByCode(conn, code)) return code;
     }
+    throw 'Could not generate a unique code for this title';
 }
 
 async function createService(req, res) {
     withConn(res, 'Error creating service.', async (conn) => {
         const row = payload(req.body);
         assertService(req.body, row);
-        await assertUniqueCode(conn, row.code, null);
+        row.code = await uniqueCode(conn, row.title);
         const result = await db.createService(conn, row);
         await saveChildren(conn, result.insertId, req.body);
         return { status: 200, body: { success: true, idService: result.insertId } };
@@ -165,7 +167,6 @@ async function editService(req, res) {
         const row = payload(req.body, req.body.idService);
         if (!row.idService) throw 'Missing required fields';
         assertService(req.body, row);
-        await assertUniqueCode(conn, row.code, row.idService);
         const result = await db.updateService(conn, row);
         if (!result.affectedRows) throw 'Service not found';
         await saveChildren(conn, row.idService, req.body);

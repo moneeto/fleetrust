@@ -84,8 +84,8 @@
     content: "";
     position: absolute;
     top: 15px;
-    right: 50%;
-    width: 100%;
+    right: calc(50% + 22px);
+    width: calc(100% - 44px);
     height: 2px;
     border-radius: 2px;
     background: var(--color-border);

@@ -76,12 +76,12 @@ async function updateService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE services
-        SET code = ?, title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
+        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
             visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?
         WHERE idService = ?
         `;
         const qParams = [
-            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
+            p.title, p.description, p.image, p.duration, p.durationMinutes,
             p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idService
         ];
         conn.query(query, qParams, (err, results) => {

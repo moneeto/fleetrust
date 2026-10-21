@@ -71,3 +71,10 @@
     font-size: 0.875rem;
     color: var(--color-muted);
 }
+
+.startBooking:global(.btn) {
+    border-radius: 999px;
+    padding: 0.6rem 1.75rem;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.28);
+}
