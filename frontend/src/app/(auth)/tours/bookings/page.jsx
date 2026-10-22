@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { Form, FormGroup, Label, Input, Button, Table } from "reactstrap";
+import { Form, FormGroup, Label, Input, Button, Table, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
 import { FaEye, FaPrint } from "react-icons/fa";
 import BookingDetailModal from "@/components/booking/BookingDetailModal";
 import { Filter } from "lucide-react";
@@ -38,6 +38,11 @@ function getIsoWeekRangesOverlappingMonth(yearMonth) {
     return weeks;
 }
 
+function defaultStatusIds(list) {
+    if (list.some((row) => String(row.idStatus) === "3")) return ["3"];
+    return list.map((row) => String(row.idStatus));
+}
+
 function findWeekIndexForDate(dateStr, weeks) {
     const d = moment(dateStr, "YYYY-MM-DD");
     for (let i = 0; i < weeks.length; i++) {
@@ -64,6 +69,8 @@ function BookingsContent() {
     const [idAircraftFilter, setIdAircraftFilter] = useState("");
     const [idRouteFilter, setIdRouteFilter] = useState("");
     const [idPilotFilter, setIdPilotFilter] = useState("");
+    const [statuses, setStatuses] = useState([]);
+    const [statusFilter, setStatusFilter] = useState(null);
     const [aircrafts, setAircrafts] = useState([]);
     const [pilots, setPilots] = useState([]);
     const [services, setServices] = useState([]);
@@ -101,9 +108,10 @@ function BookingsContent() {
         if (effectiveIdAircraft) count += 1;
         if (idRouteFilter) count += 1;
         if (idPilotFilter) count += 1;
+        if (statusFilter && !(statusFilter.length === 1 && statusFilter[0] === "3")) count += 1;
         if (effectiveView !== "day") count += 1;
         return count;
-    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, effectiveView]);
+    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, statusFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -183,19 +191,24 @@ function BookingsContent() {
         let cancelled = false;
         (async () => {
             try {
-                const [rServices, rAc, rPilots] = await Promise.all([
+                const [rServices, rAc, rPilots, rStatuses] = await Promise.all([
                     ApiComunicator(`/services/getServices`, "GET"),
                     ApiComunicator(`/aircrafts`, "GET"),
                     ApiComunicator(`/pilots`, "GET"),
+                    ApiComunicator(`/reservations/statuses`, "GET"),
                 ]);
                 if (cancelled) return;
+                const statusRows = rStatuses.statuses || [];
                 setServices(rServices.services || []);
                 setAircrafts(rAc.aircrafts || []);
                 setPilots(rPilots.pilots);
+                setStatuses(statusRows);
+                setStatusFilter((prev) => (prev == null ? defaultStatusIds(statusRows) : prev));
             } catch {
                 if (!cancelled) {
                     setServices([]);
                     setAircrafts([]);
+                    setStatusFilter((prev) => (prev == null ? ["3"] : prev));
                 }
             }
         })();
@@ -351,6 +364,7 @@ function BookingsContent() {
             }
             if (idRouteFilter && idRouteFilter !== "all") q.set("idService", idRouteFilter);
             if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
+            q.set("statuses", (statusFilter || []).join(","));
 
             const res = await ApiComunicator(
                 `/reservations/reservationsByDate?${q.toString()}`
@@ -371,7 +385,7 @@ function BookingsContent() {
     }
 
     useEffect(() => {
-        if (!dateRange.from || !dateRange.to) return;
+        if (!dateRange.from || !dateRange.to || statusFilter == null) return;
         fetchReservations();
     }, [
         dateRange.from,
@@ -381,6 +395,7 @@ function BookingsContent() {
         effectiveIdAircraft,
         idRouteFilter,
         idPilotFilter,
+        statusFilter,
         searchParams.toString(),
     ]);
 
@@ -427,6 +442,7 @@ function BookingsContent() {
         setIdAircraftFilter("");
         setIdRouteFilter("");
         setIdPilotFilter("");
+        setStatusFilter(defaultStatusIds(statuses));
         if (searchParams.toString()) {
             router.replace(pathname, { scroll: false });
         }
@@ -530,6 +546,13 @@ function BookingsContent() {
         </>
     );
 
+    const statusLabel =
+        !statusFilter || statusFilter.length === 0
+            ? "No status"
+            : statusFilter.length === statuses.length
+              ? "All statuses"
+              : statuses.filter((row) => statusFilter.includes(String(row.idStatus))).map((row) => row.status).join(", ");
+
     const bookingFields = (idPrefix = "") => (
         <>
             <FormGroup style={{ minWidth: fieldMin || "120px" }}>
@@ -590,6 +613,42 @@ function BookingsContent() {
                         </option>
                     ))}
                 </Input>
+            </FormGroup>
+            <FormGroup style={{ width: fieldMin || "200px" }}>
+                <Label for={`${idPrefix}statusFilter`}>Status</Label>
+                <UncontrolledDropdown inNavbar className={local.statusDropdown}>
+                    <DropdownToggle
+                        tag="button"
+                        type="button"
+                        id={`${idPrefix}statusFilter`}
+                        className={`form-select text-start ${local.statusToggle}`}
+                    >
+                        {statusLabel}
+                    </DropdownToggle>
+                    <DropdownMenu className={local.statusMenu}>
+                        {statuses.map((row) => {
+                            const value = String(row.idStatus);
+                            const checked = (statusFilter || []).includes(value);
+                            return (
+                                <DropdownItem
+                                    key={value}
+                                    toggle={false}
+                                    className="d-flex align-items-center gap-2"
+                                    onClick={() =>
+                                        setStatusFilter((prev) =>
+                                            (prev || []).includes(value)
+                                                ? prev.filter((id) => id !== value)
+                                                : [...(prev || []), value]
+                                        )
+                                    }
+                                >
+                                    <input type="checkbox" checked={checked} readOnly tabIndex={-1} />
+                                    {row.status}
+                                </DropdownItem>
+                            );
+                        })}
+                    </DropdownMenu>
+                </UncontrolledDropdown>
             </FormGroup>
             <FormGroup style={{ minWidth: fieldMin || "180px" }}>
                 <Label for={`${idPrefix}idPilotFilter`}>Pilot</Label>

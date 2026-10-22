@@ -31,6 +31,7 @@ router.post('/createReservation', withAuth, createReservation);
 router.post('/confirmBooking', withAuth, confirmBooking);
 router.get('/availableHours', withAuth, getAvailableHours);
 router.get('/reservationsByDate', withAuth, getReservationsByDate);
+router.get('/statuses', withAuth, getStatuses);
 router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
 router.post('/getReservationById', withAuth, getReservationById);
 router.post('/updateReservation', withAuth, updateReservation);
@@ -41,7 +42,7 @@ router.post('/deleteReservation', withAuth, deleteReservation);
 async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode, serviceCode }) {
     const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
     if ((experienceCode || routeCode || serviceCode) && !product) {
-        throw 'Invalid experience or route code';
+        throw 'Invalid service code';
     }
 
     if (product && !product.allowedWeekdays.includes(weekdayOfDate(date))) {
@@ -580,6 +581,17 @@ async function getReservationsByDate(req, res) {
             if (req.query.idPilot != null && String(req.query.idPilot).trim() !== '' && req.query.idPilot !== 'all') {
                 filters.idPilot = req.query.idPilot;
             }
+            if (req.query.statuses != null) {
+                const ids = String(req.query.statuses)
+                    .split(',')
+                    .map((part) => part.trim())
+                    .filter(Boolean)
+                    .map((part) => Number(part));
+                if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+                    throw 'Invalid statuses.';
+                }
+                filters.statusIds = ids;
+            }
 
             const reservations = await db.getReservationsByDateRange(conn, dateFrom, dateTo, filters)
 
@@ -874,6 +886,32 @@ async function createReservationRange(req, res) {
     });
 }
 
+
+async function getStatuses(req, res) {
+    pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            const statuses = await db.getStatuses(conn);
+
+            response = { statuses };
+            status = 200;
+        } catch (e) {
+            let message = "An error has occurred while getting the statuses.";
+            if (typeof e == "string") { message = e }
+            status = 400;
+            response = { message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
 
 async function getCancellationReasons(req, res) {
     pool.getConnection(async (errConn, conn) => {

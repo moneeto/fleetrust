@@ -192,77 +192,96 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
 
                             {!isEditMode ? (
                                 <>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        marginBottom: '20px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        paddingBottom: '15px'
-                                    }}>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
-                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                                {moment(reservation?.startDate).format("MMM DD, YYYY - HH:mm")}
-                                            </div>
+                                    {(reservation?.startDate || reservation?.endDate) && (
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '20px',
+                                            borderBottom: '1px solid #f0f0f0',
+                                            paddingBottom: '15px'
+                                        }}>
+                                            {reservation?.startDate && (
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
+                                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                                        {moment(reservation.startDate).format("MMM DD, YYYY - HH:mm")}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {reservation?.endDate && (
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
+                                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                                                        {moment(reservation.endDate).format("MMM DD, YYYY - HH:mm")}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
-                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                                {moment(reservation?.endDate).format("MMM DD, YYYY - HH:mm")}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    )}
 
-                                    {/* Details Grid */}
                                     <div style={{
                                         display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #f0f0f0',
                                         paddingBottom: '15px'
                                     }}>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.service || reservation?.route}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.experience || "-"}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation?.passengers.length} passengers` : ` - `}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.name} {reservation?.lastname}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Pilot</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation.pilotName ? reservation.pilotName : "-"}</span>
-                                        </div>
+                                        {reservation?.service && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{reservation.service}</span>
+                                            </div>
+                                        )}
+                                        {reservation?.passengers?.length > 0 && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{reservation.passengers.length} passengers</span>
+                                            </div>
+                                        )}
+                                        {(reservation?.name || reservation?.lastname) && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{[reservation?.name, reservation?.lastname].filter(Boolean).join(" ")}</span>
+                                            </div>
+                                        )}
+                                        {reservation?.phoneNumber && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{reservation.phoneNumber}</span>
+                                            </div>
+                                        )}
+                                        {(reservation?.aircraft || reservation?.registrationNumber) && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>
+                                                    {reservation.aircraft}{reservation.registrationNumber ? ` (${reservation.registrationNumber})` : ""}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {reservation?.email && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{reservation.email}</span>
+                                            </div>
+                                        )}
+                                        {reservation?.pilotName && (
+                                            <div style={{ flex: '1 1 40%' }}>
+                                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Pilot</label>
+                                                <span style={{ fontWeight: '600', color: '#222' }}>{reservation.pilotName}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
-                                        {reservation?.passengers && reservation?.passengers?.length > 0 &&
-                                            reservation?.passengers.map((passenger, index) => (
-                                                <div key={'pssgr-' + index}>
-                                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                                        Passenger #{index + 1}
-                                                    </label>
-                                                    <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastname}</span>
-                                                </div>
-                                            ))
-                                        }
-                                    </div>
+                                    {reservation?.passengers?.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                                            {reservation.passengers.map((passenger, index) => (
+                                                (passenger.name || passenger.lastname) && (
+                                                    <div key={'pssgr-' + index}>
+                                                        <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                            Passenger #{index + 1}
+                                                        </label>
+                                                        <span style={{ fontWeight: '600', color: '#222' }}>{[passenger.name, passenger.lastname].filter(Boolean).join(" ")}</span>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {reservationAddons.length > 0 && (
                                         <div style={{ marginBottom: '16px' }}>
@@ -469,7 +488,7 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
                 {reservation && (
                     <ModalFooter style={{ backgroundColor: '#fff', display: 'block', textAlign: 'right' }}>
                         <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
-                            <span>{reservation.service || reservation.experience || reservation.route}</span>
+                            <span>{reservation.service}</span>
                             <span style={{ marginLeft: '16px' }}>${reservation.totalValue - addonsTotal}</span>
                         </div>
                         {addonsTotal > 0 && (

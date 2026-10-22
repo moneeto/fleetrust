@@ -1,5 +1,5 @@
-// ponytail: 10 colors, so reservations 10 ids apart look the same. Each one stays readable as text on the calendar's 12% tint. A stored color is the upgrade.
-const EVENT_COLORS = ["#9E0142", "#BE123C", "#A84308", "#854D0E", "#3F6212", "#166534", "#115E59", "#0369A1", "#1D4ED8", "#5E4FA2"];
+// ponytail: 10 colors, so reservations 10 ids apart look the same. A stored color is the upgrade.
+const EVENT_COLORS = ["#E11D48", "#F97316", "#EAB308", "#84CC16", "#22C55E", "#14B8A6", "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899"];
 
 export function colorForReservation(id) {
     const n = Math.abs(Number(id)) || 0;

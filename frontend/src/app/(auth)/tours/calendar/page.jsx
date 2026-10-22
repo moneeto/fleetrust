@@ -109,30 +109,38 @@ export default function Calendar() {
     useEffect(() => {
         const root = document.querySelector(".calendar-root");
         if (!root) return;
-        // Week and day blocks arrive at about 8% (`#color15`). Month chips use `#color20` (32/255).
-        // Paint week/day with that same mix. The color lives on the left border the library draws.
-        const monthMix = 0x20 / 255;
+        // The library paints a 12% wash and uses the color as text, which only works with dark hues.
+        // Fill harder so the primary reads, and keep the label dark.
+        const fill = 0.42;
+        const ink = "#111827";
         const toFill = (color) => {
             const hex = String(color).match(/#([0-9a-f]{6})/i);
             if (hex) {
                 const n = parseInt(hex[1], 16);
-                return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${monthMix})`;
+                return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${fill})`;
             }
-            if (String(color).startsWith("rgb(")) return color.replace("rgb(", "rgba(").replace(")", `, ${monthMix})`);
+            if (String(color).startsWith("rgb(")) return color.replace("rgb(", "rgba(").replace(")", `, ${fill})`);
             return "";
         };
+        const sourceOf = (el) => {
+            const border = el.style.borderLeftColor;
+            if (border && border !== ink) return border;
+            const color = el.style.color;
+            if (color && color !== "rgb(17, 24, 39)") return color;
+            return el.dataset.ink || "";
+        };
         const paint = () => {
-            root.querySelectorAll(".glass").forEach((el) => {
-                const bg = getComputedStyle(el).backgroundColor;
-                const alpha = bg.startsWith("rgba") ? parseFloat(bg.split(",")[3]) : 1;
-                if (!(alpha > 0.1 && alpha < 0.2)) {
-                    const next = toFill(el.style.borderLeftColor) || toFill(el.style.backgroundColor);
-                    if (next) el.style.backgroundColor = next;
-                }
-                if (el.style.borderLeftColor) el.style.color = el.style.borderLeftColor;
-                el.classList.toggle("can-stretch", eventFrom(el)?.row?.serviceCode === "MANUAL");
-            });
             root.querySelectorAll(".glass, .rounded-lg.truncate").forEach((el) => {
+                const source = sourceOf(el);
+                if (source) {
+                    el.dataset.ink = source;
+                    const next = toFill(source);
+                    if (next) el.style.backgroundColor = next;
+                    el.style.color = ink;
+                }
+                if (el.classList.contains("glass")) {
+                    el.classList.toggle("can-stretch", eventFrom(el)?.row?.serviceCode === "MANUAL");
+                }
                 const id = eventId(el);
                 if (id && el.dataset.rid !== id) el.dataset.rid = id;
             });

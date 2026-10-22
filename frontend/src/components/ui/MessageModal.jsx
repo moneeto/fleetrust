@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef } from "react";
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaTimesCircle } from "react-icons/fa";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 
 const SKIN = {
-    success: { header: "bg-success text-white border-0", close: "btn-close btn-close-white", button: "success" },
-    error: { header: "bg-danger text-white border-0", close: "btn-close btn-close-white", button: "danger" },
-    confirm: { header: "bg-warning text-dark border-0", close: "btn-close", button: "primary" },
-    info: { header: "bg-info text-dark border-0", close: "btn-close", button: "info" }
+    success: { header: "bg-success text-white border-0", close: "btn-close btn-close-white", button: "success", Icon: FaCheckCircle, icon: "text-success" },
+    error: { header: "bg-danger text-white border-0", close: "btn-close btn-close-white", button: "danger", Icon: FaTimesCircle, icon: "text-danger" },
+    confirm: { header: "bg-warning text-dark border-0", close: "btn-close", button: "primary", Icon: FaExclamationCircle, icon: "text-warning-emphasis" },
+    info: { header: "bg-info text-dark border-0", close: "btn-close", button: "info", Icon: FaInfoCircle, icon: "text-info" }
 };
 
 export default function MessageModal({
@@ -29,6 +30,7 @@ export default function MessageModal({
     }
     const view = held.current;
     const skin = SKIN[view?.type] || SKIN.info;
+    const Icon = skin.Icon;
     const label = view?.confirmLabel || (view?.onConfirm ? "Confirm" : "OK");
 
     return (
@@ -39,7 +41,12 @@ export default function MessageModal({
             >
                 {view?.title}
             </ModalHeader>
-            <ModalBody>{view?.children}</ModalBody>
+            <ModalBody>
+                <div className="d-flex align-items-start gap-2">
+                    <Icon className={`${skin.icon} flex-shrink-0`} style={{ marginTop: "0.15rem" }} aria-hidden="true" />
+                    <div className="flex-grow-1">{view?.children}</div>
+                </div>
+            </ModalBody>
             <ModalFooter>
                 {view?.onConfirm && (
                     <Button color="secondary" outline onClick={onClose} disabled={!!view.disabled}>

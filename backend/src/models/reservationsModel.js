@@ -88,7 +88,8 @@ async function getAvailableHours(conn, p) {
 
 /**
  * Reservations that overlap [dateFrom, dateFrom] (calendar days) with optional filters.
- * filters: { codeReservation?, client?, idAircraft?, idRoute? }
+ * filters: { codeReservation?, client?, idAircraft?, idRoute?, statusIds? }
+ * Missing statusIds keeps confirmed only (idStatus 3). [] returns no rows.
  */
 async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) {
     return new Promise((resolve, reject) => {
@@ -100,9 +101,19 @@ async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) 
         LEFT JOIN aircrafts d ON a.idAircraft = d.idAircraft
         WHERE DATE(a.endDate) >= ?
         AND DATE(a.startDate) <= ?
-        AND a.idStatus = 3
         `;
         const qParams = [dateFrom, dateTo];
+
+        if (Array.isArray(filters.statusIds)) {
+            if (filters.statusIds.length) {
+                query += ` AND a.idStatus IN (?)`;
+                qParams.push(filters.statusIds);
+            } else {
+                query += ` AND 1 = 0`;
+            }
+        } else {
+            query += ` AND a.idStatus = 3`;
+        }
 
         if (filters.codeReservation) {
             const raw = String(filters.codeReservation).replace(/^#/u, '').trim();
@@ -391,6 +402,16 @@ async function updateReservationStatus(conn, p) {
     })
 }
 
+async function getStatuses(conn) {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT idStatus, status FROM \`status\` ORDER BY idStatus`;
+        conn.query(query, [], (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
 async function getCancellationReasons(conn) {
     return new Promise((resolve, reject) => {
         const query = `SELECT idCancellationReason, cancellationReason FROM cancellation_reasons`;
@@ -547,6 +568,7 @@ module.exports = {
     getPremiumRouteValue,
     getReservationsInRange,
     updateReservationStatus,
+    getStatuses,
     getCancellationReasons,
     cancelReservation,
     getAircrafts,
