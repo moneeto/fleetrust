@@ -47,9 +47,9 @@
 }
 
 .settingsPanel {
-
-    padding: 0rem;
-    border-radius: 1rem;
+    padding: 1.25rem;
+    border-radius: 0.875rem;
+    border: 1px solid #eef0f3;
 }
 
 @media (max-width: 768px) {
