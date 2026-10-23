@@ -1,22 +1,127 @@
-async function getUserByUsername(conn, p) {
+function query(conn, sql, params) {
     return new Promise((resolve, reject) => {
-        let query = `SELECT a.idUser, a.username, a.password, a.name, a.surname, a.idRole, b.role, b.code
-                    FROM users a 
-                    INNER JOIN roles b ON b.idRole = a.idRole
-                    WHERE a.username = ?
-            `
-        let params = [p.username]
-
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err)
-
-            resolve(results)
-        })
-
-    })
+        conn.query(sql, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
 }
 
+async function getUserByEmail(conn, p) {
+    const sql = `SELECT a.idUser, a.username, a.email, a.password, a.name, a.surname, a.idRole, a.idAccount,
+                    a.active, a.resetPassword, b.role, b.code
+                FROM users a
+                INNER JOIN roles b ON b.idRole = a.idRole
+                WHERE a.email = ?`;
+    return query(conn, sql, [p.email]);
+}
+
+async function getActiveUserInAccount(conn, p) {
+    const sql = `SELECT idUser FROM users WHERE idUser = ? AND idAccount = ? AND active = 1`;
+    return query(conn, sql, [p.idUser, p.idAccount]);
+}
+
+async function getRoleByCode(conn, code) {
+    return query(conn, `SELECT idRole FROM roles WHERE code = ? LIMIT 1`, [code]);
+}
+
+async function createAccount(conn, p) {
+    return query(conn, `INSERT INTO accounts (name, active, show_setup_modal) VALUES (?, 1, ?)`, [p.name, p.showSetupModal]);
+}
+
+async function getSetupStatus(conn, idAccount) {
+    const sql = `SELECT
+                    a.show_setup_modal AS showSetupModal,
+                    (SELECT COUNT(*) FROM services WHERE idAccount = a.idAccount AND deleted = 0 AND code <> 'MANUAL') AS services,
+                    (SELECT COUNT(*) FROM aircrafts WHERE idAccount = a.idAccount AND (deleted = 0 OR deleted IS NULL)) AS aircrafts,
+                    (SELECT COUNT(*) FROM pilots WHERE idAccount = a.idAccount AND deleted = 0) AS pilots,
+                    (SELECT COUNT(*) FROM addons WHERE idAccount = a.idAccount AND deleted = 0) AS addons
+                FROM accounts a
+                WHERE a.idAccount = ?`;
+    return query(conn, sql, [idAccount]);
+}
+
+async function setSetupModal(conn, p) {
+    return query(conn, `UPDATE accounts SET show_setup_modal = ? WHERE idAccount = ?`, [p.value, p.idAccount]);
+}
+
+async function createUser(conn, p) {
+    const sql = `INSERT INTO users (username, email, password, idRole, idAccount, active, resetPassword)
+                VALUES (?, ?, ?, ?, ?, ?, 0)`;
+    return query(conn, sql, [p.username, p.email, p.password, p.idRole, p.idAccount, p.active]);
+}
+
+async function updatePendingPassword(conn, p) {
+    return query(conn, `UPDATE users SET password = ? WHERE email = ? AND active = 0`, [p.password, p.email]);
+}
+
+async function activateUser(conn, p) {
+    return query(conn, `UPDATE users SET active = 1 WHERE email = ? AND active = 0`, [p.email]);
+}
+
+async function updatePassword(conn, p) {
+    return query(conn, `UPDATE users SET password = ?, resetPassword = 0 WHERE idUser = ? AND active = 1`, [p.password, p.idUser]);
+}
+
+async function deactivateRecoveryForUser(conn, p) {
+    return query(conn, `UPDATE recovery_codes SET active = 0 WHERE idUser = ? AND active = 1`, [p.idUser]);
+}
+
+async function insertRecovery(conn, p) {
+    return query(conn, `INSERT INTO recovery_codes (idUser, token, expiresAt, active) VALUES (?, ?, ?, 1)`, [p.idUser, p.token, p.expiresAt]);
+}
+
+async function getActiveRecovery(conn, p) {
+    const sql = `SELECT idRecovery, idUser FROM recovery_codes WHERE token = ? AND active = 1 AND expiresAt > NOW()`;
+    return query(conn, sql, [p.token]);
+}
+
+async function deactivateRecoveryById(conn, idRecovery) {
+    return query(conn, `UPDATE recovery_codes SET active = 0 WHERE idRecovery = ?`, [idRecovery]);
+}
+
+async function deactivateExpiredOtp(conn) {
+    return query(conn, `UPDATE otp_codes SET active = 0 WHERE active = 1 AND expiresAt < NOW()`, []);
+}
+
+async function deactivateOtpForEmail(conn, p) {
+    return query(conn, `UPDATE otp_codes SET active = 0 WHERE email = ? AND purpose = ? AND active = 1`, [p.email, p.purpose]);
+}
+
+async function insertOtp(conn, p) {
+    const sql = `INSERT INTO otp_codes (email, code, purpose, expiresAt, active) VALUES (?, ?, ?, ?, 1)`;
+    return query(conn, sql, [p.email, p.code, p.purpose, p.expiresAt]);
+}
+
+async function getActiveOtps(conn, p) {
+    const sql = `SELECT idOtp, email, code, purpose, expiresAt, active
+                FROM otp_codes
+                WHERE email = ? AND purpose = ? AND active = 1`;
+    return query(conn, sql, [p.email, p.purpose]);
+}
+
+async function deactivateOtpById(conn, idOtp) {
+    return query(conn, `UPDATE otp_codes SET active = 0 WHERE idOtp = ?`, [idOtp]);
+}
 
 module.exports = {
-    getUserByUsername
-}
+    getUserByEmail,
+    getActiveUserInAccount,
+    getRoleByCode,
+    createAccount,
+    getSetupStatus,
+    setSetupModal,
+    createUser,
+    updatePendingPassword,
+    activateUser,
+    updatePassword,
+    deactivateRecoveryForUser,
+    insertRecovery,
+    getActiveRecovery,
+    deactivateRecoveryById,
+    deactivateExpiredOtp,
+    deactivateOtpForEmail,
+    insertOtp,
+    getActiveOtps,
+    deactivateOtpById
+};

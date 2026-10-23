@@ -7,6 +7,7 @@ const multer = require('multer');
 const db = require('../models/pilotsModel.js')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
+const checkAccount = require('../middleware/checkAccount.js')
 
 const uploadDir = path.join(__dirname, '../uploads/pilots');
 
@@ -67,11 +68,11 @@ function handleUpload(req, res, next) {
     });
 }
 
-router.get('/', withAuth, getPilots);
-router.get('/photo/:filename', withAuth, getPilotPhoto);
-router.post('/edit', withAuth, handleUpload, editPilot);
-router.post('/new', withAuth, handleUpload, createPilot);
-router.post('/delete', withAuth, deletePilot);
+router.get('/', withAuth, checkAccount, getPilots);
+router.get('/photo/:filename', withAuth, checkAccount, getPilotPhoto);
+router.post('/edit', withAuth, checkAccount, handleUpload, editPilot);
+router.post('/new', withAuth, checkAccount, handleUpload, createPilot);
+router.post('/delete', withAuth, checkAccount, deletePilot);
 
 async function removePilotFile(filename) {
     const safe = safeFilename(filename);
@@ -108,7 +109,8 @@ async function createPilot(req, res) {
                 pilotName,
                 pilotPicture,
                 phoneNumber,
-                active: active == '1' ? 1 : 0
+                active: active == '1' ? 1 : 0,
+                idAccount: req.idAccount
             })
 
             response = { pilot: { pilotName, pilotPicture, phoneNumber, active }, success: true }
@@ -145,7 +147,7 @@ async function editPilot(req, res) {
                 throw 'Missing required fields'
             }
 
-            const [current] = await db.getPilotById(conn, idPilot)
+            const [current] = await db.getPilotById(conn, idPilot, req.idAccount)
             if (!current) {
                 throw 'Pilot not found'
             }
@@ -163,7 +165,8 @@ async function editPilot(req, res) {
                 pilotName,
                 pilotPicture,
                 phoneNumber,
-                active: active == '1' ? 1 : 0
+                active: active == '1' ? 1 : 0,
+                idAccount: req.idAccount
             })
 
             response = { pilot: { idPilot, pilotName, pilotPicture, phoneNumber, active }, success: true }
@@ -195,7 +198,7 @@ async function getPilots(req, res) {
             connSuccess = true
 
             const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
-            const pilots = await db.getPilots(conn, includeDeleted)
+            const pilots = await db.getPilots(conn, includeDeleted, req.idAccount)
 
             response = { pilots }
 
@@ -249,12 +252,12 @@ async function deletePilot(req, res) {
                 throw 'Missing required fields'
             }
 
-            const [pilot] = await db.getPilotById(conn, idPilot)
+            const [pilot] = await db.getPilotById(conn, idPilot, req.idAccount)
             if (!pilot) {
                 throw 'Pilot not found'
             }
 
-            const result = await db.deletePilot(conn, idPilot)
+            const result = await db.deletePilot(conn, idPilot, req.idAccount)
 
             if (!result.affectedRows) {
                 throw 'Pilot not found'

@@ -20,6 +20,7 @@ const withAuth = function (req, res, next) {
                 req.name = decoded.name;
                 req.surname = decoded.surname;
                 req.active = decoded.active;
+                req.idAccount = decoded.idAccount;
                 next();
             }
         });

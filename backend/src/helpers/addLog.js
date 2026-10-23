@@ -1,6 +1,6 @@
 const dbLog = require('../models/logModel')
 
-function addLog({ section, idUser, logLevel, funct, msg }) {
+function addLog({ section, idUser, logLevel, funct, msg, idAccount }) {
     return new Promise(async (resolve, reject) => {
         try {
 
@@ -10,6 +10,7 @@ function addLog({ section, idUser, logLevel, funct, msg }) {
                 logLevel: logLevel ? logLevel : null,
                 function: funct ? funct : null,
                 msg: msg ? msg : null,
+                idAccount: idAccount ? idAccount : null,
             }
 
             await dbLog.addLog(params)

@@ -508,6 +508,8 @@ export default function ServiceList() {
                                         <Input type="number" min="1" step="1" placeholder="60" style={{ maxWidth: "200px" }} value={form.durationMinutes} onChange={(e) => setDuration(e.target.value)} />
                                         <small className="text-muted">note: the available hours are generated every <span style={{textDecoration: "underline"}}>this many minutes.</span></small>
                                     </FormGroup>
+                                    
+                                    {addons && addons.length > 0 && 
                                     <FormGroup>
                                         <Label>Addons included w/service</Label>
                                         <div className="d-flex flex-wrap gap-2">
@@ -523,7 +525,8 @@ export default function ServiceList() {
                                                 </button>
                                             ))}
                                         </div>
-                                    </FormGroup>
+                                    </FormGroup>}
+                                    
                                 </>
                             )}
 

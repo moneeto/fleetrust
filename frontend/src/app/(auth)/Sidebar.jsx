@@ -56,6 +56,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/services"
+                                    data-tour="services"
                                     className={pathname === "/tours/services" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
@@ -64,6 +65,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/aircrafts"
+                                    data-tour="aircrafts"
                                     className={pathname === "/tours/aircrafts" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
@@ -72,6 +74,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/addons"
+                                    data-tour="addons"
                                     className={pathname === "/tours/addons" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
@@ -80,6 +83,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/pilots"
+                                    data-tour="pilots"
                                     className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >

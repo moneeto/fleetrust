@@ -21,10 +21,10 @@ async function addLog(p) {
             }
 
             const query = `
-                INSERT INTO logs(idUser,section,function,msg, logLevel)
-                VALUES (?,?,?,?,?)
+                INSERT INTO logs(idUser,section,function,msg, logLevel, idAccount)
+                VALUES (?,?,?,?,?,?)
             `;
-            const params = [p.idUser, p.section, p.function, msg, p.logLevel];
+            const params = [p.idUser, p.section, p.function, msg, p.logLevel, p.idAccount];
 
             conn.query(query, params, (err, results) => {
                 conn.release()

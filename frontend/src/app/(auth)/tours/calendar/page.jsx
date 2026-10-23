@@ -235,6 +235,7 @@ export default function Calendar() {
         const root = document.querySelector(".calendar-root");
         if (!root) return;
         let drag = null;
+        let suppressClick = false;
         const onClick = (event) => {
             const slot = event.target.closest?.(".bg-transparent.cursor-pointer");
             if (!slot || slot.closest(".glass") || !root.contains(slot)) return;
@@ -262,6 +263,8 @@ export default function Calendar() {
                 box,
                 top: box.offsetTop,
                 height: box.offsetHeight,
+                prevTop: box.style.top,
+                prevHeight: box.style.height,
                 hourHeight: view === "day" ? 80 : 60,
                 snapped: 0,
             };
@@ -281,11 +284,13 @@ export default function Calendar() {
         };
         const onUp = () => {
             if (!drag) return;
-            const { booking, box, hourHeight, snapped, side } = drag;
+            const { booking, box, hourHeight, snapped, side, prevTop, prevHeight } = drag;
             drag = null;
-            box.style.height = "";
-            box.style.top = "";
+            box.style.top = prevTop;
+            box.style.height = prevHeight;
             if (!snapped) return;
+            suppressClick = true;
+            setTimeout(() => { suppressClick = false; }, 0);
             const start = new Date(booking.originStart || booking.start);
             const end = new Date(booking.originEnd || booking.end);
             const minutes = (snapped / hourHeight) * 60;
@@ -295,12 +300,20 @@ export default function Calendar() {
             setMoveError("");
             setMove({ row: booking.row, start, end });
         };
+        const swallowClick = (event) => {
+            if (!suppressClick) return;
+            suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        };
         root.addEventListener("click", onClick, true);
+        window.addEventListener("click", swallowClick, true);
         root.addEventListener("pointerdown", onDown, true);
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
         return () => {
             root.removeEventListener("click", onClick, true);
+            window.removeEventListener("click", swallowClick, true);
             root.removeEventListener("pointerdown", onDown, true);
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
