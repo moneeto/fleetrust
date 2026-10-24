@@ -27,6 +27,8 @@ async function dbCheck() {
                 username: 'recovery-check@example.com',
                 email: 'recovery-check@example.com',
                 password: 'hash',
+                googleId: null,
+                askBiometric: 0,
                 idRole: roles[0].idRole,
                 idAccount: account.insertId,
                 active: 1

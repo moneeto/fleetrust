@@ -41,7 +41,7 @@ router.post('/createReservationRange', withAuth, checkAccount, createReservation
 router.post('/deleteReservation', withAuth, checkAccount, deleteReservation);
 
 async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode, serviceCode, idAccount }) {
-    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
+    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode, idAccount });
     if ((experienceCode || routeCode || serviceCode) && !product) {
         throw 'Invalid service code';
     }
@@ -307,7 +307,7 @@ async function createReservation(req, res) {
                 service = await servicesDb.getServiceByCode(conn, routeCode, req.idAccount);
             }
 
-            const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
+            const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode, idAccount: req.idAccount });
             if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
             if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
                 throw 'Selected date is not available for this flight.';

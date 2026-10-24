@@ -30,12 +30,12 @@ async function getServiceHours(conn, idService) {
     return rows.map((r) => formatHour(r.hour));
 }
 
-async function getServiceConfigByCode(conn, code) {
+async function getServiceConfigByCode(conn, code, idAccount) {
     const rows = await query(
         conn,
         `SELECT idService, code, minDaysAhead, maxDaysAhead, allowedWeekdays
-         FROM services WHERE code = ? AND deleted = 0 LIMIT 1`,
-        [code]
+         FROM services WHERE code = ? AND idAccount = ? AND deleted = 0 LIMIT 1`,
+        [code, idAccount]
     );
     if (!rows.length) return null;
     const product = rows[0];
@@ -52,10 +52,10 @@ async function getServiceConfigByCode(conn, code) {
     return normalizeProduct(product);
 }
 
-async function resolveProductConfig(conn, { experienceCode, routeCode, serviceCode }) {
+async function resolveProductConfig(conn, { experienceCode, routeCode, serviceCode, idAccount }) {
     const code = (serviceCode || experienceCode || routeCode || '').toString().trim();
     if (!code) return null;
-    return getServiceConfigByCode(conn, code);
+    return getServiceConfigByCode(conn, code, idAccount);
 }
 
 function filterHoursForProduct(occupancyHours, productConfig) {

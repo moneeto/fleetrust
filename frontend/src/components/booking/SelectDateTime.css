@@ -1,8 +1,5 @@
 .step2-container {
-  padding: 2rem;
-  background: linear-gradient(to bottom, #f0f9ff, #e0f2fe);
-  border-radius: 1rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 0;
 }
 
 .header {
@@ -52,11 +49,7 @@
 
 .calendar-wrapper {
   flex: 1; /* Ocupa la mitad izquierda */
-  background: #ffffff;
-  border: 1px solid #b3e5fc;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 0;
   margin-bottom: 1rem;
 }
 

@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PiArrowRight } from "react-icons/pi";
 import PasswordInput from "@/components/ui/PasswordInput";
+import SocialLogin from "@/components/auth/SocialLogin";
 import styles from "./login.module.css";
 
 export default function Login() {
@@ -116,6 +117,7 @@ export default function Login() {
                   )}
                 </Button>
               </Form>
+              <SocialLogin />
               <p className={styles.links}>
                 Don't have an account? <Link href="/register">Create one</Link>
               </p>

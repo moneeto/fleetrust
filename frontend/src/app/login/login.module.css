@@ -240,3 +240,31 @@
         padding: 1.75rem 1.25rem;
     }
 }
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--color-border);
+}
+
+.googleButton {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    margin-bottom: 0.75rem;
+}
+
+.biometric {
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+}

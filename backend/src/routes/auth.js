@@ -13,11 +13,21 @@ const { newOtpCode, otpExpiresAt, otpAccepts } = require('../utils/otp.js');
 const { sendOtpEmail, sendRecoveryEmail } = require('../utils/mailer.js');
 const withAuth = require('../middleware/withAuth.js');
 const checkAccount = require('../middleware/checkAccount.js');
+const { OAuth2Client } = require('google-auth-library');
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
+const { googleAudiences, webauthnOrigins } = require('../utils/authConfig.js');
 
 router.post('/login', login);
 router.get('/logout', logout);
 router.post('/register', register);
 router.post('/verifyEmail', verifyEmail);
+router.post('/googleLogin', googleLogin);
+router.post('/biometricLoginOptions', biometricLoginOptions);
+router.post('/biometricLogin', biometricLogin);
+router.get('/biometricStatus', withAuth, checkAccount, getBiometricStatus);
+router.post('/biometricRegisterOptions', withAuth, checkAccount, biometricRegisterOptions);
+router.post('/biometricRegister', withAuth, checkAccount, biometricRegister);
+router.post('/biometricSkip', withAuth, checkAccount, biometricSkip);
 router.post('/forgotPassword', forgotPassword);
 router.post('/resetPassword', resetPassword);
 router.get('/setup', withAuth, checkAccount, getSetup);
@@ -88,6 +98,11 @@ async function login(req, res) {
                 throw "No tiene permisos y/o usuario inactivo."
             }
 
+            if (!userData[0].password) {
+                errMsg = "Invalid email or password. Please, verify your credentials and try again."
+                throw `El usuario ${params.email} no tiene contraseña`
+            }
+
             //Verifico la password
             const match = await bcrypt.compare(params.password, userData[0].password);
             if (!match) {
@@ -147,12 +162,12 @@ function validEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-async function issueOtp(conn, email, purpose) {
+async function issueOtp(conn, email, purpose, passwordHash) {
     await db.deactivateExpiredOtp(conn);
     await db.deactivateOtpForEmail(conn, { email, purpose });
     const code = newOtpCode();
     const hash = await bcrypt.hash(code, 12);
-    await db.insertOtp(conn, { email, code: hash, purpose, expiresAt: otpExpiresAt() });
+    await db.insertOtp(conn, { email, code: hash, purpose, expiresAt: otpExpiresAt(), passwordHash });
     await sendOtpEmail({ email, code, purpose });
 }
 
@@ -172,7 +187,6 @@ async function register(req, res) {
         let response = {};
         let status = 400;
         let connSuccess = false;
-        let started = false;
         try {
             if (errConn) throw errConn;
             connSuccess = true;
@@ -189,45 +203,14 @@ async function register(req, res) {
             }
 
             const existing = await db.getUserByEmail(conn, { email });
-            if (existing[0] && Number(existing[0].active) === 1) {
-                throw 'Email already registered.';
-            }
+            if (existing[0]) throw 'Email already registered.';
 
-            await new Promise((resolve, reject) => conn.beginTransaction((err) => err ? reject(err) : resolve()));
-            started = true;
-
-            if (!existing[0]) {
-                const roles = await db.getRoleByCode(conn, 'ADM');
-                if (!roles[0]) throw 'Administrator role is not configured.';
-                const account = await db.createAccount(conn, { name: email, showSetupModal: 1 });
-                await servicesDb.createService(conn, {
-                    code: 'MANUAL', title: 'Manual Booking', description: null, image: null, duration: null,
-                    durationMinutes: 60, visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
-                    allowedWeekdays: '[0,1,2,3,4,5,6]', idAccount: account.insertId
-                });
-                const hash = await bcrypt.hash(String(password), 12);
-                await db.createUser(conn, {
-                    username: email,
-                    email,
-                    password: hash,
-                    idRole: roles[0].idRole,
-                    idAccount: account.insertId,
-                    active: 0
-                });
-            } else {
-                const hash = await bcrypt.hash(String(password), 12);
-                await db.updatePendingPassword(conn, { email, password: hash });
-            }
-
-            await issueOtp(conn, email, 'REGISTER');
-            await new Promise((resolve, reject) => conn.commit((err) => err ? reject(err) : resolve()));
-            started = false;
+            // Nothing is created yet: the password hash waits in the code row until the email is verified.
+            const hash = await bcrypt.hash(String(password), 12);
+            await issueOtp(conn, email, 'REGISTER', hash);
             status = 200;
             response = { message: 'We sent a code to your email.' };
         } catch (e) {
-            if (started) {
-                await new Promise((resolve) => conn.rollback(() => resolve()));
-            }
             console.log(e);
             status = 400;
             response = { message: typeof e === 'string' ? e : 'Could not create the account.' };
@@ -238,42 +221,77 @@ async function register(req, res) {
     });
 }
 
+function startSession(res, user) {
+    const token = jwt.sign({
+        idUser: user.idUser,
+        username: user.username,
+        email: user.email,
+        idRole: user.idRole,
+        role: user.role,
+        code: user.code,
+        name: user.name,
+        surname: user.surname,
+        active: user.active,
+        resetPassword: user.resetPassword,
+        idAccount: user.idAccount
+    }, process.env.SECRET_STRING, { expiresIn: process.env.TOKEN_EXPIRATION });
+    res.cookie('token', token, {
+        ...cookieOptions,
+        expires: moment().add(120, 'days').toDate()
+    });
+}
+
+async function createOwner(conn, p) {
+    const roles = await db.getRoleByCode(conn, 'ADM');
+    if (!roles[0]) throw 'Administrator role is not configured.';
+    const account = await db.createAccount(conn, { name: p.email, showSetupModal: 1 });
+    await servicesDb.createService(conn, {
+        code: 'MANUAL', title: 'Manual Booking', description: null, image: null, duration: null,
+        durationMinutes: 60, visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
+        allowedWeekdays: '[0,1,2,3,4,5,6]', idAccount: account.insertId
+    });
+    await db.createUser(conn, {
+        username: p.email,
+        email: p.email,
+        password: p.password,
+        googleId: p.googleId,
+        idRole: roles[0].idRole,
+        idAccount: account.insertId,
+        active: 1,
+        askBiometric: 1
+    });
+}
+
 async function verifyEmail(req, res) {
     connection.pool.getConnection(async (errConn, conn) => {
         let response = {};
         let status = 400;
         let connSuccess = false;
+        let started = false;
         try {
             if (errConn) throw errConn;
             connSuccess = true;
             const email = cleanEmail(req.body.email);
             const row = await matchingOtp(conn, email, 'REGISTER', req.body.code);
-            if (!row) throw 'Invalid or expired code.';
-            await db.activateUser(conn, { email });
+            if (!row || !row.passwordHash) throw 'Invalid or expired code.';
+            const existing = await db.getUserByEmail(conn, { email });
+            if (existing[0]) throw 'Email already registered.';
+
+            await new Promise((resolve, reject) => conn.beginTransaction((err) => err ? reject(err) : resolve()));
+            started = true;
+            await createOwner(conn, { email, password: row.passwordHash, googleId: null });
             await db.deactivateOtpById(conn, row.idOtp);
+            await new Promise((resolve, reject) => conn.commit((err) => err ? reject(err) : resolve()));
+            started = false;
+
             const users = await db.getUserByEmail(conn, { email });
             const user = users[0];
             if (!user || Number(user.active) !== 1) throw 'Could not verify the email.';
-            const token = jwt.sign({
-                idUser: user.idUser,
-                username: user.username,
-                email: user.email,
-                idRole: user.idRole,
-                role: user.role,
-                code: user.code,
-                name: user.name,
-                surname: user.surname,
-                active: user.active,
-                resetPassword: user.resetPassword,
-                idAccount: user.idAccount
-            }, process.env.SECRET_STRING, { expiresIn: process.env.TOKEN_EXPIRATION });
-            res.cookie('token', token, {
-                ...cookieOptions,
-                expires: moment().add(120, 'days').toDate()
-            });
+            startSession(res, user);
             status = 200;
             response = { message: 'Welcome!' };
         } catch (e) {
+            if (started) await new Promise((resolve) => conn.rollback(() => resolve()));
             console.log(e);
             response = { message: typeof e === 'string' ? e : 'Could not verify the email.' };
         } finally {
@@ -387,6 +405,245 @@ async function dismissSetup(req, res) {
         } catch (e) {
             console.log(e);
             response = { message: 'Could not close the setup.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+const googleClient = new OAuth2Client();
+const challengeCookie = 'webauthnChallenge';
+const challengeMinutes = 5;
+
+function saveChallenge(res, challenge) {
+    const token = jwt.sign({ challenge }, process.env.SECRET_STRING, { expiresIn: `${challengeMinutes}m` });
+    res.cookie(challengeCookie, token, { ...cookieOptions, maxAge: challengeMinutes * 60 * 1000 });
+}
+
+function takeChallenge(req, res) {
+    res.clearCookie(challengeCookie, cookieOptions);
+    try {
+        return jwt.verify(req.cookies[challengeCookie], process.env.SECRET_STRING).challenge;
+    } catch (e) {
+        throw 'The request expired. Try again.';
+    }
+}
+
+async function googleLogin(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        let started = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            const ticket = await googleClient.verifyIdToken({ idToken: req.body.idToken, audience: googleAudiences() });
+            const claims = ticket.getPayload();
+            if (!claims.email_verified) throw 'Your Google email is not verified.';
+            const googleId = claims.sub;
+            const email = cleanEmail(claims.email);
+
+            let user = (await db.getUserByGoogleId(conn, { googleId }))[0];
+            if (!user) {
+                user = (await db.getUserByEmail(conn, { email }))[0];
+                if (user && user.googleId) throw 'This email is linked to another Google account.';
+                if (user && Number(user.active) === 1) {
+                    await db.linkGoogle(conn, { googleId, idUser: user.idUser });
+                } else if (!user) {
+                    await new Promise((resolve, reject) => conn.beginTransaction((err) => err ? reject(err) : resolve()));
+                    started = true;
+                    await createOwner(conn, { email, password: null, googleId });
+                    await new Promise((resolve, reject) => conn.commit((err) => err ? reject(err) : resolve()));
+                    started = false;
+                    user = (await db.getUserByEmail(conn, { email }))[0];
+                }
+            }
+            if (!user || Number(user.active) !== 1) throw 'Your account is inactive.';
+
+            startSession(res, user);
+            status = 200;
+            response = { message: 'Welcome!' };
+        } catch (e) {
+            if (started) await new Promise((resolve) => conn.rollback(() => resolve()));
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not sign in with Google.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function getBiometricStatus(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const rows = await db.getBiometricStatus(conn, { idUser: req.idUser });
+            if (!rows[0]) throw 'User not found.';
+            status = 200;
+            response = rows[0];
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not load the biometric status.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function biometricRegisterOptions(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const passkeys = await db.getPasskeysByUser(conn, { idUser: req.idUser });
+            const options = await generateRegistrationOptions({
+                rpName: process.env.WEBAUTHN_RP_NAME,
+                rpID: process.env.WEBAUTHN_RP_ID,
+                userName: req.username,
+                userID: new TextEncoder().encode(String(req.idUser)),
+                excludeCredentials: passkeys.map((row) => ({
+                    id: row.credentialId,
+                    transports: row.transports ? row.transports.split(',') : undefined
+                })),
+                authenticatorSelection: { residentKey: 'required', userVerification: 'required' }
+            });
+            saveChallenge(res, options.challenge);
+            status = 200;
+            response = options;
+        } catch (e) {
+            console.log(e);
+            response = { message: 'Could not start the biometric setup.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function biometricRegister(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const verification = await verifyRegistrationResponse({
+                response: req.body,
+                expectedChallenge: takeChallenge(req, res),
+                expectedOrigin: webauthnOrigins(),
+                expectedRPID: process.env.WEBAUTHN_RP_ID,
+                requireUserVerification: true
+            });
+            if (!verification.verified) throw 'Could not register the biometric login.';
+            const credential = verification.registrationInfo.credential;
+            await db.insertPasskey(conn, {
+                idUser: req.idUser,
+                credentialId: credential.id,
+                publicKey: Buffer.from(credential.publicKey).toString('base64url'),
+                counter: credential.counter,
+                transports: credential.transports ? credential.transports.join(',') : null
+            });
+            await db.setAskBiometric(conn, { value: 0, idUser: req.idUser });
+            status = 200;
+            response = { message: 'Biometric login enabled.' };
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not register the biometric login.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function biometricSkip(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            await db.setAskBiometric(conn, { value: 0, idUser: req.idUser });
+            status = 200;
+            response = { message: 'Biometric prompt closed.' };
+        } catch (e) {
+            console.log(e);
+            response = { message: 'Could not save your choice.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function biometricLoginOptions(req, res) {
+    let response = {};
+    let status = 400;
+    try {
+        const options = await generateAuthenticationOptions({
+            rpID: process.env.WEBAUTHN_RP_ID,
+            userVerification: 'required'
+        });
+        saveChallenge(res, options.challenge);
+        status = 200;
+        response = options;
+    } catch (e) {
+        console.log(e);
+        response = { message: 'Could not start the biometric login.' };
+    } finally {
+        res.status(status).send(response);
+    }
+}
+
+async function biometricLogin(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const passkey = (await db.getPasskeyByCredential(conn, { credentialId: req.body.id }))[0];
+            if (!passkey) throw 'This device is not registered for biometric login.';
+            const verification = await verifyAuthenticationResponse({
+                response: req.body,
+                expectedChallenge: takeChallenge(req, res),
+                expectedOrigin: webauthnOrigins(),
+                expectedRPID: process.env.WEBAUTHN_RP_ID,
+                credential: {
+                    id: passkey.credentialId,
+                    publicKey: Buffer.from(passkey.publicKey, 'base64url'),
+                    counter: Number(passkey.counter),
+                    transports: passkey.transports ? passkey.transports.split(',') : undefined
+                },
+                requireUserVerification: true
+            });
+            if (!verification.verified) throw 'Could not verify the biometric login.';
+            await db.updatePasskeyCounter(conn, { counter: verification.authenticationInfo.newCounter, idPasskey: passkey.idPasskey });
+
+            const user = (await db.getUserById(conn, { idUser: passkey.idUser }))[0];
+            if (!user || Number(user.active) !== 1) throw 'Your account is inactive.';
+
+            startSession(res, user);
+            status = 200;
+            response = { message: 'Welcome!' };
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not verify the biometric login.' };
         } finally {
             if (connSuccess) conn.release();
             res.status(status).send(response);

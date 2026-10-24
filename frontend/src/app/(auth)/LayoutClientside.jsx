@@ -4,6 +4,7 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import SetupTour from "@/components/setup_onboarding/SetupTour";
+import BiometricPrompt from "@/components/biometric/BiometricPrompt";
 
 export default function LayoutClientside({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,6 +34,7 @@ export default function LayoutClientside({ children }) {
                 </main>
 
                 <SetupTour />
+                <BiometricPrompt />
 
             </div>
         </div>

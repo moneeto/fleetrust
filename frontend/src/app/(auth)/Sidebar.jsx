@@ -73,6 +73,14 @@ export default function Sidebar({ open, onClose }) {
                                 </Link>
 
                                 <Link
+                                    href="/tours/pilots"
+                                    data-tour="pilots"
+                                    className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Pilots
+                                </Link>
+                                <Link
                                     href="/tours/addons"
                                     data-tour="addons"
                                     className={pathname === "/tours/addons" ? "nav-link active" : "nav-link"}
@@ -81,14 +89,6 @@ export default function Sidebar({ open, onClose }) {
                                     Addons
                                 </Link>
 
-                                <Link
-                                    href="/tours/pilots"
-                                    data-tour="pilots"
-                                    className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Pilots
-                                </Link>
 
                                 {/* <Link
                                     href="/tours/hours"
@@ -166,8 +166,19 @@ export default function Sidebar({ open, onClose }) {
                     </nav>
                 </div>
 
-                <div className="auth-sidebar-footer">
-                    <LogoutButton />
+                <div className="auth-sidebar-bottom">
+                    <nav className="nav flex-column submenu">
+                        <Link
+                            href="/settings"
+                            className={pathname === "/settings" ? "nav-link active" : "nav-link"}
+                            onClick={onClose}
+                        >
+                            Settings
+                        </Link>
+                    </nav>
+                    <div className="auth-sidebar-footer">
+                        <LogoutButton />
+                    </div>
                 </div>
 
             </aside>

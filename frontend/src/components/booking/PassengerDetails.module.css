@@ -1,7 +1,5 @@
 .section {
-    border: 1px solid #eef0f3;
-    border-radius: 0.875rem;
-    padding: 1.25rem;
+    padding: 0;
 }
 
 .title {
@@ -55,6 +53,11 @@
 
 @media (max-width: 768px) {
     .passengerRow {
-        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .passengerRow > :last-child {
+        width: 100%;
     }
 }

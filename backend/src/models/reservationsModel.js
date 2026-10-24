@@ -167,7 +167,7 @@ async function getReservationsByDate(conn, date, idAccount) {
 async function getReservationById(conn, id, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, c.aircraft, c.registrationNumber, e.pilotName
+        SELECT a.*, b.title AS route, s.title AS experience, s.title AS service, s.code AS serviceCode, c.aircraft, c.registrationNumber, e.pilotName
         from reservations a
         LEFT JOIN routes b on a.idRoute = b.idRoute
         LEFT JOIN aircrafts c on a.idAircraft = c.idAircraft

@@ -7,6 +7,7 @@ import { getRecaptchaToken } from "@/helpers/recaptcha";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
+import SocialLogin from "@/components/auth/SocialLogin";
 import styles from "../login/login.module.css";
 
 export default function Register() {
@@ -43,7 +44,7 @@ export default function Register() {
       <div className={styles.formPanel}>
         <div className={styles.formBox}>
           <h1 className={`brand ${styles.formBrand}`}>Fleetrust</h1>
-          <h2 className={styles.title}>Create account</h2>
+          <h2 className={styles.title}>Register</h2>
           <p className={styles.subtitle}>We will send a code to your email to confirm it.</p>
           <Form onSubmit={handleSubmit}>
             <FormGroup className="mb-3" floating>
@@ -56,6 +57,7 @@ export default function Register() {
               {loading ? <><Spinner size="sm" className="me-2" />Creating...</> : "Create account"}
             </Button>
           </Form>
+          <SocialLogin />
           <p className={styles.links}>Already have an account? <Link href="/login">Sign in</Link></p>
         </div>
       </div>

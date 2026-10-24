@@ -204,7 +204,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
     const renderOfferCard = (item, selected, onClick) => (
         <div key={item.code} className="col-12" onClick={onClick}>
             <div
-                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'hover-bg-light'}`}
+                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'bg-white shadow-sm'}`}
                 style={{ cursor: 'pointer', border: selected ? undefined : '2px solid transparent' }}
             >
                 <div className="d-flex justify-content-between align-items-center">
@@ -242,7 +242,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                             transition={{ duration: 0.25 }}
                         >
                             {current === 'type' && (
-                                <div className="py-4">
+                                <div className="py-5">
                                     <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
                                 </div>
                             )}
@@ -404,7 +404,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                     return (
                                         <Button
                                             color="primary"
-                                            className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                            className="px-4 px-md-5 py-2 rounded-pill fw-bold shadow-sm"
                                             onClick={handleNext}
                                             disabled={nextDisabled || loading}
                                         >
@@ -414,8 +414,8 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                 }
                                 return (
                                     <Button
-                                        color="success"
-                                        className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                        color="primary"
+                                        className="px-4 px-md-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
                                         disabled={loading || (!customLength && (!date || !time))}
                                     >

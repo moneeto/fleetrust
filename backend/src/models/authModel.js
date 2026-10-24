@@ -7,13 +7,53 @@ function query(conn, sql, params) {
     });
 }
 
-async function getUserByEmail(conn, p) {
-    const sql = `SELECT a.idUser, a.username, a.email, a.password, a.name, a.surname, a.idRole, a.idAccount,
-                    a.active, a.resetPassword, b.role, b.code
+const userSelect = `SELECT a.idUser, a.username, a.email, a.password, a.name, a.surname, a.idRole, a.idAccount,
+                    a.active, a.resetPassword, a.googleId, b.role, b.code
                 FROM users a
-                INNER JOIN roles b ON b.idRole = a.idRole
-                WHERE a.email = ?`;
-    return query(conn, sql, [p.email]);
+                INNER JOIN roles b ON b.idRole = a.idRole`;
+
+async function getUserByEmail(conn, p) {
+    return query(conn, `${userSelect} WHERE a.email = ?`, [p.email]);
+}
+
+async function getUserByGoogleId(conn, p) {
+    return query(conn, `${userSelect} WHERE a.googleId = ?`, [p.googleId]);
+}
+
+async function getUserById(conn, p) {
+    return query(conn, `${userSelect} WHERE a.idUser = ?`, [p.idUser]);
+}
+
+async function linkGoogle(conn, p) {
+    return query(conn, `UPDATE users SET googleId = ? WHERE idUser = ?`, [p.googleId, p.idUser]);
+}
+
+async function getBiometricStatus(conn, p) {
+    const sql = `SELECT u.askBiometric, (SELECT COUNT(*) FROM passkeys WHERE idUser = u.idUser) AS passkeys
+                FROM users u
+                WHERE u.idUser = ?`;
+    return query(conn, sql, [p.idUser]);
+}
+
+async function setAskBiometric(conn, p) {
+    return query(conn, `UPDATE users SET askBiometric = ? WHERE idUser = ?`, [p.value, p.idUser]);
+}
+
+async function getPasskeysByUser(conn, p) {
+    return query(conn, `SELECT credentialId, transports FROM passkeys WHERE idUser = ?`, [p.idUser]);
+}
+
+async function getPasskeyByCredential(conn, p) {
+    return query(conn, `SELECT idPasskey, idUser, credentialId, publicKey, counter, transports FROM passkeys WHERE credentialId = ?`, [p.credentialId]);
+}
+
+async function insertPasskey(conn, p) {
+    const sql = `INSERT INTO passkeys (idUser, credentialId, publicKey, counter, transports) VALUES (?, ?, ?, ?, ?)`;
+    return query(conn, sql, [p.idUser, p.credentialId, p.publicKey, p.counter, p.transports]);
+}
+
+async function updatePasskeyCounter(conn, p) {
+    return query(conn, `UPDATE passkeys SET counter = ? WHERE idPasskey = ?`, [p.counter, p.idPasskey]);
 }
 
 async function getActiveUserInAccount(conn, p) {
@@ -46,17 +86,9 @@ async function setSetupModal(conn, p) {
 }
 
 async function createUser(conn, p) {
-    const sql = `INSERT INTO users (username, email, password, idRole, idAccount, active, resetPassword)
-                VALUES (?, ?, ?, ?, ?, ?, 0)`;
-    return query(conn, sql, [p.username, p.email, p.password, p.idRole, p.idAccount, p.active]);
-}
-
-async function updatePendingPassword(conn, p) {
-    return query(conn, `UPDATE users SET password = ? WHERE email = ? AND active = 0`, [p.password, p.email]);
-}
-
-async function activateUser(conn, p) {
-    return query(conn, `UPDATE users SET active = 1 WHERE email = ? AND active = 0`, [p.email]);
+    const sql = `INSERT INTO users (username, email, password, googleId, idRole, idAccount, active, resetPassword, askBiometric)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`;
+    return query(conn, sql, [p.username, p.email, p.password, p.googleId, p.idRole, p.idAccount, p.active, p.askBiometric]);
 }
 
 async function updatePassword(conn, p) {
@@ -89,12 +121,12 @@ async function deactivateOtpForEmail(conn, p) {
 }
 
 async function insertOtp(conn, p) {
-    const sql = `INSERT INTO otp_codes (email, code, purpose, expiresAt, active) VALUES (?, ?, ?, ?, 1)`;
-    return query(conn, sql, [p.email, p.code, p.purpose, p.expiresAt]);
+    const sql = `INSERT INTO otp_codes (email, code, purpose, expiresAt, active, passwordHash) VALUES (?, ?, ?, ?, 1, ?)`;
+    return query(conn, sql, [p.email, p.code, p.purpose, p.expiresAt, p.passwordHash || null]);
 }
 
 async function getActiveOtps(conn, p) {
-    const sql = `SELECT idOtp, email, code, purpose, expiresAt, active
+    const sql = `SELECT idOtp, email, code, purpose, expiresAt, active, passwordHash
                 FROM otp_codes
                 WHERE email = ? AND purpose = ? AND active = 1`;
     return query(conn, sql, [p.email, p.purpose]);
@@ -106,14 +138,21 @@ async function deactivateOtpById(conn, idOtp) {
 
 module.exports = {
     getUserByEmail,
+    getUserByGoogleId,
+    getUserById,
+    linkGoogle,
+    getBiometricStatus,
+    setAskBiometric,
+    getPasskeysByUser,
+    getPasskeyByCredential,
+    insertPasskey,
+    updatePasskeyCounter,
     getActiveUserInAccount,
     getRoleByCode,
     createAccount,
     getSetupStatus,
     setSetupModal,
     createUser,
-    updatePendingPassword,
-    activateUser,
     updatePassword,
     deactivateRecoveryForUser,
     insertRecovery,

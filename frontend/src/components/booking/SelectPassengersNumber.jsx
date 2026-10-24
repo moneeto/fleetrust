@@ -7,16 +7,17 @@ const SelectPassengersCount = ({ count, onCountChange, prices }) => {
     : [2, 3];
 
   return (
-    <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-      <span className="fw-bold d-flex align-items-center gap-2">
-        <Users size={20} className="text-primary" /> Number of passengers
+    <div className="d-flex flex-column align-items-center gap-3 text-center">
+      <span className="fw-bold d-flex align-items-center gap-2 text-secondary text-uppercase small">
+        <Users size={18} className="text-primary" /> Number of passengers
       </span>
-      <div className="btn-group" role="group">
+      <div className="d-flex justify-content-center flex-wrap gap-3">
         {options.map((n) => (
           <button
             key={n}
             type="button"
-            className={`btn px-4 fw-bold ${count === n ? 'btn-primary' : 'btn-outline-primary'}`}
+            className={`btn rounded-circle fw-bold fs-5 ${count === n ? 'btn-primary shadow' : 'btn-light border'}`}
+            style={{ width: '56px', height: '56px' }}
             onClick={() => onCountChange(n)}
           >
             {n}

@@ -159,7 +159,8 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
         }
     }
 
-    const reservationAddons = reservation?.addons || [];
+    const isManual = reservation?.serviceCode === "MANUAL";
+    const reservationAddons = isManual ? [] : (reservation?.addons || []);
     let addonsTotal = 0;
     for (let i = 0; i < reservationAddons.length; i++) {
         addonsTotal += reservationAddons[i].price * reservationAddons[i].quantity;
@@ -485,7 +486,7 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
                     )}
                 </ModalBody>
 
-                {reservation && (
+                {reservation && !isManual && (
                     <ModalFooter style={{ backgroundColor: '#fff', display: 'block', textAlign: 'right' }}>
                         <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
                             <span>{reservation.service}</span>
