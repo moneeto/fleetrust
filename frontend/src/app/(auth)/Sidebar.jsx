@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Alfa_Slab_One } from "next/font/google";
 import { Plane, Wrench } from "lucide-react";
 import LogoutButton from "./components/LogoutButton";
-
-const alfa = Alfa_Slab_One({ weight: "400", subsets: ["latin"] });
 
 export default function Sidebar({ open, onClose }) {
     const pathname = usePathname();
@@ -23,7 +20,7 @@ export default function Sidebar({ open, onClose }) {
             <aside className={`auth-sidebar p-3 ${open ? "open" : ""}`}>
 
                 <div>
-                    <p className={`${alfa.className} sidebar-brand`}>Fleetrust</p>
+                    <p className="brand sidebar-brand">Fleetrust</p>
                     <nav className="nav flex-column gap-2">
 
                         <div>
@@ -32,6 +29,13 @@ export default function Sidebar({ open, onClose }) {
                             </span>
 
                             <nav className="nav flex-column submenu">
+                                <Link
+                                    href="/tours/calendar"
+                                    className={pathname === "/tours/calendar" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Bookings Calendar
+                                </Link>
 
                                 <Link
                                     href="/tours/bookings"
@@ -41,24 +45,18 @@ export default function Sidebar({ open, onClose }) {
                                     Bookings List
                                 </Link>
 
-                                <Link
-                                    href="/tours/calendar"
-                                    className={pathname === "/tours/calendar" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Calendar
-                                </Link>
 
                                 <Link
                                     href="/tours/book-dates"
                                     className={pathname === "/tours/book-dates" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
-                                    Book
+                                    New Book
                                 </Link>
 
                                 <Link
                                     href="/tours/services"
+                                    data-tour="services"
                                     className={pathname === "/tours/services" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
@@ -67,6 +65,7 @@ export default function Sidebar({ open, onClose }) {
 
                                 <Link
                                     href="/tours/aircrafts"
+                                    data-tour="aircrafts"
                                     className={pathname === "/tours/aircrafts" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
@@ -74,28 +73,30 @@ export default function Sidebar({ open, onClose }) {
                                 </Link>
 
                                 <Link
+                                    href="/tours/pilots"
+                                    data-tour="pilots"
+                                    className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                >
+                                    Pilots
+                                </Link>
+                                <Link
                                     href="/tours/addons"
+                                    data-tour="addons"
                                     className={pathname === "/tours/addons" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Addons
                                 </Link>
 
-                                <Link
-                                    href="/tours/pilots"
-                                    className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Pilots
-                                </Link>
 
-                                <Link
+                                {/* <Link
                                     href="/tours/hours"
                                     className={pathname === "/tours/hours" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Hours
-                                </Link>
+                                </Link> */}
 
                                 {/* <Link
                                     href="/tours/gallery"
@@ -165,8 +166,19 @@ export default function Sidebar({ open, onClose }) {
                     </nav>
                 </div>
 
-                <div className="auth-sidebar-footer">
-                    <LogoutButton />
+                <div className="auth-sidebar-bottom">
+                    <nav className="nav flex-column submenu">
+                        <Link
+                            href="/settings"
+                            className={pathname === "/settings" ? "nav-link active" : "nav-link"}
+                            onClick={onClose}
+                        >
+                            Settings
+                        </Link>
+                    </nav>
+                    <div className="auth-sidebar-footer">
+                        <LogoutButton />
+                    </div>
                 </div>
 
             </aside>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import Config from "@/config";
 import { Button, Modal, ModalBody } from "reactstrap";
+import MessageModal from "@/components/ui/MessageModal";
 import { useToast } from "@/components/ui/use-toast";
 import { TrashIcon, UploadIcon, XIcon } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
@@ -16,6 +17,7 @@ export default function GalleryPage() {
     const [error, setError] = useState(null);
     const [preview, setPreview] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
     const fileInputRef = useRef(null);
     const { toast } = useToast();
 
@@ -75,7 +77,7 @@ export default function GalleryPage() {
             setLoading(true);
             await ApiComunicator("/gallery/delete", "POST", { filename });
             setImages((prev) => prev.filter((img) => img.filename !== filename));
-            if (preview?.filename === filename) setPreview(null);
+            if (preview?.filename === filename) setPreviewOpen(false);
             setDeleteConfirm(null);
         } catch (err) {
             toast({
@@ -133,7 +135,7 @@ export default function GalleryPage() {
                             <button
                                 type="button"
                                 className={styles.thumbButton}
-                                onClick={() => setPreview(image)}
+                                onClick={() => { setPreview(image); setPreviewOpen(true); }}
                             >
                                 <img
                                     src={imageUrl(image.filename)}
@@ -159,8 +161,9 @@ export default function GalleryPage() {
             )}
 
             <Modal
-                isOpen={!!preview}
-                toggle={() => setPreview(null)}
+                isOpen={previewOpen}
+                toggle={() => setPreviewOpen(false)}
+                onClosed={() => { if (!previewOpen) setPreview(null); }}
                 centered
                 size="lg"
                 contentClassName={styles.previewModal}
@@ -168,7 +171,7 @@ export default function GalleryPage() {
                 <button
                     type="button"
                     className={styles.closePreview}
-                    onClick={() => setPreview(null)}
+                    onClick={() => setPreviewOpen(false)}
                     aria-label="Close"
                 >
                     <XIcon size={20} />
@@ -185,23 +188,17 @@ export default function GalleryPage() {
                 </ModalBody>
             </Modal>
 
-            <Modal
+            <MessageModal
                 isOpen={!!deleteConfirm}
-                toggle={() => setDeleteConfirm(null)}
-                centered
+                type="confirm"
+                title="Delete image"
+                confirmLabel="Delete"
+                confirmColor="danger"
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={confirmDelete}
             >
-                <ModalBody>
-                    <p className="mb-0">Delete this image from the gallery?</p>
-                </ModalBody>
-                <div className="d-flex justify-content-end gap-2 p-3 pt-0">
-                    <Button color="secondary" outline onClick={() => setDeleteConfirm(null)}>
-                        Cancel
-                    </Button>
-                    <Button color="danger" onClick={confirmDelete}>
-                        Delete
-                    </Button>
-                </div>
-            </Modal>
+                Delete this image from the gallery?
+            </MessageModal>
         </div>
     );
 }

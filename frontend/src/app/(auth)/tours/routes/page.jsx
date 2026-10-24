@@ -8,9 +8,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { EditIcon, Filter, TrashIcon } from "lucide-react";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
-import { FaExclamationCircle } from "react-icons/fa";
+import MessageModal from "@/components/ui/MessageModal";
 import Spinner from "@/components/ui/Spinner";
-import styles from "../addons/page.module.css";
+import styles from "@/components/ui/listing.module.css";
 
 const emptyForm = {
     code: "",
@@ -111,6 +111,7 @@ function RouteFields({ form, setForm }) {
 export default function RouteList() {
     const [rows, setRows] = useState([]);
     const [form, setForm] = useState(null);
+    const [formOpen, setFormOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
     const [error, setError] = useState(null);
@@ -149,7 +150,7 @@ export default function RouteList() {
             };
             const path = form.idRoute ? "/routes/edit" : "/routes/new";
             await ApiComunicator(path, "POST", body);
-            setForm(null);
+            setFormOpen(false);
             await fetchRows();
         } catch (err) {
             toast({
@@ -276,7 +277,7 @@ export default function RouteList() {
                                 <td className="px-4 py-3 text-sm">{row.visibleToClients ? "Yes" : "No"}</td>
                                 <td>
                                     <div className="d-flex gap-2">
-                                        <Button color="primary" size="sm" outline onClick={() => setForm(toForm(row))}>
+                                        <Button color="primary" size="sm" outline onClick={() => { setForm(toForm(row)); setFormOpen(true); }}>
                                             <EditIcon size={16} /> Edit
                                         </Button>
                                         <Button color="danger" size="sm" outline onClick={() => setPendingDelete(row)}>
@@ -291,43 +292,38 @@ export default function RouteList() {
             </div>
 
             <div className={styles.newBtnWrap}>
-                <Button color="primary" size="sm" onClick={() => setForm({ ...emptyForm })} disabled={!!form}>
+                <Button color="primary" size="sm" onClick={() => { setForm({ ...emptyForm }); setFormOpen(true); }} disabled={formOpen}>
                     + New route
                 </Button>
             </div>
 
-            <Modal isOpen={!!form} centered toggle={() => setForm(null)}>
-                <ModalHeader toggle={() => setForm(null)}>
+            <Modal isOpen={formOpen} centered toggle={() => setFormOpen(false)} onClosed={() => { if (!formOpen) setForm(null); }}>
+                <ModalHeader toggle={() => setFormOpen(false)}>
                     {form?.idRoute ? "Edit route" : "New route"}
                 </ModalHeader>
                 <ModalBody>
                     {form && <RouteFields form={form} setForm={setForm} />}
                 </ModalBody>
                 <ModalFooter>
-                    <Button color="secondary" outline onClick={() => setForm(null)}>Cancel</Button>
+                    <Button color="secondary" outline onClick={() => setFormOpen(false)}>Cancel</Button>
                     <Button color="success" onClick={save} disabled={!form?.code || !form?.title || loading}>
                         Save
                     </Button>
                 </ModalFooter>
             </Modal>
 
-            <Modal isOpen={!!pendingDelete} centered>
-                <ModalHeader toggle={() => setPendingDelete(null)} style={{ backgroundColor: "#721c24", color: "white" }}>
-                    <span style={{ color: "white" }}>Confirm Deletion</span>
-                </ModalHeader>
-                <ModalBody>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                        <FaExclamationCircle style={{ color: "#dc3545", fontSize: "20px", marginTop: "4px" }} />
-                        <p style={{ marginBottom: 0, fontWeight: 600 }}>
-                            Are you sure you want to delete {pendingDelete?.title}?
-                        </p>
-                    </div>
-                </ModalBody>
-                <ModalFooter>
-                    <Button color="secondary" outline onClick={() => setPendingDelete(null)}>Cancel</Button>
-                    <Button color="danger" onClick={confirmDelete} disabled={loading}>Delete</Button>
-                </ModalFooter>
-            </Modal>
+            <MessageModal
+                isOpen={!!pendingDelete}
+                type="confirm"
+                title="Confirm deletion"
+                confirmLabel="Delete"
+                confirmColor="danger"
+                disabled={loading}
+                onClose={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+            >
+                Are you sure you want to delete {pendingDelete?.title}?
+            </MessageModal>
         </div>
     );
 }

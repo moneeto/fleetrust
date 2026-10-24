@@ -16,9 +16,11 @@ const withAuth = function (req, res, next) {
                 req.idUser = decoded.idUser;
                 req.username = decoded.username;
                 req.idRole = decoded.idRole;
+                req.code = decoded.code;
                 req.name = decoded.name;
                 req.surname = decoded.surname;
                 req.active = decoded.active;
+                req.idAccount = decoded.idAccount;
                 next();
             }
         });

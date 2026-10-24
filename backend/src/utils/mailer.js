@@ -118,6 +118,86 @@ async function sendBookingDetails(mailOptions) {
   console.log(`Booking details email sent to ${email} for reservation #${codeReservation}`);
 }
 
+function otpTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+  if (!host || !port || (process.env.SMTP_SECURE !== 'true' && process.env.SMTP_SECURE !== 'false') || !user || !pass) {
+    throw new Error('Mailer is not configured (SMTP_HOST / SMTP_PORT / SMTP_SECURE / SMTP_USER / SMTP_PASSWORD).');
+  }
+
+  return nodemailer.createTransport(smtpTransport({
+    host,
+    port,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user, pass },
+  }));
+}
+
+async function sendOtpEmail({ email, code, purpose }) {
+  const fleetrustLogo = (process.env.FRONTEND_URL) + '/logo.png';
+  const isRegister = purpose === 'REGISTER';
+  const title = isRegister ? 'Confirm your email' : 'Reset your password';
+  const intro = isRegister
+    ? 'Use this code to finish creating your account.'
+    : 'Use this code to choose a new password.';
+
+  await otpTransporter().sendMail({
+    from: `"Fleetrust" <${process.env.SMTP_USER}>`,
+    to: email,
+    replyTo: process.env.SMTP_USER,
+    subject: `${title} - Fleetrust`,
+    html: `
+    <div style="background-color: #f4f7f9; padding: 40px 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        <div style="padding: 30px 20px; text-align: center; border-bottom: 1px solid #f0f0f0;">
+          <img src="${fleetrustLogo}" style="width: 240px; height: auto; margin-bottom: 5px;" alt="Fleetrust">
+        </div>
+        <div style="padding: 40px;">
+          <h2 style="color: #333; font-size: 24px; margin-top: 0; text-align: center;">${title}</h2>
+          <p style="color: #666; font-size: 16px; line-height: 1.5; text-align: center;">${intro}</p>
+          <div style="background-color: #f9f9f9; border-left: 4px solid #fc088b; padding: 20px; margin: 25px 0; text-align: center;">
+            <p style="margin: 0; font-size: 32px; letter-spacing: 6px; font-weight: bold; color: #333;">${code}</p>
+          </div>
+          <p style="color: #666; font-size: 14px; line-height: 1.5; text-align: center;">This code expires in 30 minutes. If you did not ask for it, you can ignore this email.</p>
+        </div>
+        <div style="background-color: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f0f0f0;">
+          <p style="color: #999; font-size: 12px; line-height: 1.4; margin: 0;"><strong>Fleetrust</strong></p>
+        </div>
+      </div>
+    </div>
+    `,
+  });
+}
+
+async function sendRecoveryEmail({ email, link }) {
+  const fleetrustLogo = (process.env.FRONTEND_URL) + '/logo.png';
+  await otpTransporter().sendMail({
+    from: `"Fleetrust" <${process.env.SMTP_USER}>`,
+    to: email,
+    replyTo: process.env.SMTP_USER,
+    subject: 'Reset your password - Fleetrust',
+    html: `
+    <div style="background-color: #f4f7f9; padding: 40px 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        <div style="padding: 30px 20px; text-align: center; border-bottom: 1px solid #f0f0f0;">
+          <img src="${fleetrustLogo}" style="width: 240px; height: auto; margin-bottom: 5px;" alt="Fleetrust">
+        </div>
+        <div style="padding: 40px; text-align: center;">
+          <h2 style="color: #333; font-size: 24px; margin-top: 0;">Reset your password</h2>
+          <p style="color: #666; font-size: 16px; line-height: 1.5;">Use this link to change your password. It expires in 30 minutes.</p>
+          <a href="${link}" style="background-color: #0d6efd; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px;">Choose a new password</a>
+          <p style="color: #666; font-size: 14px; line-height: 1.5; margin-top: 24px;">If you did not ask for this, you can ignore this email.</p>
+        </div>
+      </div>
+    </div>
+    `,
+  });
+}
+
 module.exports = {
   sendBookingDetails,
+  sendOtpEmail,
+  sendRecoveryEmail,
 };

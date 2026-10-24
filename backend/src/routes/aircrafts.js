@@ -3,12 +3,13 @@ const router = express.Router();
 const db = require('../models/aircraftsModel.js')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
+const checkAccount = require('../middleware/checkAccount.js')
 
-router.get('/', withAuth, getAircrafts);
-router.post('/edit', withAuth, editAircraft);
-router.post('/new', withAuth, createAircraft);
-router.post('/delete', withAuth, deleteAircraft);
-router.post('/restore', withAuth, restoreAircraft);
+router.get('/', withAuth, checkAccount, getAircrafts);
+router.post('/edit', withAuth, checkAccount, editAircraft);
+router.post('/new', withAuth, checkAccount, createAircraft);
+router.post('/delete', withAuth, checkAccount, deleteAircraft);
+router.post('/restore', withAuth, checkAccount, restoreAircraft);
 
 
 async function createAircraft(req, res) {
@@ -33,7 +34,8 @@ async function createAircraft(req, res) {
                 aircraft,
                 capacity,
                 registrationNumber,
-                available: available ? 1 : 0
+                available: available ? 1 : 0,
+                idAccount: req.idAccount
             })
 
             response = { aircraft: { aircraft, capacity, registrationNumber, available }, success: true }
@@ -74,7 +76,8 @@ async function editAircraft(req, res) {
                 aircraft,
                 capacity,
                 registrationNumber,
-                available: available ? 1 : 0
+                available: available ? 1 : 0,
+                idAccount: req.idAccount
             })
 
             response = { aircraft: { idAircraft, aircraft, capacity, registrationNumber, available }, success: true }
@@ -106,7 +109,7 @@ async function getAircrafts(req, res) {
             connSuccess = true
 
             const includeDeleted = (req.query.includeDeleted === '1' || req.query.includeDeleted === 'true') ? 1 : 0;
-            const aircrafts = await db.getAircrafts(conn, includeDeleted)
+            const aircrafts = await db.getAircrafts(conn, includeDeleted, req.idAccount)
 
             response = { aircrafts }
 
@@ -145,7 +148,7 @@ async function deleteAircraft(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.deleteAircraft(conn, idAircraft)
+            const result = await db.deleteAircraft(conn, idAircraft, req.idAccount)
 
             if (!result.affectedRows) {
                 throw 'Aircraft not found or already deleted'
@@ -185,7 +188,7 @@ async function restoreAircraft(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.restoreAircraft(conn, idAircraft)
+            const result = await db.restoreAircraft(conn, idAircraft, req.idAccount)
 
             if (!result.affectedRows) {
                 throw 'Aircraft not found or not deleted'

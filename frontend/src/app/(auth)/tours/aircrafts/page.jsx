@@ -6,8 +6,8 @@ import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowRightCircle, CheckIcon, EditIcon, Filter, TrashIcon, Undo2, XIcon } from "lucide-react";
-import { FaExclamationCircle } from "react-icons/fa";
-import styles from './page.module.css';
+import MessageModal from "@/components/ui/MessageModal";
+import styles from "@/components/ui/listing.module.css";
 import Spinner from "@/components/ui/Spinner";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
@@ -46,6 +46,7 @@ export default function AircraftList() {
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
     const [error, setError] = useState(null);
     const [creatingAircraft, setCreatingAircraft] = useState(null);
+    const [editorOpen, setEditorOpen] = useState(false);
     const [filters, setFilters] = useState(INITIAL_FILTERS);
     const [showDeleted, setShowDeleted] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -116,7 +117,7 @@ export default function AircraftList() {
 
             await fetchAircrafts();
 
-            setCreatingAircraft(null);
+            setEditorOpen(false);
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -133,7 +134,7 @@ export default function AircraftList() {
             setLoading(true)
             await ApiComunicator(`/aircrafts/edit`, "POST", { idAircraft: id, ...selectedAircraft });
             setAircrafts(prev => prev.map(aircraft => aircraft.idAircraft === id ? { ...aircraft, ...selectedAircraft } : aircraft));
-            setSelectedAircraft(null);
+            setEditorOpen(false);
         } catch (error) {
             let message = "An error occurred while editing aircraft's information. Please try again.";
             if (error.message) { message = error.message }
@@ -165,7 +166,7 @@ export default function AircraftList() {
             if (response.success) {
                 setDeleteConfirmModal({ show: false, aircraft: null });
                 if (selectedAircraft?.idAircraft === aircraft.idAircraft) {
-                    setSelectedAircraft(null);
+                    setEditorOpen(false);
                 }
                 toast({
                     title: "Success",
@@ -212,7 +213,9 @@ export default function AircraftList() {
 
     function toggleEditAircraft(aircraft, e) {
         e?.stopPropagation?.();
+        setCreatingAircraft(null);
         setSelectedAircraft(aircraft);
+        setEditorOpen(true);
     }
 
     function goToBookings(aircraft) {
@@ -357,6 +360,26 @@ export default function AircraftList() {
 
     return (
         <div className={styles.page}>
+            <div className={styles.pageActions}>
+                <Button
+                    color="primary"
+                    size="sm"
+                    onClick={() => {
+                        setSelectedAircraft(null);
+                        setCreatingAircraft({
+                            aircraft: "",
+                            capacity: "",
+                            registrationNumber: "",
+                            available: true
+                        });
+                        setEditorOpen(true);
+                    }}
+                    disabled={editorOpen}
+                >
+                    + New aircraft
+                </Button>
+            </div>
+
             {error && (
                 <p className="text-sm text-red-600 px-3">
                     {error}
@@ -449,26 +472,8 @@ export default function AircraftList() {
                                     <td className="px-4 py-3 text-sm">
                                         {r.registrationNumber}
                                     </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        {r.available ?
-                                            <>
-                                                <CheckIcon color="green" size={16} /> Yes
-                                            </>
-                                            : <>
-                                                <XIcon color="red" size={16} /> No
-                                            </>}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        {hasPlannedBookings(r) ? (
-                                            <>
-                                                <CheckIcon color="green" size={16} /> Yes
-                                            </>
-                                        ) : (
-                                            <>
-                                                <XIcon color="red" size={16} /> No
-                                            </>
-                                        )}
-                                    </td>
+                                    <td><span className={`${styles.badge} ${r.available ? styles.badgeOk : styles.badgeNo}`}>{r.available ? "Yes" : "No"}</span></td>
+                                    <td><span className={`${styles.badge} ${hasPlannedBookings(r) ? styles.badgeOk : styles.badgeNo}`}>{hasPlannedBookings(r) ? "Yes" : "No"}</span></td>
                                     <td>
                                         {isDeleted(r) ? (
                                             <div className="d-flex gap-2">
@@ -524,8 +529,9 @@ export default function AircraftList() {
                             className={`${styles.card} ${isDeleted(r) ? styles.cardDeleted : ""}`}
                         >
 <>
+                                    <div className={styles.cardHead}>
                                     <div
-                                        className={`${styles.cardTitle} ${isDeleted(r) ? styles.cardTitleDeleted : ""}`}
+                                        className={`${styles.cardTitle} ${styles.cardTitleLink} ${isDeleted(r) ? styles.cardTitleDeleted : ""}`}
                                         onClick={() => goToBookings(r)}
                                     >
                                         <ArrowRightCircle size={16} strokeWidth={2} aria-hidden />
@@ -535,6 +541,7 @@ export default function AircraftList() {
                                                 <span className="ms-2 text-xs">(Deleted)</span>
                                             )}
                                         </span>
+                                    </div>
                                     </div>
                                     <div className={styles.cardMeta}>
                                         <div>
@@ -595,24 +602,6 @@ export default function AircraftList() {
 
             </div>
 
-            <div className={styles.newBtnWrap}>
-                <Button
-                    color="primary"
-                    size="sm"
-                    onClick={() =>
-                        setCreatingAircraft({
-                            aircraft: "",
-                            capacity: "",
-                            registrationNumber: "",
-                            available: true
-                        })
-                    }
-                    disabled={!!creatingAircraft || !!selectedAircraft}
-                >
-                    + New aircraft
-                </Button>
-            </div>
-
             {loading && hasFetchedOnce && (
                 <div className="px-3 text-sm text-gray-500">
                     Loading aircrafts...
@@ -620,8 +609,8 @@ export default function AircraftList() {
             )}
 
 
-            <Modal isOpen={!!creatingAircraft || !!selectedAircraft} centered size="lg" toggle={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
-                <ModalHeader toggle={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
+            <Modal isOpen={editorOpen} centered size="lg" toggle={() => setEditorOpen(false)} onClosed={() => { if (!editorOpen) { setCreatingAircraft(null); setSelectedAircraft(null); } }}>
+                <ModalHeader toggle={() => setEditorOpen(false)}>
                     {creatingAircraft ? "New aircraft" : "Edit aircraft"}
                 </ModalHeader>
                 <ModalBody>
@@ -630,7 +619,7 @@ export default function AircraftList() {
                         : selectedAircraft && renderEditFields(selectedAircraft, setSelectedAircraft, selectedAircraft.idAircraft)}
                 </ModalBody>
                 <ModalFooter>
-                    <Button color="secondary" outline onClick={() => { setCreatingAircraft(null); setSelectedAircraft(null); }}>
+                    <Button color="secondary" outline onClick={() => setEditorOpen(false)}>
                         Cancel
                     </Button>
                     <Button
@@ -645,43 +634,18 @@ export default function AircraftList() {
                 </ModalFooter>
             </Modal>
 
-            <Modal isOpen={deleteConfirmModal.show} centered>
-                <ModalHeader
-                    toggle={() => setDeleteConfirmModal({ show: false, aircraft: null })}
-                    style={{ backgroundColor: '#721c24', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Confirm Deletion</span>
-                </ModalHeader>
-                <ModalBody>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                        <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
-                        <div>
-                            <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
-                                Are you sure you want to delete {deleteConfirmModal.aircraft?.aircraft}?
-                            </p>
-                        </div>
-                    </div>
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => setDeleteConfirmModal({ show: false, aircraft: null })}
-                        disabled={loading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="danger"
-                        onClick={confirmDelete}
-                        disabled={loading}
-                    >
-                        {loading ? 'Deleting...' : 'Delete Aircraft'}
-                    </Button>
-                </ModalFooter>
-            </Modal>
+            <MessageModal
+                isOpen={deleteConfirmModal.show}
+                type="confirm"
+                title="Confirm deletion"
+                confirmLabel={loading ? "Deleting..." : "Delete aircraft"}
+                confirmColor="danger"
+                disabled={loading}
+                onClose={() => setDeleteConfirmModal({ show: false, aircraft: null })}
+                onConfirm={confirmDelete}
+            >
+                Are you sure you want to delete {deleteConfirmModal.aircraft?.aircraft}?
+            </MessageModal>
         </div>
     );
 }

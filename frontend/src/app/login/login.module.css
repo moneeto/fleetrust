@@ -1,0 +1,270 @@
+.page {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    background: var(--color-bg);
+}
+
+/* Panel de marca: mas chico, degradado oscuro y una luz azul suave */
+.brandPanel {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 3rem;
+    color: #fff;
+    background:
+        radial-gradient(circle at 15% 90%, rgba(var(--color-primary-rgb), 0.35), transparent 55%),
+        linear-gradient(160deg, #2b3036, var(--color-sidebar) 60%);
+}
+
+.brandPanel::after {
+    content: "";
+    position: absolute;
+    right: -6rem;
+    top: -6rem;
+    width: 18rem;
+    height: 18rem;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 2.5rem rgba(255, 255, 255, 0.03), 0 0 0 5rem rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+}
+
+.brandName {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.brandTagline {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    max-width: 22ch;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.formPanel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+}
+
+.formBox {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.25rem 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(17, 24, 39, 0.07);
+    animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.formBrand {
+    display: none;
+    margin: 0 0 1.5rem;
+    font-size: 1.5rem;
+    text-align: center;
+    color: var(--color-text);
+}
+
+.title {
+    margin: 0 0 0.35rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+}
+
+.subtitle {
+    margin: 0 0 1.75rem;
+    font-size: 0.92rem;
+    color: var(--color-muted);
+}
+
+/* Inputs y boton comparten el mismo radio (12px) */
+.formBox :global(.form-control) {
+    border-radius: 12px;
+    background: #f9fafb;
+    border-color: var(--color-border);
+}
+
+.formBox :global(.form-control:focus) {
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.passwordGroup {
+    position: relative;
+}
+
+.passwordGroup :global(.form-control) {
+    padding-right: 3rem;
+}
+
+.eye {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-muted);
+    z-index: 5;
+}
+
+.eye:hover {
+    color: var(--color-text);
+    background: var(--color-border);
+}
+
+.eye:focus-visible {
+    outline: 2px solid var(--color-primary);
+}
+
+.forgot {
+    display: block;
+    margin: -0.25rem 0 1.25rem;
+    text-align: right;
+    font-size: 0.85rem;
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.forgot:hover {
+    text-decoration: underline;
+}
+
+.submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 12px;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+    box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.links {
+    margin: 1.5rem 0 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.9rem;
+    text-align: center;
+    color: var(--color-muted);
+}
+
+.links a {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.links a:hover {
+    text-decoration: underline;
+}
+
+.digits {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.digit {
+    width: 100%;
+    height: 3.25rem;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+    background: #f9fafb;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
+
+.digit:focus {
+    outline: none;
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.15);
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .formBox {
+        animation: none;
+    }
+
+    .submit {
+        transition: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .page {
+        grid-template-columns: 1fr;
+    }
+
+    .brandPanel {
+        display: none;
+    }
+
+    .formBrand {
+        display: block;
+    }
+
+    .formBox {
+        padding: 1.75rem 1.25rem;
+    }
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--color-border);
+}
+
+.googleButton {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    margin-bottom: 0.75rem;
+}
+
+.biometric {
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+}

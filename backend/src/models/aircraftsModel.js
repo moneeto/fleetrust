@@ -1,4 +1,4 @@
-async function getAircrafts(conn, includeDeleted) {
+async function getAircrafts(conn, includeDeleted, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT a.*,
@@ -6,13 +6,14 @@ async function getAircrafts(conn, includeDeleted) {
                 SELECT 1
                 FROM reservations r
                 WHERE r.idAircraft = a.idAircraft
+                  AND r.idAccount = ?
                   AND r.idStatus IN (1, 2, 3)
                   AND DATE(r.endDate) >= CURDATE()
             ) AS plannedBookings
         FROM aircrafts a
-        WHERE (a.deleted = 0 OR a.deleted IS NULL) OR ? = 1
+        WHERE a.idAccount = ? AND ((a.deleted = 0 OR a.deleted IS NULL) OR ? = 1)
         `;
-        const qParams = [includeDeleted];
+        const qParams = [idAccount, idAccount, includeDeleted];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -24,9 +25,9 @@ async function updateAircraft(conn, p) {
         const query = `
         UPDATE aircrafts
         SET aircraft = ?, capacity = ?, registrationNumber = ?, available = ?
-        WHERE idAircraft = ?
+        WHERE idAircraft = ? AND idAccount = ?
         `;
-        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAircraft];
+        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAircraft, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -36,11 +37,11 @@ async function updateAircraft(conn, p) {
 async function createAircraft(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO aircrafts (aircraft, capacity, registrationNumber, available)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO aircrafts (aircraft, capacity, registrationNumber, available, idAccount)
+        VALUES (?, ?, ?, ?, ?)
 
         `;
-        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available];
+        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -48,14 +49,14 @@ async function createAircraft(conn, p) {
     });
 }
 
-async function deleteAircraft(conn, idAircraft) {
+async function deleteAircraft(conn, idAircraft, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE aircrafts
         SET deleted = 1
-        WHERE idAircraft = ? AND (deleted = 0 OR deleted IS NULL)
+        WHERE idAircraft = ? AND idAccount = ? AND (deleted = 0 OR deleted IS NULL)
         `;
-        const qParams = [idAircraft];
+        const qParams = [idAircraft, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -63,14 +64,14 @@ async function deleteAircraft(conn, idAircraft) {
     });
 }
 
-async function restoreAircraft(conn, idAircraft) {
+async function restoreAircraft(conn, idAircraft, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE aircrafts
         SET deleted = 0
-        WHERE idAircraft = ? AND deleted = 1
+        WHERE idAircraft = ? AND idAccount = ? AND deleted = 1
         `;
-        const qParams = [idAircraft];
+        const qParams = [idAircraft, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

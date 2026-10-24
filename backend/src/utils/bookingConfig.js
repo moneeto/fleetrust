@@ -84,10 +84,19 @@ function serializeWeekdays(value) {
     return JSON.stringify(parseWeekdays(value));
 }
 
-function isStaffMeBooking({ experienceCode, routeCode, passengerCount }) {
-    return !experienceCode
-        && String(routeCode || '').toUpperCase() === 'BAS'
-        && Number(passengerCount) === 1;
+// 1-2 words: first 4 letters of the first word. 3+ words: 2 letters of the first + initials of the 2nd and 3rd.
+function codeFromTitle(title) {
+    const words = String(title || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9 ]/g, '')
+        .split(' ')
+        .filter(Boolean);
+    const code = words.length >= 3
+        ? words[0].slice(0, 2) + words[1][0] + words[2][0]
+        : (words[0] || '').slice(0, 4);
+    return code.padEnd(4, 'X');
 }
 
 module.exports = {
@@ -100,6 +109,6 @@ module.exports = {
     formatHour,
     findPriceForPassengers,
     normalizeProduct,
-    isStaffMeBooking,
+    codeFromTitle,
     DEFAULT_WEEKDAYS
 };

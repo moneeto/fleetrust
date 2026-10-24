@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import Config from "@/config";
-import { Form, FormGroup, Label, Input, Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Form, FormGroup, Label, Input, Button, Modal, ModalBody, ModalFooter, ModalHeader, Table } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
 import { CheckIcon, EditIcon, Filter, TrashIcon, XIcon } from "lucide-react";
-import { FaExclamationCircle } from "react-icons/fa";
-import styles from './page.module.css';
+import MessageModal from "@/components/ui/MessageModal";
+import styles from "@/components/ui/listing.module.css";
 import Spinner from "@/components/ui/Spinner";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
@@ -19,6 +19,7 @@ export default function PilotList() {
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
     const [error, setError] = useState(null);
     const [creatingPilot, setCreatingPilot] = useState(null);
+    const [editorOpen, setEditorOpen] = useState(false);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, pilot: null });
     const [showDeleted, setShowDeleted] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -83,7 +84,7 @@ export default function PilotList() {
 
             await fetchPilots();
 
-            setCreatingPilot(null);
+            setEditorOpen(false);
         } catch (error) {
             let message = "Error creating pilot";
             if (error.message) { message = error.message }
@@ -110,7 +111,7 @@ export default function PilotList() {
             }
             await ApiComunicator(`/pilots/edit`, "POST", formData);
             await fetchPilots();
-            setSelectedPilot(null);
+            setEditorOpen(false);
         } catch (error) {
             let message = "An error occurred while editing the pilot's information. Please try again.";
             if (error.message) { message = error.message }
@@ -141,7 +142,7 @@ export default function PilotList() {
             if (response.success) {
                 setDeleteConfirmModal({ show: false, pilot: null });
                 if (selectedPilot && selectedPilot.idPilot === pilot.idPilot) {
-                    setSelectedPilot(null);
+                    setEditorOpen(false);
                 }
                 toast({
                     title: "Success",
@@ -165,6 +166,7 @@ export default function PilotList() {
     function toggleEditPilot(pilot) {
         setCreatingPilot(null);
         setSelectedPilot(pilot);
+        setEditorOpen(true);
     }
 
     const renderEditFields = (pilotState, setPilotState, idSuffix) => (
@@ -272,6 +274,25 @@ export default function PilotList() {
 
     return (
         <div className={styles.page}>
+            <div className={styles.pageActions}>
+                <Button
+                    color="primary"
+                    size="sm"
+                    onClick={() => {
+                        setSelectedPilot(null);
+                        setCreatingPilot({
+                            pilotName: "",
+                            phoneNumber: "",
+                            pilotPicture: "",
+                            active: true
+                        });
+                        setEditorOpen(true);
+                    }}
+                >
+                    + New pilot
+                </Button>
+            </div>
+
             {error && (
                 <p className="text-sm text-red-600 px-3">
                     {error}
@@ -294,87 +315,102 @@ export default function PilotList() {
                 {filterFields("mobile-")}
             </MobileFiltersModal>
 
-            <div className={styles.cardsList}>
+            <div className={`${styles.tableCard} ${styles.desktopOnly}`}>
+                <Table>
+                    <thead>
+                        <tr>
+                            <th>Pilot</th>
+                            <th>Phone</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {visiblePilots.length === 0 && (
+                            <tr>
+                                <td colSpan={4} className="text-center text-muted">No pilots found.</td>
+                            </tr>
+                        )}
+                        {visiblePilots.map((r) => (
+                            <tr key={r.idPilot} style={{ opacity: r.deleted ? 0.55 : 1 }}>
+                                <td>
+                                    <div className="d-flex align-items-center gap-3">
+                                        {r.pilotPicture ? (
+                                            <img
+                                                src={photoUrl(r.pilotPicture)}
+                                                alt={r.pilotName}
+                                                className={styles.avatar}
+                                                crossOrigin="use-credentials"
+                                            />
+                                        ) : (
+                                            <div className={styles.avatar} />
+                                        )}
+                                        <span className="fw-semibold">{r.pilotName}</span>
+                                    </div>
+                                </td>
+                                <td>{r.phoneNumber}</td>
+                                <td><span className={`${styles.badge} ${r.active ? styles.badgeOk : styles.badgeNo}`}>{r.active ? "Active" : "Inactive"}</span></td>
+                                <td>
+                                    <div className="d-flex gap-2">
+                                        <Button color="primary" size="sm" outline onClick={() => toggleEditPilot(r)}>
+                                            <EditIcon size={16} /> Edit
+                                        </Button>
+                                        {!r.deleted && (
+                                            <Button color="danger" size="sm" outline onClick={() => openDeleteModal(r)}>
+                                                <TrashIcon size={16} /> Delete
+                                            </Button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </Table>
+            </div>
+
+            <div className={`${styles.cardsList} ${styles.mobileOnly}`}>
                 {visiblePilots.length === 0 && (
-                    <div className={styles.card}>
-                        <p className="mb-0 text-sm text-gray-500 text-center">No pilots found.</p>
+                    <div className={styles.emptyCard}>
+                        <p className="mb-0 text-sm text-gray-500">No pilots found.</p>
                     </div>
                 )}
 
                 {visiblePilots.map((r) => (
-                        <div key={r.idPilot} className={styles.card} style={{ opacity: r.deleted ? 0.55 : 1 }}>
-                                <div className={styles.cardRow}>
-                                    <div className={styles.photoWrap}>
-                                        {r.pilotPicture && (
-                                            <img
-                                                src={photoUrl(r.pilotPicture)}
-                                                alt={r.pilotName}
-                                                className={styles.photo}
-                                                crossOrigin="use-credentials"
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={styles.cardBody}>
-                                        <div className={styles.cardTitle}>
-                                            {r.pilotName}
-                                        </div>
-                                        <div className={styles.cardMeta}>
-                                            <div>
-                                                <span className={styles.cardMetaLabel}>Phone</span>
-                                                {r.phoneNumber}
-                                            </div>
-                                        </div>
-                                        <div className="mb-3 text-sm">
-                                            {r.active ?
-                                                <>
-                                                    <CheckIcon color="green" size={16} /> Active
-                                                </>
-                                                : <>
-                                                    <XIcon color="red" size={16} /> Inactive
-                                                </>}
-                                        </div>
-                                        <div className={styles.cardActions}>
-                                            <Button
-                                                color="primary"
-                                                size="sm"
-                                                outline
-                                                onClick={() => toggleEditPilot(r)}
-                                            >
-                                                <EditIcon size={16} /> Edit
-                                            </Button>
-                                            {!r.deleted && (
-                                                <Button
-                                                    color="danger"
-                                                    size="sm"
-                                                    outline
-                                                    onClick={() => openDeleteModal(r)}
-                                                >
-                                                    <TrashIcon size={16} /> Delete
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                    <div key={r.idPilot} className={`${styles.card} ${r.deleted ? styles.cardDeleted : ""}`}>
+                        <div className={styles.cardHead}>
+                            <div className="d-flex align-items-center gap-3">
+                                {r.pilotPicture ? (
+                                    <img
+                                        src={photoUrl(r.pilotPicture)}
+                                        alt={r.pilotName}
+                                        className={styles.avatar}
+                                        crossOrigin="use-credentials"
+                                    />
+                                ) : (
+                                    <div className={styles.avatar} />
+                                )}
+                                <h3 className={styles.cardTitle}>{r.pilotName}</h3>
+                            </div>
+                            <span className={`${styles.badge} ${r.active ? styles.badgeOk : styles.badgeNo}`}>{r.active ? "Active" : "Inactive"}</span>
                         </div>
+                        <div className={styles.cardMeta}>
+                            <div className={styles.cardMetaFull}>
+                                <span className={styles.cardMetaLabel}>Phone</span>
+                                {r.phoneNumber || "-"}
+                            </div>
+                        </div>
+                        <div className={styles.cardActions}>
+                            <Button color="primary" size="sm" outline onClick={() => toggleEditPilot(r)}>
+                                <EditIcon size={16} /> Edit
+                            </Button>
+                            {!r.deleted && (
+                                <Button color="danger" size="sm" outline onClick={() => openDeleteModal(r)}>
+                                    <TrashIcon size={16} /> Delete
+                                </Button>
+                            )}
+                        </div>
+                    </div>
                 ))}
-            </div>
-
-            <div className={styles.newBtnWrap}>
-                <Button
-                    color="primary"
-                    size="sm"
-                    onClick={() => {
-                        setSelectedPilot(null);
-                        setCreatingPilot({
-                            pilotName: "",
-                            phoneNumber: "",
-                            pilotPicture: "",
-                            active: true
-                        });
-                    }}
-                >
-                    + New pilot
-                </Button>
             </div>
 
             {loading && hasFetchedOnce && (
@@ -383,12 +419,9 @@ export default function PilotList() {
                 </div>
             )}
 
-            <Modal isOpen={!!creatingPilot || !!selectedPilot} centered>
+            <Modal isOpen={editorOpen} centered toggle={() => setEditorOpen(false)} onClosed={() => { if (!editorOpen) { setCreatingPilot(null); setSelectedPilot(null); } }}>
                 <ModalHeader
-                    toggle={() => {
-                        setCreatingPilot(null);
-                        setSelectedPilot(null);
-                    }}
+                    toggle={() => setEditorOpen(false)}
                     style={{ backgroundColor: '#1e1e1e', color: 'white' }}
                 >
                     <span style={{ color: 'white' }}>{creatingPilot ? "New pilot" : "Edit pilot"}</span>
@@ -402,10 +435,7 @@ export default function PilotList() {
                         style={{ fontSize: '13px', fontWeight: '600' }}
                         color="secondary"
                         outline
-                        onClick={() => {
-                            setCreatingPilot(null);
-                            setSelectedPilot(null);
-                        }}
+                        onClick={() => setEditorOpen(false)}
                         disabled={loading}
                     >
                         Cancel
@@ -431,43 +461,18 @@ export default function PilotList() {
                 </ModalFooter>
             </Modal>
 
-            <Modal isOpen={deleteConfirmModal.show} centered>
-                <ModalHeader
-                    toggle={() => setDeleteConfirmModal({ show: false, pilot: null })}
-                    style={{ backgroundColor: '#721c24', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Confirm Deletion</span>
-                </ModalHeader>
-                <ModalBody>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                        <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
-                        <div>
-                            <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
-                                Are you sure you want to delete {deleteConfirmModal.pilot && deleteConfirmModal.pilot.pilotName}?
-                            </p>
-                        </div>
-                    </div>
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => setDeleteConfirmModal({ show: false, pilot: null })}
-                        disabled={loading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="danger"
-                        onClick={confirmDelete}
-                        disabled={loading}
-                    >
-                        {loading ? 'Deleting...' : 'Delete Pilot'}
-                    </Button>
-                </ModalFooter>
-            </Modal>
+            <MessageModal
+                isOpen={deleteConfirmModal.show}
+                type="confirm"
+                title="Confirm deletion"
+                confirmLabel={loading ? "Deleting..." : "Delete pilot"}
+                confirmColor="danger"
+                disabled={loading}
+                onClose={() => setDeleteConfirmModal({ show: false, pilot: null })}
+                onConfirm={confirmDelete}
+            >
+                Are you sure you want to delete {deleteConfirmModal.pilot && deleteConfirmModal.pilot.pilotName}?
+            </MessageModal>
         </div>
     );
 }

@@ -2,8 +2,9 @@
 
 import { Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FaEdit, FaExclamationCircle, FaEye, FaPrint, FaTimes } from "react-icons/fa";
+import { Form, FormGroup, Label, Input, Button, Table, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
+import { FaEye, FaPrint } from "react-icons/fa";
+import BookingDetailModal from "@/components/booking/BookingDetailModal";
 import { Filter } from "lucide-react";
 import moment from "moment";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,7 +12,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
-import styles from "./page.module.css";
+import styles from "@/components/ui/listing.module.css";
+import local from "./page.module.css";
 
 /** ISO weeks (Mon–Sun) that have at least one day in the calendar month. */
 function getIsoWeekRangesOverlappingMonth(yearMonth) {
@@ -34,6 +36,11 @@ function getIsoWeekRangesOverlappingMonth(yearMonth) {
         monday = monday.clone().add(1, "week");
     }
     return weeks;
+}
+
+function defaultStatusIds(list) {
+    if (list.some((row) => String(row.idStatus) === "3")) return ["3"];
+    return list.map((row) => String(row.idStatus));
 }
 
 function findWeekIndexForDate(dateStr, weeks) {
@@ -62,28 +69,21 @@ function BookingsContent() {
     const [idAircraftFilter, setIdAircraftFilter] = useState("");
     const [idRouteFilter, setIdRouteFilter] = useState("");
     const [idPilotFilter, setIdPilotFilter] = useState("");
+    const [statuses, setStatuses] = useState([]);
+    const [statusFilter, setStatusFilter] = useState(null);
     const [aircrafts, setAircrafts] = useState([]);
     const [pilots, setPilots] = useState([]);
     const [services, setServices] = useState([]);
     const [reservations, setReservations] = useState([]);
     const [listLoading, setListLoading] = useState(true);
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [modalDetail, setModalDetail] = useState({ show: false, reservation: null });
+    const [openReservationId, setOpenReservationId] = useState(null);
     const tableRef = useRef(null);
     const { toast } = useToast();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [reservation, setReservation] = useState(null);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editFormData, setEditFormData] = useState(null);
-    const [errorModal, setErrorModal] = useState({ show: false, message: '' });
-    const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, idReservation: null });
-    const [cancellationReasons, setCancellationReasons] = useState([]);
-    const [selectedCancellationReason, setSelectedCancellationReason] = useState(null);
-    const [cancellationDetail, setCancellationDetail] = useState("");
     const [filtersOpen, setFiltersOpen] = useState(false);
     const isMobile = useIsMobile();
 
@@ -108,9 +108,10 @@ function BookingsContent() {
         if (effectiveIdAircraft) count += 1;
         if (idRouteFilter) count += 1;
         if (idPilotFilter) count += 1;
+        if (statusFilter && !(statusFilter.length === 1 && statusFilter[0] === "3")) count += 1;
         if (effectiveView !== "day") count += 1;
         return count;
-    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, effectiveView]);
+    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, statusFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -190,21 +191,24 @@ function BookingsContent() {
         let cancelled = false;
         (async () => {
             try {
-                const [rServices, rAc, rReasons, rPilots] = await Promise.all([
+                const [rServices, rAc, rPilots, rStatuses] = await Promise.all([
                     ApiComunicator(`/services/getServices`, "GET"),
                     ApiComunicator(`/aircrafts`, "GET"),
-                    ApiComunicator(`/reservations/cancellationReasons`, "GET"),
                     ApiComunicator(`/pilots`, "GET"),
+                    ApiComunicator(`/reservations/statuses`, "GET"),
                 ]);
                 if (cancelled) return;
+                const statusRows = rStatuses.statuses || [];
                 setServices(rServices.services || []);
                 setAircrafts(rAc.aircrafts || []);
-                setCancellationReasons(rReasons.cancellationReasons);
                 setPilots(rPilots.pilots);
+                setStatuses(statusRows);
+                setStatusFilter((prev) => (prev == null ? defaultStatusIds(statusRows) : prev));
             } catch {
                 if (!cancelled) {
                     setServices([]);
                     setAircrafts([]);
+                    setStatusFilter((prev) => (prev == null ? ["3"] : prev));
                 }
             }
         })();
@@ -360,6 +364,7 @@ function BookingsContent() {
             }
             if (idRouteFilter && idRouteFilter !== "all") q.set("idService", idRouteFilter);
             if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
+            q.set("statuses", (statusFilter || []).join(","));
 
             const res = await ApiComunicator(
                 `/reservations/reservationsByDate?${q.toString()}`
@@ -380,7 +385,7 @@ function BookingsContent() {
     }
 
     useEffect(() => {
-        if (!dateRange.from || !dateRange.to) return;
+        if (!dateRange.from || !dateRange.to || statusFilter == null) return;
         fetchReservations();
     }, [
         dateRange.from,
@@ -390,128 +395,10 @@ function BookingsContent() {
         effectiveIdAircraft,
         idRouteFilter,
         idPilotFilter,
+        statusFilter,
         searchParams.toString(),
     ]);
 
-    const getReservationById = async (id) => {
-        try {
-            setLoading(true)
-            let reserv = await ApiComunicator(`/reservations/getReservationById`, "POST", { id });
-            setReservation(reserv)
-            setEditFormData(reserv)
-        } catch (error) {
-            let message = "An error occurred while getting the reservation details.";
-            if (error.message) { message = error.message }
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: message
-            });
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleSaveReservation = async () => {
-        try {
-            setLoading(true);
-            const updateData = {
-                idReservation: editFormData.idReservation,
-                name: editFormData.name,
-                lastname: editFormData.lastname,
-                email: editFormData.email,
-                phoneNumber: editFormData.phoneNumber,
-                notes: editFormData.notes,
-                startDate: editFormData.startDate,
-                endDate: editFormData.endDate,
-                idRoute: editFormData.idRoute,
-                idExperience: editFormData.idExperience,
-                idAircraft: editFormData.idAircraft,
-                idPilot: editFormData.idPilot
-            };
-
-            const response = await ApiComunicator(`/reservations/updateReservation`, "POST", updateData);
-
-            if (response.success) {
-                await getReservationById(editFormData.idReservation);
-                setIsEditMode(false);
-                toast({
-                    variant: "default",
-                    title: "Success",
-                    description: "Reservation updated successfully"
-                });
-                fetchReservations();
-            }
-        } catch (error) {
-            let errorMessage = "An error occurred while updating the reservation.";
-
-            console.log(error);
-
-            if (error?.mensaje) {
-                errorMessage = error.mensaje;
-            } else if (error?.message) {
-                errorMessage = error.message;
-            } else if (typeof error === "string") {
-                errorMessage = error;
-            }
-
-            setErrorModal({ show: true, message: errorMessage });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const handleEditChange = (field, value) => {
-        setEditFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    }
-
-    const cancel = () => {
-        setSelectedCancellationReason(null);
-        setCancellationDetail("");
-        setDeleteConfirmModal({ show: true, idReservation: reservation?.idReservation });
-    }
-
-    const confirmDelete = async () => {
-        try {
-            setLoading(true);
-            const response = await ApiComunicator(`/reservations/deleteReservation`, "POST", {
-                idReservation: deleteConfirmModal.idReservation,
-                idCancellationReason: selectedCancellationReason.idCancellationReason,
-                cancellationDetail: selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' ? cancellationDetail : null
-            });
-
-            if (response.success) {
-                setDeleteConfirmModal({ show: false, idReservation: null });
-                setSelectedCancellationReason(null);
-                setCancellationDetail("");
-                setModalDetail({ show: false, reservation: null });
-                setIsEditMode(false);
-                setEditFormData(null);
-                toast({
-                    variant: "default",
-                    title: "Success",
-                    description: "Reservation deleted successfully"
-                });
-                fetchReservations()
-            }
-        } catch (error) {
-            console.log(error);
-            let errorMessage = "An error occurred while deleting the reservation.";
-
-            if (error && error.message) {
-                errorMessage = error.message;
-            } else if (error && typeof error === 'string') {
-                errorMessage = error;
-            }
-
-            setErrorModal({ show: true, message: errorMessage });
-        } finally {
-            setLoading(false);
-        }
-    }
 
     const handlePeriodChange = (next) => {
         if (next === "week") {
@@ -555,6 +442,7 @@ function BookingsContent() {
         setIdAircraftFilter("");
         setIdRouteFilter("");
         setIdPilotFilter("");
+        setStatusFilter(defaultStatusIds(statuses));
         if (searchParams.toString()) {
             router.replace(pathname, { scroll: false });
         }
@@ -562,20 +450,23 @@ function BookingsContent() {
 
     const fieldMin = isMobile ? "100%" : undefined;
 
-    const filterFields = (idPrefix = "") => (
+    const periodFields = (idPrefix = "") => (
         <>
-            <FormGroup style={{ minWidth: fieldMin || "200px" }}>
-                <Label for={`${idPrefix}view`}>Period</Label>
-                <Input
-                    id={`${idPrefix}view`}
-                    type="select"
-                    value={effectiveView}
-                    onChange={(e) => handlePeriodChange(e.target.value)}
-                >
-                    <option value="day">Day</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                </Input>
+            <FormGroup>
+                <Label>Period</Label>
+                <div className={local.segmented} role="group" aria-label="Period">
+                    {["day", "week", "month"].map((p) => (
+                        <button
+                            key={p}
+                            type="button"
+                            aria-pressed={effectiveView === p}
+                            className={effectiveView === p ? local.segmentedActive : ""}
+                            onClick={() => handlePeriodChange(p)}
+                        >
+                            {p === "day" ? "Day" : p === "week" ? "Week" : "Month"}
+                        </button>
+                    ))}
+                </div>
             </FormGroup>
             {effectiveView === "day" && (
                 <FormGroup style={{ minWidth: fieldMin || "200px" }}>
@@ -652,6 +543,18 @@ function BookingsContent() {
                     />
                 </FormGroup>
             )}
+        </>
+    );
+
+    const statusLabel =
+        !statusFilter || statusFilter.length === 0
+            ? "No status"
+            : statusFilter.length === statuses.length
+              ? "All statuses"
+              : statuses.filter((row) => statusFilter.includes(String(row.idStatus))).map((row) => row.status).join(", ");
+
+    const bookingFields = (idPrefix = "") => (
+        <>
             <FormGroup style={{ minWidth: fieldMin || "120px" }}>
                 <Label for={`${idPrefix}filterCode`}>Code</Label>
                 <Input
@@ -711,6 +614,42 @@ function BookingsContent() {
                     ))}
                 </Input>
             </FormGroup>
+            <FormGroup style={{ width: fieldMin || "200px" }}>
+                <Label for={`${idPrefix}statusFilter`}>Status</Label>
+                <UncontrolledDropdown inNavbar className={local.statusDropdown}>
+                    <DropdownToggle
+                        tag="button"
+                        type="button"
+                        id={`${idPrefix}statusFilter`}
+                        className={`form-select text-start ${local.statusToggle}`}
+                    >
+                        {statusLabel}
+                    </DropdownToggle>
+                    <DropdownMenu className={local.statusMenu}>
+                        {statuses.map((row) => {
+                            const value = String(row.idStatus);
+                            const checked = (statusFilter || []).includes(value);
+                            return (
+                                <DropdownItem
+                                    key={value}
+                                    toggle={false}
+                                    className="d-flex align-items-center gap-2"
+                                    onClick={() =>
+                                        setStatusFilter((prev) =>
+                                            (prev || []).includes(value)
+                                                ? prev.filter((id) => id !== value)
+                                                : [...(prev || []), value]
+                                        )
+                                    }
+                                >
+                                    <input type="checkbox" checked={checked} readOnly tabIndex={-1} />
+                                    {row.status}
+                                </DropdownItem>
+                            );
+                        })}
+                    </DropdownMenu>
+                </UncontrolledDropdown>
+            </FormGroup>
             <FormGroup style={{ minWidth: fieldMin || "180px" }}>
                 <Label for={`${idPrefix}idPilotFilter`}>Pilot</Label>
                 <Input
@@ -737,11 +676,6 @@ function BookingsContent() {
         return <Spinner />;
     }
 
-    const reservationAddons = reservation?.addons || [];
-    let addonsTotal = 0;
-    for (let i = 0; i < reservationAddons.length; i++) {
-        addonsTotal += reservationAddons[i].price * reservationAddons[i].quantity;
-    }
 
     return (
         <div className={styles.page}>
@@ -774,21 +708,25 @@ function BookingsContent() {
 
 
             <Form className={`${styles.filtersCard} ${styles.desktopOnly}`}>
-                <div className="d-flex flex-wrap gap-3 align-items-end">
-                    {filterFields()}
-                    {reservations && reservations.length > 0 && (
-                        <FormGroup>
-                            <Label className="d-block invisible">Print</Label>
-                            <Button
-                                color="primary"
-                                style={{ color: "white" }}
-                                type="button"
-                                onClick={() => handlePrint()}
-                            >
-                                <FaPrint color="white" /> Print
-                            </Button>
-                        </FormGroup>
-                    )}
+                <div className={local.filterGroups}>
+                    <div className={local.group}>
+                        {periodFields()}
+                    </div>
+                    <div className={local.group}>
+                        {bookingFields()}
+                        {reservations && reservations.length > 0 && (
+                            <div className={local.groupActions}>
+                                <Button
+                                    color="primary"
+                                    style={{ color: "white" }}
+                                    type="button"
+                                    onClick={() => handlePrint()}
+                                >
+                                    <FaPrint color="white" /> Print
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </Form>
 
@@ -798,7 +736,10 @@ function BookingsContent() {
                 onApply={() => setFiltersOpen(false)}
                 onReset={resetFilters}
             >
-                {filterFields("mobile-")}
+                <h2 className={local.groupTitle}>Period</h2>
+                {periodFields("mobile-")}
+                <h2 className={local.groupTitle}>Bookings</h2>
+                {bookingFields("mobile-")}
             </MobileFiltersModal>
 
             {error && (
@@ -897,7 +838,7 @@ function BookingsContent() {
                                             <Button
                                                 color="secondary"
                                                 size="sm"
-                                                onClick={() => { setModalDetail({ show: true }); getReservationById(r.idReservation) }}
+                                                onClick={() => setOpenReservationId(r.idReservation)}
                                             >
                                                 <FaEye /> View more
                                             </Button>
@@ -931,7 +872,9 @@ function BookingsContent() {
                                 : "");
                         return (
                             <div key={r.idReservation} className={styles.card}>
-                                <div className={styles.cardCode}>#{r.codeReservation}</div>
+                                <div className={styles.cardHead}>
+                                    <h3 className={styles.cardTitle}>#{r.codeReservation}</h3>
+                                </div>
                                 <div className={styles.cardMeta}>
                                     <div>
                                         <span className={styles.cardMetaLabel}>Starts</span>
@@ -960,10 +903,7 @@ function BookingsContent() {
                                     <Button
                                         color="secondary"
                                         size="sm"
-                                        onClick={() => {
-                                            setModalDetail({ show: true });
-                                            getReservationById(r.idReservation);
-                                        }}
+                                        onClick={() => setOpenReservationId(r.idReservation)}
                                     >
                                         <FaEye /> View more
                                     </Button>
@@ -977,525 +917,27 @@ function BookingsContent() {
             {/* Sin resultados */}
             {!listLoading && reservations.length === 0 && (
                 <div className={styles.emptyCard}>
-                    <div
-                        className={styles.emptyMobile}
-                        style={{
-                            minHeight: "220px",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            textAlign: "center",
-                            padding: "40px 20px",
-                            gap: "18px"
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: "14px",
-                                color: "#6b7280",
-                                fontWeight: 500
-                            }}
-                        >
-                            No bookings for the selected period or filters
-                        </div>
-
+                    <div>
+                        <div className={local.emptyTitle}>No bookings found</div>
+                        <div className={local.emptyText}>Try again changing the filters.</div>
                         <Button
                             color="primary"
                             size="lg"
-                            style={{
-                                fontWeight: 600,
-                                padding: "12px 28px",
-                                borderRadius: "999px",
-                                boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-                            }}
+                            className={`mt-3 ${local.startBooking}`}
                             onClick={() => {
                                 router.push("/tours/book-dates");
                             }}
                         >
-                            Start booking 
+                            Start booking
                         </Button>
                     </div>
                 </div>
             )}
-            <Modal isOpen={modalDetail.show} centered size="lg">
-                {/* Header with dark background to match your table */}
-                <ModalHeader
-                    toggle={() => {
-                        setModalDetail({ ...modalDetail, show: false, reservation: null });
-                        setIsEditMode(false);
-                        setEditFormData(null);
-                    }}
-                    style={{ backgroundColor: '#1e1e1e', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Booking #{reservation?.codeReservation}</span>
-                </ModalHeader>
-
-                <ModalBody style={{ padding: '0' }}>
-                    {reservation && editFormData ? (
-                        <div style={{ padding: '24px', fontFamily: 'sans-serif' }}>
-
-                            {!isEditMode ? (
-                                <>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        marginBottom: '20px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        paddingBottom: '15px'
-                                    }}>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Start</span>
-                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                                {moment(reservation?.startDate).format("MMM DD, YYYY - HH:mm")}
-                                            </div>
-                                        </div>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>End</span>
-                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-                                                {moment(reservation?.endDate).format("MMM DD, YYYY - HH:mm")}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Details Grid */}
-                                    <div style={{
-                                        display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #f0f0f0',
-                                        paddingBottom: '15px'
-                                    }}>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Flight Type</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.service || reservation?.route}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>PREMIUM EXPERIENCE</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.experience || "-"}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Passengers</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.passengers ? ` ${reservation?.passengers.length} passengers` : ` - `}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Client Name</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.name} {reservation?.lastname}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Phone Number</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.phoneNumber ? `${reservation.phoneNumber}` : `-`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Aircraft</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{`${reservation.aircraft} (${reservation.registrationNumber})`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation?.email ? `${reservation.email}` : `-`}</span>
-                                        </div>
-                                        <div style={{ flex: '1 1 40%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>Pilot</label>
-                                            <span style={{ fontWeight: '600', color: '#222' }}>{reservation.pilotName ? reservation.pilotName : "-"}</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
-                                        {reservation?.passengers && reservation?.passengers?.length > 0 &&
-                                            reservation?.passengers.map((passenger, index) => (
-                                                <div key={'pssgr-' + index}>
-                                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                                        Passenger #{index + 1}
-                                                    </label>
-                                                    <span style={{ fontWeight: '600', color: '#222' }}>{passenger.name} {passenger.lastname}</span>
-                                                </div>
-                                            ))
-                                        }
-                                    </div>
-
-                                    {reservationAddons.length > 0 && (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '6px' }}>Addons</label>
-                                            <div style={{ maxHeight: '88px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '4px' }}>
-                                                {reservationAddons.map((addon) => (
-                                                    <div key={addon.idAddon} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '6px 10px', fontSize: '13px', color: '#222', borderBottom: '1px solid #f5f5f5' }}>
-                                                        <span style={{ fontWeight: '600' }}>{addon.addon} × {addon.quantity}</span>
-                                                        <span>{Number(addon.price) === 0 ? 'Included' : `$${addon.price * addon.quantity}`}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {reservation?.notes && (
-                                        <>
-                                            <div style={{ borderBottom: '1px solid #f0f0f0', marginBottom: '20px' }}></div>
-                                            <div style={{
-                                                backgroundColor: '#b8d1ffff',
-                                                borderLeft: '5px solid #007bff',
-                                                padding: '16px',
-                                                borderRadius: '4px',
-                                                marginTop: '20px',
-                                                boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-                                            }}>
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    marginBottom: '8px',
-                                                    fontWeight: 'bold',
-                                                    color: "#000000ff",
-                                                    fontSize: '11px',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.5px'
-                                                }}>
-                                                    CUSTOMER NOTES
-                                                </div>
-                                                <p style={{
-                                                    margin: 0,
-                                                    fontSize: '14px',
-                                                    color: '#000000',
-                                                    lineHeight: '1.5',
-                                                    fontStyle: 'italic',
-                                                    fontWeight: '500'
-                                                }}>
-                                                    "{reservation.notes}"
-                                                </p>
-                                            </div>
-                                        </>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    {/* Edit Mode */}
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }}>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Start Date & Time</label>
-                                            <input
-                                                type="datetime-local"
-                                                value={editFormData?.startDate ? moment(editFormData.startDate).format('YYYY-MM-DDTHH:mm') : ''}
-                                                onChange={(e) => handleEditChange('startDate', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>End Date & Time</label>
-                                            <input
-                                                type="datetime-local"
-                                                value={editFormData?.endDate ? moment(editFormData.endDate).format('YYYY-MM-DDTHH:mm') : ''}
-                                                onChange={(e) => handleEditChange('endDate', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>First Name</label>
-                                            <input
-                                                type="text"
-                                                value={editFormData?.name || ''}
-                                                onChange={(e) => handleEditChange('name', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Last Name</label>
-                                            <input
-                                                type="text"
-                                                value={editFormData?.lastname || ''}
-                                                onChange={(e) => handleEditChange('lastname', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Email</label>
-                                            <input
-                                                type="email"
-                                                value={editFormData?.email || ''}
-                                                onChange={(e) => handleEditChange('email', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Phone Number</label>
-                                            <input
-                                                type="tel"
-                                                value={editFormData?.phoneNumber || ''}
-                                                onChange={(e) => handleEditChange('phoneNumber', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 45%', minWidth: '200px' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Pilot</label>
-                                            <select
-                                                value={editFormData.idPilot ? editFormData.idPilot : ""}
-                                                onChange={(e) => handleEditChange('idPilot', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            >
-                                                <option value="">Select a pilot</option>
-                                                {pilots.map((p) => (
-                                                    <option key={p.idPilot} value={p.idPilot}>
-                                                        {p.pilotName}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div style={{ flex: '1 1 100%' }}>
-                                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
-                                            <textarea
-                                                value={editFormData?.notes || ''}
-                                                onChange={(e) => handleEditChange('notes', e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px',
-                                                    fontFamily: 'inherit',
-                                                    minHeight: '80px',
-                                                    resize: 'vertical'
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                        </div>
-                    ) : (
-                        <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-                            <p>Loading reservation details...</p>
-                        </div>
-                    )}
-                </ModalBody>
-
-                {reservation && (
-                    <ModalFooter style={{ backgroundColor: '#fff', display: 'block', textAlign: 'right' }}>
-                        <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
-                            <span>{reservation.service || reservation.experience || reservation.route}</span>
-                            <span style={{ marginLeft: '16px' }}>${reservation.totalValue - addonsTotal}</span>
-                        </div>
-                        {addonsTotal > 0 && (
-                            <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
-                                <span>Addons</span>
-                                <span style={{ marginLeft: '16px' }}>${addonsTotal}</span>
-                            </div>
-                        )}
-                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#111', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
-                            <span>Total</span>
-                            <span style={{ marginLeft: '16px' }}>${reservation.totalValue}</span>
-                        </div>
-                    </ModalFooter>
-                )}
-
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    {!isEditMode ? (
-                        <>
-                            <Button
-                                style={{ fontSize: '13px', fontWeight: '600' }}
-                                color="danger"
-                                onClick={() => cancel()}
-                            >
-                                <FaTimes /> Cancel reservation
-                            </Button>
-                            <Button
-                                style={{ fontSize: '13px', fontWeight: '600' }}
-                                color="primary"
-                                onClick={() => setIsEditMode(true)}
-                            >
-                                <FaEdit /> Edit
-                            </Button>
-                            <Button
-                                style={{ fontSize: '13px', fontWeight: '600' }}
-                                color="secondary"
-                                outline
-                                onClick={() => {
-                                    setModalDetail({ ...modalDetail, show: false, reservation: null });
-                                    setIsEditMode(false);
-                                    setEditFormData(null);
-                                }}
-                            >
-                                Close
-                            </Button>
-                        </>
-                    ) : (
-                        <>
-                            <Button
-                                style={{ fontSize: '13px', fontWeight: '600' }}
-                                color="success"
-                                onClick={handleSaveReservation}
-                                disabled={loading}
-                            >
-                                {loading ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                            <Button
-                                style={{ fontSize: '13px', fontWeight: '600' }}
-                                color="secondary"
-                                outline
-                                onClick={() => {
-                                    setIsEditMode(false);
-                                    setEditFormData(reservation);
-                                }}
-                                disabled={loading}
-                            >
-                                Cancel
-                            </Button>
-                        </>
-                    )}
-                </ModalFooter>
-            </Modal>
-
-            {/* Error Modal */}
-            <Modal isOpen={errorModal.show} centered>
-                <ModalHeader
-                    toggle={() => setErrorModal({ show: false, message: '' })}
-                    style={{ backgroundColor: '#dc3545', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Error Updating Reservation</span>
-                </ModalHeader>
-                <ModalBody>
-                    <p style={{ marginBottom: '0', color: "#dc3545", fontSize: '16px' }}>
-                        <FaExclamationCircle /> Error: {errorModal.message}
-                    </p>
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => setErrorModal({ show: false, message: '' })}
-                    >
-                        Close
-                    </Button>
-                </ModalFooter>
-            </Modal>
-
-            {/* Delete Confirmation Modal */}
-            <Modal isOpen={deleteConfirmModal.show} centered>
-                <ModalHeader
-                    toggle={() => {
-                        setDeleteConfirmModal({ show: false, idReservation: null });
-                        setSelectedCancellationReason(null);
-                        setCancellationDetail("");
-                    }}
-                    style={{ backgroundColor: '#721c24', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Confirm Deletion</span>
-                </ModalHeader>
-                <ModalBody>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                        <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                            <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
-                                Are you sure you want to cancel this reservation?
-                            </p>
-                            <p style={{ marginBottom: '16px', color: '#666', fontSize: '13px' }}>
-                                This action will cancel the reservation and make the slot available again.
-                            </p>
-                            <FormGroup>
-                                <Label for="cancellationReason">Cancellation reason</Label>
-                                <Input
-                                    id="cancellationReason"
-                                    type="select"
-                                    value={selectedCancellationReason ? selectedCancellationReason.idCancellationReason : ""}
-                                    onChange={(e) => {
-                                        const selected = cancellationReasons.find(r => r.idCancellationReason == e.target.value);
-                                        setSelectedCancellationReason(selected);
-                                        setCancellationDetail("");
-                                    }}
-                                >
-                                    <option value="">Select a reason</option>
-                                    {cancellationReasons.map((r) => (
-                                        <option key={r.idCancellationReason} value={r.idCancellationReason}>
-                                            {r.cancellationReason}
-                                        </option>
-                                    ))}
-                                </Input>
-                            </FormGroup>
-                            {selectedCancellationReason && selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' && (
-                                <FormGroup>
-                                    <Label for="cancellationDetail">Detail</Label>
-                                    <Input
-                                        id="cancellationDetail"
-                                        type="textarea"
-                                        value={cancellationDetail}
-                                        onChange={(e) => setCancellationDetail(e.target.value)}
-                                    />
-                                </FormGroup>
-                            )}
-                        </div>
-                    </div>
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => {
-                            setDeleteConfirmModal({ show: false, idReservation: null });
-                            setSelectedCancellationReason(null);
-                            setCancellationDetail("");
-                        }}
-                        disabled={loading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="danger"
-                        onClick={confirmDelete}
-                        disabled={
-                            loading ||
-                            !selectedCancellationReason ||
-                            (selectedCancellationReason.cancellationReason.toUpperCase() === 'OTHER' && !cancellationDetail)
-                        }
-                    >
-                        {loading ? 'Canceling...' : 'Cancel Reservation'}
-                    </Button>
-                </ModalFooter>
-            </Modal>
+            <BookingDetailModal
+                idReservation={openReservationId}
+                onClose={() => setOpenReservationId(null)}
+                onChanged={fetchReservations}
+            />
         </div>
 
     );

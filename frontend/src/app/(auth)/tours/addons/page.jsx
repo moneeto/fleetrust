@@ -5,8 +5,8 @@ import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { Form, FormGroup, Label, Input, Button, Table, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
 import { CheckIcon, EditIcon, Filter, TrashIcon, XIcon } from "lucide-react";
-import { FaExclamationCircle } from "react-icons/fa";
-import styles from './page.module.css';
+import MessageModal from "@/components/ui/MessageModal";
+import styles from "@/components/ui/listing.module.css";
 import Spinner from "@/components/ui/Spinner";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobileFiltersModal from "@/components/ui/MobileFiltersModal";
@@ -18,6 +18,7 @@ export default function AddonList() {
     const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
     const [error, setError] = useState(null);
     const [creatingAddon, setCreatingAddon] = useState(null);
+    const [editorOpen, setEditorOpen] = useState(false);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, addon: null });
     const [showDeleted, setShowDeleted] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -55,7 +56,7 @@ export default function AddonList() {
 
             await fetchAddons();
 
-            setCreatingAddon(null);
+            setEditorOpen(false);
         } catch (error) {
             let message = "Error creating addon";
             if (error.message) { message = error.message }
@@ -74,7 +75,7 @@ export default function AddonList() {
             setLoading(true)
             await ApiComunicator(`/addons/edit`, "POST", { idAddon: id, ...selectedAddon });
             await fetchAddons();
-            setSelectedAddon(null);
+            setEditorOpen(false);
         } catch (error) {
             let message = "An error occurred while editing addon's information. Please try again.";
             if (error.message) { message = error.message }
@@ -106,7 +107,7 @@ export default function AddonList() {
             if (response.success) {
                 setDeleteConfirmModal({ show: false, addon: null });
                 if (selectedAddon?.idAddon === addon.idAddon) {
-                    setSelectedAddon(null);
+                    setEditorOpen(false);
                 }
                 toast({
                     title: "Success",
@@ -129,7 +130,9 @@ export default function AddonList() {
 
     function toggleEditAddon(addon, e) {
         e?.stopPropagation?.();
+        setCreatingAddon(null);
         setSelectedAddon(addon);
+        setEditorOpen(true);
     }
 
     const renderEditFields = (addonState, setAddonState, idSuffix) => (
@@ -230,6 +233,26 @@ export default function AddonList() {
 
     return (
         <div className={styles.page}>
+            <div className={styles.pageActions}>
+                <Button
+                    color="primary"
+                    size="sm"
+                    onClick={() => {
+                        setSelectedAddon(null);
+                        setCreatingAddon({
+                            addon: "",
+                            description: "",
+                            price: "",
+                            active: true
+                        });
+                        setEditorOpen(true);
+                    }}
+                    disabled={editorOpen}
+                >
+                    + New addon
+                </Button>
+            </div>
+
             {error && (
                 <p className="text-sm text-red-600 px-3">
                     {error}
@@ -296,15 +319,7 @@ export default function AddonList() {
                                     <td className="px-4 py-3 text-sm">
                                         ${r.price}
                                     </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        {r.active ?
-                                            <>
-                                                <CheckIcon color="green" size={16} /> Yes
-                                            </>
-                                            : <>
-                                                <XIcon color="red" size={16} /> No
-                                            </>}
-                                    </td>
+                                    <td><span className={`${styles.badge} ${r.active ? styles.badgeOk : styles.badgeNo}`}>{r.active ? "Active" : "Inactive"}</span></td>
                                     <td>
                                         <div className="d-flex gap-2">
                                             <Button
@@ -344,27 +359,19 @@ export default function AddonList() {
                     return (
                         <div key={r.idAddon} className={styles.card}>
 <>
-                                    <div className={styles.cardTitle}>
-                                        {r.addon}
+                                    <div className={styles.cardHead}>
+                                        <h3 className={styles.cardTitle}>{r.addon}</h3>
+                                        <span className={`${styles.badge} ${r.active ? styles.badgeOk : styles.badgeNo}`}>{r.active ? "Active" : "Inactive"}</span>
                                     </div>
                                     <div className={styles.cardMeta}>
-                                        <div>
-                                            <span className={styles.cardMetaLabel}>Description</span>
-                                            {r.description}
-                                        </div>
                                         <div>
                                             <span className={styles.cardMetaLabel}>Price</span>
                                             ${r.price}
                                         </div>
-                                    </div>
-                                    <div className="mb-3 text-sm">
-                                        {r.active ?
-                                            <>
-                                                <CheckIcon color="green" size={16} /> Active
-                                            </>
-                                            : <>
-                                                <XIcon color="red" size={16} /> Inactive
-                                            </>}
+                                        <div className={styles.cardMetaFull}>
+                                            <span className={styles.cardMetaLabel}>Description</span>
+                                            {r.description || "-"}
+                                        </div>
                                     </div>
                                     <div className={styles.cardActions}>
                                         <Button
@@ -393,24 +400,6 @@ export default function AddonList() {
 
             </div>
 
-            <div className={styles.newBtnWrap}>
-                <Button
-                    color="primary"
-                    size="sm"
-                    onClick={() =>
-                        setCreatingAddon({
-                            addon: "",
-                            description: "",
-                            price: "",
-                            active: true
-                        })
-                    }
-                    disabled={!!creatingAddon || !!selectedAddon}
-                >
-                    + New addon
-                </Button>
-            </div>
-
             {loading && hasFetchedOnce && (
                 <div className="px-3 text-sm text-gray-500">
                     Loading addons...
@@ -418,8 +407,8 @@ export default function AddonList() {
             )}
 
 
-            <Modal isOpen={!!creatingAddon || !!selectedAddon} centered size="lg" toggle={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
-                <ModalHeader toggle={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
+            <Modal isOpen={editorOpen} centered size="lg" toggle={() => setEditorOpen(false)} onClosed={() => { if (!editorOpen) { setCreatingAddon(null); setSelectedAddon(null); } }}>
+                <ModalHeader toggle={() => setEditorOpen(false)}>
                     {creatingAddon ? "New addon" : "Edit addon"}
                 </ModalHeader>
                 <ModalBody>
@@ -428,7 +417,7 @@ export default function AddonList() {
                         : selectedAddon && renderEditFields(selectedAddon, setSelectedAddon, selectedAddon.idAddon)}
                 </ModalBody>
                 <ModalFooter>
-                    <Button color="secondary" outline onClick={() => { setCreatingAddon(null); setSelectedAddon(null); }}>
+                    <Button color="secondary" outline onClick={() => setEditorOpen(false)}>
                         Cancel
                     </Button>
                     <Button
@@ -441,43 +430,18 @@ export default function AddonList() {
                 </ModalFooter>
             </Modal>
 
-            <Modal isOpen={deleteConfirmModal.show} centered>
-                <ModalHeader
-                    toggle={() => setDeleteConfirmModal({ show: false, addon: null })}
-                    style={{ backgroundColor: '#721c24', color: 'white' }}
-                >
-                    <span style={{ color: 'white' }}>Confirm Deletion</span>
-                </ModalHeader>
-                <ModalBody>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                        <FaExclamationCircle style={{ color: '#dc3545', fontSize: '20px', marginTop: '4px', flexShrink: 0 }} />
-                        <div>
-                            <p style={{ marginBottom: '8px', color: '#333', fontWeight: '600' }}>
-                                Are you sure you want to delete {deleteConfirmModal.addon?.addon}?
-                            </p>
-                        </div>
-                    </div>
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: '#f8f9fa' }}>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="secondary"
-                        outline
-                        onClick={() => setDeleteConfirmModal({ show: false, addon: null })}
-                        disabled={loading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        style={{ fontSize: '13px', fontWeight: '600' }}
-                        color="danger"
-                        onClick={confirmDelete}
-                        disabled={loading}
-                    >
-                        {loading ? 'Deleting...' : 'Delete Addon'}
-                    </Button>
-                </ModalFooter>
-            </Modal>
+            <MessageModal
+                isOpen={deleteConfirmModal.show}
+                type="confirm"
+                title="Confirm deletion"
+                confirmLabel={loading ? "Deleting..." : "Delete addon"}
+                confirmColor="danger"
+                disabled={loading}
+                onClose={() => setDeleteConfirmModal({ show: false, addon: null })}
+                onConfirm={confirmDelete}
+            >
+                Are you sure you want to delete {deleteConfirmModal.addon?.addon}?
+            </MessageModal>
         </div>
     );
 }

@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 import {
-  Badge,
-  Card,
-  CardBody,
   Button,
   Form,
   Input,
@@ -12,17 +9,19 @@ import {
   FormGroup,
   Alert,
   Spinner,
-  Container,
-  Row,
-  Col
 } from "reactstrap";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { getRecaptchaToken } from "@/helpers/recaptcha";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { PiArrowRight } from "react-icons/pi";
+import PasswordInput from "@/components/ui/PasswordInput";
+import SocialLogin from "@/components/auth/SocialLogin";
+import styles from "./login.module.css";
 
 export default function Login() {
   const [form, setForm] = useState({
-    username: "",
+    email: "",
     password: "",
   });
 
@@ -46,7 +45,7 @@ export default function Login() {
       const captchaToken = await getRecaptchaToken("login");
       await ApiComunicator("/auth/login", "POST", { ...form, captchaToken });
       router.refresh();
-      router.replace("/tours/bookings");
+      router.replace("/tours/calendar");
     } catch (err) {
       setError(err.message || "Login failed. Please try again.");
     } finally {
@@ -55,45 +54,46 @@ export default function Login() {
   };
 
   return (
-    <Container fluid className="vh-100 bg-light">
-      <Row className="h-100 justify-content-center align-items-center">
-        <Col xs="12" sm="10" md="6" lg="4">
-          <Card className="shadow-md" style={{ border: '0px' }}>
-            <CardBody className="p-4">
-              <img src="/images/logo-bw.svg" alt="Logo" className="mb-4 d-block mx-auto" style={{ maxWidth: '250px' }} />
+    <div className={styles.page}>
+      <div className={styles.brandPanel}>
+        <h1 className={`brand ${styles.brandName}`}>Fleetrust</h1>
+        {/* <p className={styles.brandTagline}>Back office for your tours and fleet.</p> */}
+      </div>
+
+      <div className={styles.formPanel}>
+        <div className={styles.formBox}>
+          <h1 className={`brand ${styles.formBrand}`}>Fleetrust</h1>
+          <h2 className={styles.title}>Welcome to Fleetrust!</h2>
+          <p className={styles.subtitle}></p>
 
               <Form onSubmit={handleSubmit}>
                 <FormGroup className="mb-3" floating>
                   <Input
-                    id="username"
-                    type="text"
-                    name="username"
-                    placeholder="Enter your username"
-                    value={form.username}
+                    id="email"
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    value={form.email}
                     onChange={handleChange}
                     disabled={loading}
                     required
                   />
-                  <Label for="username">
-                    Username
+                  <Label for="email">
+                    Email
                   </Label>
                 </FormGroup>
 
-                <FormGroup className="mb-4" floating>
-                  <Input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="Enter your password"
-                    value={form.password}
-                    onChange={handleChange}
-                    disabled={loading}
-                    required
-                  />
-                  <Label for="password">
-                    Password
-                  </Label>
-                </FormGroup>
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  disabled={loading}
+                  autoComplete="current-password"
+                  className="mb-2"
+                  required
+                />
+                <Link href="/forgot-password" className={styles.forgot}>Forgot password?</Link>
 
                 {error && (
                   <Alert color="danger" className="py-2">
@@ -103,8 +103,8 @@ export default function Login() {
 
                 <Button
                   type="submit"
-                  className="w-100"
-                  style={{backgroundColor: "black"}}
+                  color="primary"
+                  className={`w-100 ${styles.submit}`}
                   disabled={loading}
                 >
                   {loading ? (
@@ -113,14 +113,16 @@ export default function Login() {
                       Logging in...
                     </>
                   ) : (
-                    "Login"
+                    <>Login</>
                   )}
                 </Button>
               </Form>
-            </CardBody>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+              <SocialLogin />
+              <p className={styles.links}>
+                Don't have an account? <Link href="/register">Create one</Link>
+              </p>
+        </div>
+      </div>
+    </div>
   );
 }

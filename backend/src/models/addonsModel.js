@@ -1,12 +1,12 @@
-async function getAddons(conn, includeDeleted) {
+async function getAddons(conn, includeDeleted, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
         SELECT idAddon, addon, description, price, active, deleted
         FROM addons
-        WHERE deleted = 0 OR ? = 1
+        WHERE idAccount = ? AND (deleted = 0 OR ? = 1)
         ORDER BY addon ASC
         `;
-        conn.query(query, [includeDeleted], (err, results) => {
+        conn.query(query, [idAccount, includeDeleted], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -16,10 +16,10 @@ async function getAddons(conn, includeDeleted) {
 async function createAddon(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO addons (addon, description, price, active)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO addons (addon, description, price, active, idAccount)
+        VALUES (?, ?, ?, ?, ?)
         `;
-        const qParams = [p.addon, p.description, p.price, p.active];
+        const qParams = [p.addon, p.description, p.price, p.active, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -32,9 +32,9 @@ async function updateAddon(conn, p) {
         const query = `
         UPDATE addons
         SET addon = ?, description = ?, price = ?, active = ?
-        WHERE idAddon = ?
+        WHERE idAddon = ? AND idAccount = ?
         `;
-        const qParams = [p.addon, p.description, p.price, p.active, p.idAddon];
+        const qParams = [p.addon, p.description, p.price, p.active, p.idAddon, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -42,14 +42,14 @@ async function updateAddon(conn, p) {
     });
 }
 
-async function deleteAddon(conn, idAddon) {
+async function deleteAddon(conn, idAddon, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE addons
         SET deleted = 1
-        WHERE idAddon = ? AND deleted = 0
+        WHERE idAddon = ? AND idAccount = ? AND deleted = 0
         `;
-        const qParams = [idAddon];
+        const qParams = [idAddon, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
