@@ -72,7 +72,6 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
                 notes: editFormData.notes,
                 startDate: editFormData.startDate,
                 endDate: editFormData.endDate,
-                idRoute: editFormData.idRoute,
                 idExperience: editFormData.idExperience,
                 idAircraft: editFormData.idAircraft,
                 idPilot: editFormData.idPilot

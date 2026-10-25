@@ -67,7 +67,7 @@ function BookingsContent() {
     const [debouncedCode, setDebouncedCode] = useState("");
     const [debouncedClient, setDebouncedClient] = useState("");
     const [idAircraftFilter, setIdAircraftFilter] = useState("");
-    const [idRouteFilter, setIdRouteFilter] = useState("");
+    const [idServiceFilter, setIdServiceFilter] = useState("");
     const [idPilotFilter, setIdPilotFilter] = useState("");
     const [statuses, setStatuses] = useState([]);
     const [statusFilter, setStatusFilter] = useState(null);
@@ -106,12 +106,12 @@ function BookingsContent() {
         if (filterCode) count += 1;
         if (filterClient) count += 1;
         if (effectiveIdAircraft) count += 1;
-        if (idRouteFilter) count += 1;
+        if (idServiceFilter) count += 1;
         if (idPilotFilter) count += 1;
         if (statusFilter && !(statusFilter.length === 1 && statusFilter[0] === "3")) count += 1;
         if (effectiveView !== "day") count += 1;
         return count;
-    }, [filterCode, filterClient, effectiveIdAircraft, idRouteFilter, idPilotFilter, statusFilter, effectiveView]);
+    }, [filterCode, filterClient, effectiveIdAircraft, idServiceFilter, idPilotFilter, statusFilter, effectiveView]);
 
     const weekRangesInRefMonth = useMemo(
         () => getIsoWeekRangesOverlappingMonth(referenceMonth),
@@ -243,7 +243,7 @@ function BookingsContent() {
                 const pax = r.passengers ? r.passengers : '-';
                 const client = r.name && r.lastname ? `${r.name} ${r.lastname}` : '-';
                 const email = r.email ? r.email : '-';
-                const flightType = r.service || r.route || '-';
+                const flightType = r.service || '-';
                 const notes = r.notes ? r.notes : '-';
                 return `<tr>
                     <td class="px-4 py-3 text-sm">#${r.codeReservation}</td>
@@ -362,7 +362,7 @@ function BookingsContent() {
             if (effectiveIdAircraft && effectiveIdAircraft !== "all") {
                 q.set("idAircraft", String(effectiveIdAircraft));
             }
-            if (idRouteFilter && idRouteFilter !== "all") q.set("idService", idRouteFilter);
+            if (idServiceFilter && idServiceFilter !== "all") q.set("idService", idServiceFilter);
             if (idPilotFilter && idPilotFilter !== "all") q.set("idPilot", idPilotFilter);
             q.set("statuses", (statusFilter || []).join(","));
 
@@ -393,7 +393,7 @@ function BookingsContent() {
         debouncedCode,
         debouncedClient,
         effectiveIdAircraft,
-        idRouteFilter,
+        idServiceFilter,
         idPilotFilter,
         statusFilter,
         searchParams.toString(),
@@ -440,7 +440,7 @@ function BookingsContent() {
         setFilterCode("");
         setFilterClient("");
         setIdAircraftFilter("");
-        setIdRouteFilter("");
+        setIdServiceFilter("");
         setIdPilotFilter("");
         setStatusFilter(defaultStatusIds(statuses));
         if (searchParams.toString()) {
@@ -597,13 +597,13 @@ function BookingsContent() {
                 </Input>
             </FormGroup>
             <FormGroup style={{ minWidth: fieldMin || "180px" }}>
-                <Label for={`${idPrefix}idRouteFilter`}>Flight type</Label>
+                <Label for={`${idPrefix}idServiceFilter`}>Flight type</Label>
                 <Input
-                    id={`${idPrefix}idRouteFilter`}
+                    id={`${idPrefix}idServiceFilter`}
                     type="select"
-                    value={idRouteFilter || "all"}
+                    value={idServiceFilter || "all"}
                     onChange={(e) =>
-                        setIdRouteFilter(e.target.value === "all" ? "" : e.target.value)
+                        setIdServiceFilter(e.target.value === "all" ? "" : e.target.value)
                     }
                 >
                     <option value="all">All types</option>
@@ -826,7 +826,7 @@ function BookingsContent() {
                                         {r.phoneNumber ? r.phoneNumber : `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                        {r.service || r.route || `-`}
+                                        {r.service || `-`}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                         {r.aircraft
@@ -896,7 +896,7 @@ function BookingsContent() {
                                     </div>
                                     <div>
                                         <span className={styles.cardMetaLabel}>Flight type</span>
-                                        {r.service || r.route || "—"}
+                                        {r.service || "—"}
                                     </div>
                                 </div>
                                 <div className={styles.cardActions}>

@@ -1,0 +1,93 @@
+.profile {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 0 1rem;
+    text-align: center;
+}
+
+.avatar {
+    width: 96px;
+    height: 96px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--color-primary), #6610f2);
+    box-shadow: 0 8px 24px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.name {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.meta {
+    margin: 0.25rem 0 0;
+    color: var(--color-muted);
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+    text-align: left;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.card:hover {
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+    transform: translateY(-2px);
+}
+
+.icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    display: grid;
+    place-items: center;
+    color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.card h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.card p {
+    margin: 0;
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.help {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+}

@@ -63,12 +63,12 @@ function addonRows(body) {
     return list;
 }
 
-async function saveChildren(conn, idService, body, idAccount) {
+async function saveChildren(conn, idService, body, idAccount, idUser) {
     await db.deleteServicePrices(conn, idService, idAccount);
     await db.deleteServiceHours(conn, idService, idAccount);
     await db.deleteServiceAddons(conn, idService, idAccount);
     for (const row of priceRows(body)) {
-        await db.insertServicePrice(conn, idService, row.passengers, row.price);
+        await db.insertServicePrice(conn, idService, row.passengers, row.price, idUser);
     }
     for (const hour of hourRows(body)) {
         await db.insertServiceHour(conn, idService, hour);
@@ -158,8 +158,9 @@ async function createService(req, res) {
         assertService(req.body, row);
         row.code = await uniqueCode(conn, row.title, req.idAccount);
         row.idAccount = req.idAccount;
+        row.idUser = req.idUser;
         const result = await db.createService(conn, row);
-        await saveChildren(conn, result.insertId, req.body, req.idAccount);
+        await saveChildren(conn, result.insertId, req.body, req.idAccount, req.idUser);
         return { status: 200, body: { success: true, idService: result.insertId } };
     });
 }
@@ -170,9 +171,10 @@ async function editService(req, res) {
         if (!row.idService) throw 'Missing required fields';
         assertService(req.body, row);
         row.idAccount = req.idAccount;
+        row.idUser = req.idUser;
         const result = await db.updateService(conn, row);
         if (!result.affectedRows) throw 'Service not found';
-        await saveChildren(conn, row.idService, req.body, req.idAccount);
+        await saveChildren(conn, row.idService, req.body, req.idAccount, req.idUser);
         return { status: 200, body: { success: true } };
     });
 }
@@ -181,7 +183,7 @@ async function deleteService(req, res) {
     withConn(res, 'Error deleting service.', async (conn) => {
         const { idService } = req.body;
         if (!idService) throw 'Missing required fields';
-        const result = await db.deleteService(conn, idService, req.idAccount);
+        const result = await db.deleteService(conn, idService, req.idAccount, req.idUser);
         if (!result.affectedRows) throw 'Service not found';
         return { status: 200, body: { success: true } };
     });

@@ -35,7 +35,8 @@ async function createAircraft(req, res) {
                 capacity,
                 registrationNumber,
                 available: available ? 1 : 0,
-                idAccount: req.idAccount
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { aircraft: { aircraft, capacity, registrationNumber, available }, success: true }
@@ -77,7 +78,8 @@ async function editAircraft(req, res) {
                 capacity,
                 registrationNumber,
                 available: available ? 1 : 0,
-                idAccount: req.idAccount
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { aircraft: { idAircraft, aircraft, capacity, registrationNumber, available }, success: true }
@@ -148,7 +150,7 @@ async function deleteAircraft(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.deleteAircraft(conn, idAircraft, req.idAccount)
+            const result = await db.deleteAircraft(conn, idAircraft, req.idAccount, req.idUser)
 
             if (!result.affectedRows) {
                 throw 'Aircraft not found or already deleted'
@@ -188,7 +190,7 @@ async function restoreAircraft(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.restoreAircraft(conn, idAircraft, req.idAccount)
+            const result = await db.restoreAircraft(conn, idAircraft, req.idAccount, req.idUser)
 
             if (!result.affectedRows) {
                 throw 'Aircraft not found or not deleted'

@@ -27,6 +27,10 @@ router.post('/biometricLogin', biometricLogin);
 router.get('/biometricStatus', withAuth, checkAccount, getBiometricStatus);
 router.post('/biometricRegisterOptions', withAuth, checkAccount, biometricRegisterOptions);
 router.post('/biometricRegister', withAuth, checkAccount, biometricRegister);
+router.get('/profile', withAuth, checkAccount, getProfile);
+router.post('/profile', withAuth, checkAccount, updateProfile);
+router.post('/changePassword', withAuth, checkAccount, changePassword);
+router.post('/biometricRemove', withAuth, checkAccount, biometricRemove);
 router.post('/biometricSkip', withAuth, checkAccount, biometricSkip);
 router.post('/forgotPassword', forgotPassword);
 router.post('/resetPassword', resetPassword);
@@ -134,13 +138,9 @@ async function login(req, res) {
 
         }
         catch (e) {
-            let msg = errMsg;
             console.log(e)
-            if (typeof e == String) { msg = e }
-            if (e.message) { msg = e.message }
-            if (typeof msg == "object") { msg = JSON.stringify(msg) }
             status = 500
-            response = { status: "err", message: msg }
+            response = { status: "err", message: errMsg }
         }
         finally {
             if (connSuccess) conn.release()
@@ -399,7 +399,7 @@ async function dismissSetup(req, res) {
         try {
             if (errConn) throw errConn;
             connSuccess = true;
-            await db.setSetupModal(conn, { value: 0, idAccount: req.idAccount });
+            await db.setSetupModal(conn, { value: 0, idAccount: req.idAccount, idUser: req.idUser });
             status = 200;
             response = { message: 'Setup closed.' };
         } catch (e) {
@@ -562,6 +562,104 @@ async function biometricRegister(req, res) {
         } catch (e) {
             console.log(e);
             response = { message: typeof e === 'string' ? e : 'Could not register the biometric login.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function getProfile(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const rows = await db.getProfile(conn, { idUser: req.idUser });
+            if (!rows[0]) throw 'User not found.';
+            status = 200;
+            response = rows[0];
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not load your profile.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function updateProfile(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const name = String(req.body.name || '').trim();
+            const surname = String(req.body.surname || '').trim();
+            if (!name || !surname) throw 'Enter your first and last name.';
+            await db.updateProfile(conn, { name, surname, idUser: req.idUser });
+            status = 200;
+            response = { message: 'Personal information updated.' };
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not update your information.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function changePassword(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            const password = req.body.password;
+            if (!password || String(password).length < 8) throw 'Enter a password of at least 8 characters.';
+            if (password !== req.body.passwordConfirm) throw 'Passwords do not match.';
+            const rows = await db.getUserById(conn, { idUser: req.idUser });
+            // Google-only users have no password yet, so there is nothing to check.
+            if (rows[0].password) {
+                const ok = await bcrypt.compare(String(req.body.currentPassword || ''), rows[0].password);
+                if (!ok) throw 'Your current password is not correct.';
+            }
+            const hash = await bcrypt.hash(String(password), 12);
+            await db.updatePassword(conn, { idUser: req.idUser, password: hash });
+            status = 200;
+            response = { message: 'Password updated.' };
+        } catch (e) {
+            console.log(e);
+            response = { message: typeof e === 'string' ? e : 'Could not change the password.' };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
+
+async function biometricRemove(req, res) {
+    connection.pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+            await db.deletePasskeys(conn, { idUser: req.idUser });
+            status = 200;
+            response = { message: 'Biometric login removed.' };
+        } catch (e) {
+            console.log(e);
+            response = { message: 'Could not remove biometric login.' };
         } finally {
             if (connSuccess) conn.release();
             res.status(status).send(response);

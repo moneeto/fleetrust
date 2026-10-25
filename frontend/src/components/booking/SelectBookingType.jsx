@@ -17,7 +17,7 @@ const SelectBookingType = ({ onSelect }) => {
                     onClick={() => onSelect('me')}
                 >
                     <User size={32} />
-                    <span>Single</span>
+                    <span>Pilot (single)</span>
                 </motion.button>
                 
                 <motion.button

@@ -40,7 +40,7 @@ export default function SocialLogin() {
       {supported && (
         <Button type="button" color="light" className={`w-100 ${styles.submit} ${styles.biometric}`} disabled={loading} onClick={() => signIn(loginWithBiometric)}>
           {loading ? <Spinner size="sm" /> : <PiFingerprint size={20} />}
-          Sign in with biometrics
+          Sign in with a passkey
         </Button>
       )}
       {error && <Alert color="danger" className="py-2 mt-3 mb-0">{error}</Alert>}

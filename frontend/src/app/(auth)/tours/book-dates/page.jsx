@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from "next/navigation";
 import { Button, FormGroup, Label, Input } from 'reactstrap';
 import MessageModal from '@/components/ui/MessageModal';
-import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
 import moment from 'moment';
 
 import SelectDateTime from '@/components/booking/SelectDateTime';
@@ -187,7 +187,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         : ['type', 'service', 'pax', 'resource', 'when'];
     const current = flow[step];
     const isLast = step === flow.length - 1;
-    const titles = { type: 'New Book', service: 'Select a service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
+    const titles = { type: 'New Book', service: 'Service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
 
     const clientServices = services.filter(
         (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
@@ -212,7 +212,6 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                         <h6 className="fw-bold mb-1">{item.title}</h6>
                         <p className="text-muted small mb-0">{item.description}</p>
                     </div>
-                    {selected && <FaCheckCircle className="text-primary" size={20} />}
                 </div>
             </div>
         </div>

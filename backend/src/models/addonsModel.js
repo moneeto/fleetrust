@@ -16,10 +16,10 @@ async function getAddons(conn, includeDeleted, idAccount) {
 async function createAddon(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO addons (addon, description, price, active, idAccount)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO addons (addon, description, price, active, idAccount, createdBy, updatedBy)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const qParams = [p.addon, p.description, p.price, p.active, p.idAccount];
+        const qParams = [p.addon, p.description, p.price, p.active, p.idAccount, p.idUser, p.idUser];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -31,10 +31,10 @@ async function updateAddon(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE addons
-        SET addon = ?, description = ?, price = ?, active = ?
+        SET addon = ?, description = ?, price = ?, active = ?, updatedBy = ?
         WHERE idAddon = ? AND idAccount = ?
         `;
-        const qParams = [p.addon, p.description, p.price, p.active, p.idAddon, p.idAccount];
+        const qParams = [p.addon, p.description, p.price, p.active, p.idUser, p.idAddon, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -42,14 +42,14 @@ async function updateAddon(conn, p) {
     });
 }
 
-async function deleteAddon(conn, idAddon, idAccount) {
+async function deleteAddon(conn, idAddon, idAccount, idUser) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE addons
-        SET deleted = 1
+        SET deleted = 1, updatedBy = ?
         WHERE idAddon = ? AND idAccount = ? AND deleted = 0
         `;
-        const qParams = [idAddon, idAccount];
+        const qParams = [idUser, idAddon, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

@@ -35,7 +35,7 @@ export function toCalendarEvent(row) {
     let end = parseReservationDate(row.endDate);
     if (!end || end <= start) end = new Date(start.getTime() + 60 * 60 * 1000);
     const client = [row.name, row.lastname].filter(Boolean).join(" ").trim();
-    const what = row.service || row.experience || row.route || "Reservation";
+    const what = row.service || row.experience || "Reservation";
     const title = client ? `${client} · ${what}` : what;
     const details = [];
     if (row.codeReservation != null && row.codeReservation !== "") details.push(`#${row.codeReservation}`);

@@ -175,6 +175,13 @@ export default function Sidebar({ open, onClose }) {
                         >
                             Settings
                         </Link>
+                        <Link
+                            href="/faqs"
+                            className={pathname === "/faqs" ? "nav-link active" : "nav-link"}
+                            onClick={onClose}
+                        >
+                            FAQ's
+                        </Link>
                     </nav>
                     <div className="auth-sidebar-footer">
                         <LogoutButton />

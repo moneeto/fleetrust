@@ -25,7 +25,7 @@ async function getUserById(conn, p) {
 }
 
 async function linkGoogle(conn, p) {
-    return query(conn, `UPDATE users SET googleId = ? WHERE idUser = ?`, [p.googleId, p.idUser]);
+    return query(conn, `UPDATE users SET googleId = ?, updatedBy = ? WHERE idUser = ?`, [p.googleId, p.idUser, p.idUser]);
 }
 
 async function getBiometricStatus(conn, p) {
@@ -35,8 +35,20 @@ async function getBiometricStatus(conn, p) {
     return query(conn, sql, [p.idUser]);
 }
 
+async function getProfile(conn, p) {
+    return query(conn, `SELECT name, surname, email, createdAt, (password IS NOT NULL) AS hasPassword FROM users WHERE idUser = ?`, [p.idUser]);
+}
+
+async function updateProfile(conn, p) {
+    return query(conn, `UPDATE users SET name = ?, surname = ?, updatedBy = ? WHERE idUser = ?`, [p.name, p.surname, p.idUser, p.idUser]);
+}
+
+async function deletePasskeys(conn, p) {
+    return query(conn, `DELETE FROM passkeys WHERE idUser = ?`, [p.idUser]);
+}
+
 async function setAskBiometric(conn, p) {
-    return query(conn, `UPDATE users SET askBiometric = ? WHERE idUser = ?`, [p.value, p.idUser]);
+    return query(conn, `UPDATE users SET askBiometric = ?, updatedBy = ? WHERE idUser = ?`, [p.value, p.idUser, p.idUser]);
 }
 
 async function getPasskeysByUser(conn, p) {
@@ -82,7 +94,7 @@ async function getSetupStatus(conn, idAccount) {
 }
 
 async function setSetupModal(conn, p) {
-    return query(conn, `UPDATE accounts SET show_setup_modal = ? WHERE idAccount = ?`, [p.value, p.idAccount]);
+    return query(conn, `UPDATE accounts SET show_setup_modal = ?, updatedBy = ? WHERE idAccount = ?`, [p.value, p.idUser, p.idAccount]);
 }
 
 async function createUser(conn, p) {
@@ -92,7 +104,7 @@ async function createUser(conn, p) {
 }
 
 async function updatePassword(conn, p) {
-    return query(conn, `UPDATE users SET password = ?, resetPassword = 0 WHERE idUser = ? AND active = 1`, [p.password, p.idUser]);
+    return query(conn, `UPDATE users SET password = ?, resetPassword = 0, updatedBy = ? WHERE idUser = ? AND active = 1`, [p.password, p.idUser, p.idUser]);
 }
 
 async function deactivateRecoveryForUser(conn, p) {
@@ -142,6 +154,9 @@ module.exports = {
     getUserById,
     linkGoogle,
     getBiometricStatus,
+    getProfile,
+    updateProfile,
+    deletePasskeys,
     setAskBiometric,
     getPasskeysByUser,
     getPasskeyByCredential,

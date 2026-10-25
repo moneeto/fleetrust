@@ -1,5 +1,4 @@
 import React from 'react';
-import { Users } from 'lucide-react';
 
 const SelectPassengersCount = ({ count, onCountChange, prices }) => {
   const options = (prices || []).length
@@ -8,9 +7,7 @@ const SelectPassengersCount = ({ count, onCountChange, prices }) => {
 
   return (
     <div className="d-flex flex-column align-items-center gap-3 text-center">
-      <span className="fw-bold d-flex align-items-center gap-2 text-secondary text-uppercase small">
-        <Users size={18} className="text-primary" /> Number of passengers
-      </span>
+      <h5 className="fw-bold mb-0">How many passengers?</h5>
       <div className="d-flex justify-content-center flex-wrap gap-3">
         {options.map((n) => (
           <button

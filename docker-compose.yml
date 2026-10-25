@@ -10,6 +10,7 @@ services:
       MARIADB_DATABASE: fleetrust
     volumes:
       - fleetrust_mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 volumes:
   fleetrust_mysql_data:

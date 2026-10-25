@@ -72,12 +72,12 @@ async function createService(conn, p) {
         const query = `
         INSERT INTO services (
             code, title, description, image, duration, durationMinutes,
-            visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays, idAccount
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays, idAccount, createdBy, updatedBy
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
             p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
-            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idAccount
+            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idAccount, p.idUser, p.idUser
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -91,12 +91,12 @@ async function updateService(conn, p) {
         const query = `
         UPDATE services
         SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
-            visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?
+            visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?, updatedBy = ?
         WHERE idService = ? AND idAccount = ?
         `;
         const qParams = [
             p.title, p.description, p.image, p.duration, p.durationMinutes,
-            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idService, p.idAccount
+            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idUser, p.idService, p.idAccount
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -117,11 +117,11 @@ async function deleteServicePrices(conn, idService, idAccount) {
     });
 }
 
-async function insertServicePrice(conn, idService, passengers, price) {
+async function insertServicePrice(conn, idService, passengers, price, idUser) {
     return new Promise((resolve, reject) => {
         conn.query(
-            'INSERT INTO services_prices (idService, passengers, price) VALUES (?, ?, ?)',
-            [idService, passengers, price],
+            'INSERT INTO services_prices (idService, passengers, price, createdBy, updatedBy) VALUES (?, ?, ?, ?, ?)',
+            [idService, passengers, price, idUser, idUser],
             (err, results) => {
                 if (err) return reject(err);
                 resolve(results);
@@ -181,9 +181,9 @@ async function insertServiceAddon(conn, idService, idAddon, idAccount) {
     });
 }
 
-async function deleteService(conn, idService, idAccount) {
+async function deleteService(conn, idService, idAccount, idUser) {
     return new Promise((resolve, reject) => {
-        conn.query('UPDATE services SET deleted = 1 WHERE idService = ? AND idAccount = ? AND deleted = 0', [idService, idAccount], (err, results) => {
+        conn.query('UPDATE services SET deleted = 1, updatedBy = ? WHERE idService = ? AND idAccount = ? AND deleted = 0', [idUser, idService, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });

@@ -24,10 +24,10 @@ async function updateAircraft(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE aircrafts
-        SET aircraft = ?, capacity = ?, registrationNumber = ?, available = ?
+        SET aircraft = ?, capacity = ?, registrationNumber = ?, available = ?, updatedBy = ?
         WHERE idAircraft = ? AND idAccount = ?
         `;
-        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAircraft, p.idAccount];
+        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idUser, p.idAircraft, p.idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -37,11 +37,11 @@ async function updateAircraft(conn, p) {
 async function createAircraft(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
-        INSERT INTO aircrafts (aircraft, capacity, registrationNumber, available, idAccount)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO aircrafts (aircraft, capacity, registrationNumber, available, idAccount, createdBy, updatedBy)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
 
         `;
-        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAccount];
+        const qParams = [p.aircraft, p.capacity, p.registrationNumber, p.available, p.idAccount, p.idUser, p.idUser];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -49,14 +49,14 @@ async function createAircraft(conn, p) {
     });
 }
 
-async function deleteAircraft(conn, idAircraft, idAccount) {
+async function deleteAircraft(conn, idAircraft, idAccount, idUser) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE aircrafts
-        SET deleted = 1
+        SET deleted = 1, updatedBy = ?
         WHERE idAircraft = ? AND idAccount = ? AND (deleted = 0 OR deleted IS NULL)
         `;
-        const qParams = [idAircraft, idAccount];
+        const qParams = [idUser, idAircraft, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);
@@ -64,14 +64,14 @@ async function deleteAircraft(conn, idAircraft, idAccount) {
     });
 }
 
-async function restoreAircraft(conn, idAircraft, idAccount) {
+async function restoreAircraft(conn, idAircraft, idAccount, idUser) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE aircrafts
-        SET deleted = 0
+        SET deleted = 0, updatedBy = ?
         WHERE idAircraft = ? AND idAccount = ? AND deleted = 1
         `;
-        const qParams = [idAircraft, idAccount];
+        const qParams = [idUser, idAircraft, idAccount];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
             resolve(results);

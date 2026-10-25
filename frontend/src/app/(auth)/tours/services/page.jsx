@@ -534,7 +534,7 @@ export default function ServiceList() {
                                 <>
                                     <div className={form_.title}>Prices</div>
                                     <div className={form_.subtitle}>Total price per passengers. (without addons)</div>
-                                    <p className={form_.hint}>For an internal service, such as a manual booking or holding the aircraft for maintenance, you can leave the price empty.</p>
+                                    {/* <p className={form_.hint}>For an internal service, such as a manual booking or holding the aircraft for maintenance, you can leave the price empty.</p> */}
                                     {form.prices.map((row, index) => (
                                         <div className={form_.priceRow} key={index}>
                                             <Input type="number" min="1" placeholder="Passengers" value={row.passengers} onChange={(e) => setPrice(index, "passengers", e.target.value)} />

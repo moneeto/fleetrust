@@ -52,8 +52,8 @@ async function getServiceConfigByCode(conn, code, idAccount) {
     return normalizeProduct(product);
 }
 
-async function resolveProductConfig(conn, { experienceCode, routeCode, serviceCode, idAccount }) {
-    const code = (serviceCode || experienceCode || routeCode || '').toString().trim();
+async function resolveProductConfig(conn, { experienceCode, serviceCode, idAccount }) {
+    const code = (serviceCode || experienceCode || '').toString().trim();
     if (!code) return null;
     return getServiceConfigByCode(conn, code, idAccount);
 }

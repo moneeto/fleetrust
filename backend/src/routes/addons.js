@@ -34,7 +34,8 @@ async function createAddon(req, res) {
                 description,
                 price,
                 active: active ? 1 : 0,
-                idAccount: req.idAccount
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { addon: { addon, description, price, active }, success: true }
@@ -77,7 +78,8 @@ async function editAddon(req, res) {
                 description,
                 price,
                 active: active ? 1 : 0,
-                idAccount: req.idAccount
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { addon: { idAddon, addon, description, price, active }, success: true }
@@ -148,7 +150,7 @@ async function deleteAddon(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.deleteAddon(conn, idAddon, req.idAccount)
+            const result = await db.deleteAddon(conn, idAddon, req.idAccount, req.idUser)
 
             if (!result.affectedRows) {
                 throw 'Addon not found'
