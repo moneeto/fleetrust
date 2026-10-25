@@ -99,16 +99,6 @@ export default function Settings() {
                     </div>
                 </section>
 
-                {profile.code === "ADM" && (
-                    <section className={styles.card}>
-                        <h2>Users</h2>
-                        <p>Add, edit and deactivate the people who use this account.</p>
-                        <div className={styles.actions}>
-                            <Link href="/settings/users" className="btn btn-outline-primary">Manage</Link>
-                        </div>
-                    </section>
-                )}
-
                 <section className={styles.card}>
                     {/* <span className={styles.icon}><Fingerprint size={22} /></span> */}
                     <h2>Biometric / passkey sign in</h2>
