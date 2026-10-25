@@ -1,4 +1,4 @@
-const { normalizeProduct, formatHour } = require('../utils/bookingConfig');
+const { normalizeProduct, serviceSlots } = require('../utils/bookingConfig');
 
 function query(conn, sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -21,33 +21,24 @@ async function getServicePrices(conn, ids) {
     );
 }
 
-async function getServiceHours(conn, idService) {
-    const rows = await query(
-        conn,
-        `SELECT TIME_FORMAT(hour, '%H:%i') AS hour FROM services_hours WHERE idService = ?`,
-        [idService]
-    );
-    return rows.map((r) => formatHour(r.hour));
-}
-
 async function getServiceConfigByCode(conn, code, idAccount) {
     const rows = await query(
         conn,
-        `SELECT idService, code, minDaysAhead, maxDaysAhead, allowedWeekdays
+        `SELECT idService, code, minDaysAhead, maxDaysAhead, allowedWeekdays, durationMinutes,
+                TIME_FORMAT(startTime, '%H:%i') AS startTime,
+                TIME_FORMAT(endTime, '%H:%i') AS endTime
          FROM services WHERE code = ? AND idAccount = ? AND deleted = 0 LIMIT 1`,
         [code, idAccount]
     );
     if (!rows.length) return null;
     const product = rows[0];
-    const [prices, hours] = await Promise.all([
-        getServicePrices(conn, [product.idService]),
-        getServiceHours(conn, product.idService)
-    ]);
+    const prices = await getServicePrices(conn, [product.idService]);
+    product.durationMinutes = Number(product.durationMinutes);
     product.prices = prices.map((p) => ({
         passengers: Number(p.passengers),
         price: Number(p.price)
     }));
-    product.hours = hours;
+    product.hours = serviceSlots(product.startTime, product.endTime, product.durationMinutes);
     product.kind = 'service';
     return normalizeProduct(product);
 }
@@ -58,13 +49,7 @@ async function resolveProductConfig(conn, { experienceCode, serviceCode, idAccou
     return getServiceConfigByCode(conn, code, idAccount);
 }
 
-function filterHoursForProduct(occupancyHours, productConfig) {
-    const allowed = new Set((productConfig.hours || []).map(formatHour));
-    return (occupancyHours || []).filter((item) => allowed.has(formatHour(item.hour)));
-}
-
 module.exports = {
     getServiceConfigByCode,
-    resolveProductConfig,
-    filterHoursForProduct
+    resolveProductConfig
 };

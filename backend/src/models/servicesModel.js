@@ -22,20 +22,6 @@ async function getServicePrices(conn, idAccount) {
     });
 }
 
-async function getServiceHours(conn, idAccount) {
-    return new Promise((resolve, reject) => {
-        const query = `SELECT h.idService, TIME_FORMAT(h.hour, '%H:%i') AS hour
-            FROM services_hours h
-            INNER JOIN services s ON s.idService = h.idService
-            WHERE s.idAccount = ?
-            ORDER BY h.hour`;
-        conn.query(query, [idAccount], (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    });
-}
-
 async function getServiceAddons(conn, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `SELECT sa.idService, sa.idAddon
@@ -71,12 +57,12 @@ async function createService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO services (
-            code, title, description, image, duration, durationMinutes,
+            code, title, description, image, duration, durationMinutes, startTime, endTime,
             visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays, idAccount, createdBy, updatedBy
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
-            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
+            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes, p.startTime, p.endTime,
             p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idAccount, p.idUser, p.idUser
         ];
         conn.query(query, qParams, (err, results) => {
@@ -90,12 +76,12 @@ async function updateService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE services
-        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
+        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?, startTime = ?, endTime = ?,
             visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?, updatedBy = ?
         WHERE idService = ? AND idAccount = ?
         `;
         const qParams = [
-            p.title, p.description, p.image, p.duration, p.durationMinutes,
+            p.title, p.description, p.image, p.duration, p.durationMinutes, p.startTime, p.endTime,
             p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idUser, p.idService, p.idAccount
         ];
         conn.query(query, qParams, (err, results) => {
@@ -122,31 +108,6 @@ async function insertServicePrice(conn, idService, passengers, price, idUser) {
         conn.query(
             'INSERT INTO services_prices (idService, passengers, price, createdBy, updatedBy) VALUES (?, ?, ?, ?, ?)',
             [idService, passengers, price, idUser, idUser],
-            (err, results) => {
-                if (err) return reject(err);
-                resolve(results);
-            }
-        );
-    });
-}
-
-async function deleteServiceHours(conn, idService, idAccount) {
-    return new Promise((resolve, reject) => {
-        const query = `DELETE h FROM services_hours h
-            INNER JOIN services s ON s.idService = h.idService
-            WHERE h.idService = ? AND s.idAccount = ?`;
-        conn.query(query, [idService, idAccount], (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    });
-}
-
-async function insertServiceHour(conn, idService, hour) {
-    return new Promise((resolve, reject) => {
-        conn.query(
-            'INSERT INTO services_hours (idService, hour) VALUES (?, ?)',
-            [idService, hour],
             (err, results) => {
                 if (err) return reject(err);
                 resolve(results);
@@ -193,7 +154,6 @@ async function deleteService(conn, idService, idAccount, idUser) {
 module.exports = {
     getServices,
     getServicePrices,
-    getServiceHours,
     getServiceAddons,
     getServiceByCode,
     findServiceIdByCode,
@@ -201,8 +161,6 @@ module.exports = {
     updateService,
     deleteServicePrices,
     insertServicePrice,
-    deleteServiceHours,
-    insertServiceHour,
     deleteServiceAddons,
     insertServiceAddon,
     deleteService

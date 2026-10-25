@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/servicesModel.js');
-const { serializeWeekdays, codeFromTitle } = require('../utils/bookingConfig.js');
+const { serializeWeekdays, codeFromTitle, serviceSlots } = require('../utils/bookingConfig.js');
 const { pool } = require('../helpers/conexion-mysql.js');
 const withAuth = require('../middleware/withAuth.js');
 const checkAccount = require('../middleware/checkAccount.js');
@@ -25,6 +25,8 @@ function payload(body, idService) {
         image: body.image || null,
         duration: body.duration || null,
         durationMinutes: num(body.durationMinutes, null),
+        startTime: body.startTime || null,
+        endTime: body.endTime || null,
         visibleToClients: visible ? 1 : 0,
         minDaysAhead: num(body.minDaysAhead, 1),
         maxDaysAhead: num(body.maxDaysAhead, 31),
@@ -43,16 +45,6 @@ function priceRows(body) {
     return list;
 }
 
-function hourRows(body) {
-    const rows = Array.isArray(body.hours) ? body.hours : [];
-    const list = [];
-    for (const hour of rows) {
-        const value = String(hour || '').trim();
-        if (value) list.push(value);
-    }
-    return list;
-}
-
 function addonRows(body) {
     const rows = Array.isArray(body.addons) ? body.addons : [];
     const list = [];
@@ -65,32 +57,30 @@ function addonRows(body) {
 
 async function saveChildren(conn, idService, body, idAccount, idUser) {
     await db.deleteServicePrices(conn, idService, idAccount);
-    await db.deleteServiceHours(conn, idService, idAccount);
     await db.deleteServiceAddons(conn, idService, idAccount);
     for (const row of priceRows(body)) {
         await db.insertServicePrice(conn, idService, row.passengers, row.price, idUser);
-    }
-    for (const hour of hourRows(body)) {
-        await db.insertServiceHour(conn, idService, hour);
     }
     for (const idAddon of addonRows(body)) {
         await db.insertServiceAddon(conn, idService, idAddon, idAccount);
     }
 }
 
-function attachChildren(services, prices, hours, addons) {
+function clock(value) {
+    if (!value) return null;
+    return String(value).slice(0, 5);
+}
+
+function attachChildren(services, prices, addons) {
     for (const service of services) {
+        service.startTime = clock(service.startTime);
+        service.endTime = clock(service.endTime);
         service.prices = [];
-        service.hours = [];
         service.addons = [];
     }
     for (const row of prices) {
         const service = services.find((item) => item.idService === row.idService);
         if (service) service.prices.push({ passengers: Number(row.passengers), price: Number(row.price) });
-    }
-    for (const row of hours) {
-        const service = services.find((item) => item.idService === row.idService);
-        if (service) service.hours.push(row.hour);
     }
     for (const row of addons) {
         const service = services.find((item) => item.idService === row.idService);
@@ -126,9 +116,8 @@ async function getServices(req, res) {
         const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
         const services = await db.getServices(conn, includeDeleted, req.idAccount);
         const prices = await db.getServicePrices(conn, req.idAccount);
-        const hours = await db.getServiceHours(conn, req.idAccount);
         const addons = await db.getServiceAddons(conn, req.idAccount);
-        attachChildren(services, prices, hours, addons);
+        attachChildren(services, prices, addons);
         return { status: 200, body: { success: true, services } };
     });
 }
@@ -139,7 +128,11 @@ function assertService(body, row) {
     if (row.title.length > 32) throw 'Title must be 32 characters or less';
     if (!Number.isInteger(minutes) || minutes <= 0) throw 'Service duration is required';
     if (!Array.isArray(body.allowedWeekdays) || body.allowedWeekdays.length === 0) throw 'Days of service are required';
-    if (hourRows(body).length === 0) throw 'Hours of service are required';
+    const start = String(body.startTime || '').trim();
+    const end = String(body.endTime || '').trim();
+    if (!serviceSlots(start, end, minutes).length) throw 'Service hours must fit at least one full service in the range';
+    row.startTime = start.slice(0, 5);
+    row.endTime = end.slice(0, 5);
 }
 
 // ponytail: 35 variants per 3-letter prefix (base + 2-9 + A-Z), then it gives up.

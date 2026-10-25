@@ -367,7 +367,7 @@ export default function QrScanPage() {
                         <Button color="primary" onClick={handleTryAgain}>
                             New scan
                         </Button>
-                        <a href="/tours/bookings" className="btn btn-secondary">
+                        <a href="/operations/bookings" className="btn btn-secondary">
                             Back to bookings
                         </a>    
                         </div>

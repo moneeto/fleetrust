@@ -45,7 +45,7 @@ export default function Login() {
       const captchaToken = await getRecaptchaToken("login");
       await ApiComunicator("/auth/login", "POST", { ...form, captchaToken });
       router.refresh();
-      router.replace("/tours/calendar");
+      router.replace("/operations/calendar");
     } catch (err) {
       setError(err.message || "Login failed. Please try again.");
     } finally {

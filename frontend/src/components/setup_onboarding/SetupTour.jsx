@@ -8,10 +8,10 @@ import { ApiComunicator } from "@/helpers/ApiComunicator";
 import styles from "./SetupTour.module.css";
 
 const steps = [
-    { key: "services", title: "Create a service", text: "The experience you sell, with its prices and hours.", href: "/tours/services", required: true },
-    { key: "aircrafts", title: "Add an aircraft", text: "The aircraft that flies the service and its capacity.", href: "/tours/aircrafts", required: true },
-    { key: "pilots", title: "Add a pilot", text: "Who flies the bookings.", href: "/tours/pilots", required: true },
-    { key: "addons", title: "Add an addon", text: "Extras a client can add to a booking.", href: "/tours/addons", required: false }
+    { key: "services", title: "Create a service", text: "The experience you sell, with its prices and hours.", href: "/operations/services", required: true },
+    { key: "aircrafts", title: "Add an aircraft", text: "The aircraft that flies the service and its capacity.", href: "/operations/aircrafts", required: true },
+    { key: "pilots", title: "Add a pilot", text: "Who flies the bookings.", href: "/operations/pilots", required: true },
+    { key: "addons", title: "Add an addon", text: "Extras a client can add to a booking.", href: "/operations/addons", required: false }
 ];
 
 export default function SetupTour() {

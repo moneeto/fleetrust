@@ -21,7 +21,7 @@ export default function SocialLogin() {
     try {
       await login();
       router.refresh();
-      router.replace("/tours/calendar");
+      router.replace("/operations/calendar");
     } catch (err) {
       if (!biometricCancelled(err)) setError(err.message || "Could not sign in.");
       setLoading(false);

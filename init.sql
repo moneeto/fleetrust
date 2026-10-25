@@ -98,15 +98,6 @@ CREATE TABLE `aircrafts` (
   CONSTRAINT `fk_aircrafts_account` FOREIGN KEY (`idAccount`) REFERENCES `accounts` (`idAccount`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-/*Table structure for table `available_hours` */
-
-DROP TABLE IF EXISTS `available_hours`;
-
-CREATE TABLE `available_hours` (
-  `hour` time DEFAULT NULL,
-  `active` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 /*Table structure for table `cancellation_reasons` */
 
 DROP TABLE IF EXISTS `cancellation_reasons`;
@@ -435,6 +426,8 @@ CREATE TABLE `services` (
   `image` varchar(255) DEFAULT NULL,
   `duration` varchar(100) DEFAULT NULL,
   `durationMinutes` int(11) DEFAULT NULL,
+  `startTime` time DEFAULT NULL,
+  `endTime` time DEFAULT NULL,
   `visibleToClients` tinyint(1) NOT NULL DEFAULT 1,
   `minDaysAhead` int(11) NOT NULL DEFAULT 1,
   `maxDaysAhead` int(11) NOT NULL DEFAULT 31,
@@ -462,16 +455,6 @@ CREATE TABLE `services_addons` (
   PRIMARY KEY (`idServiceAddon`),
   KEY `services_addons_service` (`idService`),
   KEY `services_addons_addon` (`idAddon`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-/*Table structure for table `services_hours` */
-
-DROP TABLE IF EXISTS `services_hours`;
-
-CREATE TABLE `services_hours` (
-  `idService` int(11) NOT NULL,
-  `hour` time NOT NULL,
-  PRIMARY KEY (`idService`,`hour`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 /*Table structure for table `services_prices` */

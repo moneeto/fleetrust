@@ -9,7 +9,8 @@ const servicesDb = require('../models/servicesModel.js')
 const {
     weekdayOfDate,
     formatHour,
-    findPriceForPassengers
+    findPriceForPassengers,
+    serviceSlots
 } = require('../utils/bookingConfig')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
@@ -50,9 +51,15 @@ async function getBookableHours(conn, { date, idAircraft, experienceCode, servic
         return [];
     }
 
-    const occupancyHours = await db.getAvailableHours(conn, { date, idAircraft, idAccount });
-    if (!product) return occupancyHours;
-    return bookingConfigDb.filterHoursForProduct(occupancyHours, product);
+    if (!product) return [];
+    const slots = serviceSlots(product.startTime, product.endTime, product.durationMinutes);
+    return db.getFreeHours(conn, {
+        date,
+        idAircraft,
+        idAccount,
+        slots,
+        durationMinutes: product.durationMinutes
+    });
 }
 router.get('/cancellationReasons', withAuth, checkAccount, getCancellationReasons);
 router.post('/validateQrConfirmation', withAuth, checkAccount, validateQrConfirmation);
@@ -253,8 +260,15 @@ async function createReservation(req, res) {
 
             const name = reservationHolder.firstName && reservationHolder.firstName != null ? reservationHolder.firstName : req.name;
             const lastname = reservationHolder.lastName && reservationHolder.lastName != null ? reservationHolder.lastName : req.surname;
+            const code = serviceCode || experienceCode;
+            if (!code) throw 'Invalid service code'
+            const service = await servicesDb.getServiceByCode(conn, code, req.idAccount);
+            if (!service) throw 'Invalid service code';
+            const durationMinutes = Number(service.durationMinutes);
+            if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) throw 'Service duration is required';
+
             const startDate = moment(`${reservationDate} ${reservationTime}`, 'YYYY-MM-DD HH:mm').format('YYYY-MM-DD HH:mm');
-            const endDate = moment(startDate, 'YYYY-MM-DD HH:mm').add(1, 'hours').format('YYYY-MM-DD HH:mm');
+            const endDate = moment(startDate, 'YYYY-MM-DD HH:mm').add(durationMinutes, 'minutes').format('YYYY-MM-DD HH:mm');
 
             if (!idAircraft || idAircraft == "all") {
                 // Get aircraft
@@ -280,10 +294,6 @@ async function createReservation(req, res) {
             //     passengers: passengerCount
             // })
 
-            const code = serviceCode || experienceCode;
-            if (!code) throw 'Invalid service code'
-            const service = await servicesDb.getServiceByCode(conn, code, req.idAccount);
-            if (!service) throw 'Invalid service code';
             let totalValue = 0;
 
             const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, serviceCode, idAccount: req.idAccount });

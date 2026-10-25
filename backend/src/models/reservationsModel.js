@@ -53,16 +53,20 @@ async function createReservation(conn, params) {
     });
 }
 
-async function getAvailableHours(conn, p) {
+async function getFreeHours(conn, p) {
     return new Promise((resolve, reject) => {
-        // A slot stays visible only when some aircraft is free for the whole hour.
+        const slots = (p.slots || []).filter((hour) => /^\d{2}:\d{2}$/.test(String(hour)));
+        const duration = Number(p.durationMinutes);
+        if (!slots.length || !Number.isInteger(duration) || duration <= 0) return resolve([]);
+
+        // A start stays visible only when some aircraft is free for the whole service.
         // Overlap matches getAircrafts: existing start < slot end AND existing end > slot start.
         const idAircraft = p.idAircraft || null;
+        const unions = slots.map(() => 'SELECT ? AS hour').join(' UNION ALL ');
         const query = `
-            SELECT a.hour
-            FROM available_hours a
-            WHERE a.active = 1
-            AND EXISTS (
+            SELECT slot.hour
+            FROM (${unions}) slot
+            WHERE EXISTS (
                 SELECT 1
                 FROM aircrafts ac
                 WHERE ac.available = 1
@@ -75,13 +79,13 @@ async function getAvailableHours(conn, p) {
                     WHERE r.idAircraft = ac.idAircraft
                     AND r.idAccount = ?
                     AND r.idStatus NOT IN (4, 5)
-                    AND r.startDate < DATE_ADD(TIMESTAMP(?, a.hour), INTERVAL 1 HOUR)
-                    AND r.endDate > TIMESTAMP(?, a.hour)
+                    AND r.startDate < DATE_ADD(TIMESTAMP(?, slot.hour), INTERVAL ? MINUTE)
+                    AND r.endDate > TIMESTAMP(?, slot.hour)
                 )
             )
-            ORDER BY a.hour ASC
+            ORDER BY slot.hour ASC
         `;
-        const qParams = [p.idAccount, idAircraft, idAircraft, p.idAccount, p.date, p.date];
+        const qParams = [...slots, p.idAccount, idAircraft, idAircraft, p.idAccount, p.date, duration, p.date];
 
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -532,7 +536,7 @@ module.exports = {
     getReservationsByDate,
     getReservationsByDateRange,
     createReservation,
-    getAvailableHours,
+    getFreeHours,
     getReservationById,
     getReservationByConfirmationHash,
     completeQrValidation,

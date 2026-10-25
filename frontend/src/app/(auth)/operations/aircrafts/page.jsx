@@ -221,7 +221,7 @@ export default function AircraftList() {
     function goToBookings(aircraft) {
         if (isDeleted(aircraft)) return;
         router.push(
-            `/tours/bookings?idAircraft=${encodeURIComponent(
+            `/operations/bookings?idAircraft=${encodeURIComponent(
                 String(aircraft.idAircraft)
             )}&period=month`
         );

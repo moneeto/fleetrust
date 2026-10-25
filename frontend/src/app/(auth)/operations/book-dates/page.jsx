@@ -452,7 +452,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                 type="success"
                 title="Reservation confirmed"
                 confirmLabel="Finish"
-                onClose={() => onDone ? onDone() : router.push('/tours/bookings')}
+                onClose={() => onDone ? onDone() : router.push('/operations/bookings')}
             >
                 Your flight for {date} is ready.
                 {reservationHolder?.email ? <> A boarding pass was sent to {reservationHolder.email}.</> : null}

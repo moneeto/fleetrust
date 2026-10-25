@@ -30,16 +30,16 @@ export default function Sidebar({ open, onClose }) {
 
                             <nav className="nav flex-column submenu">
                                 <Link
-                                    href="/tours/calendar"
-                                    className={pathname === "/tours/calendar" ? "nav-link active" : "nav-link"}
+                                    href="/operations/calendar"
+                                    className={pathname === "/operations/calendar" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Bookings Calendar
                                 </Link>
 
                                 <Link
-                                    href="/tours/bookings"
-                                    className={pathname === "/tours/bookings" ? "nav-link active" : "nav-link"}
+                                    href="/operations/bookings"
+                                    className={pathname === "/operations/bookings" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Bookings List
@@ -47,43 +47,43 @@ export default function Sidebar({ open, onClose }) {
 
 
                                 <Link
-                                    href="/tours/book-dates"
-                                    className={pathname === "/tours/book-dates" ? "nav-link active" : "nav-link"}
+                                    href="/operations/book-dates"
+                                    className={pathname === "/operations/book-dates" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     New Book
                                 </Link>
 
                                 <Link
-                                    href="/tours/services"
+                                    href="/operations/services"
                                     data-tour="services"
-                                    className={pathname === "/tours/services" ? "nav-link active" : "nav-link"}
+                                    className={pathname === "/operations/services" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Services
                                 </Link>
 
                                 <Link
-                                    href="/tours/aircrafts"
+                                    href="/operations/aircrafts"
                                     data-tour="aircrafts"
-                                    className={pathname === "/tours/aircrafts" ? "nav-link active" : "nav-link"}
+                                    className={pathname === "/operations/aircrafts" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Aircrafts
                                 </Link>
 
                                 <Link
-                                    href="/tours/pilots"
+                                    href="/operations/pilots"
                                     data-tour="pilots"
-                                    className={pathname === "/tours/pilots" ? "nav-link active" : "nav-link"}
+                                    className={pathname === "/operations/pilots" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Pilots
                                 </Link>
                                 <Link
-                                    href="/tours/addons"
+                                    href="/operations/addons"
                                     data-tour="addons"
-                                    className={pathname === "/tours/addons" ? "nav-link active" : "nav-link"}
+                                    className={pathname === "/operations/addons" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Addons
@@ -91,40 +91,32 @@ export default function Sidebar({ open, onClose }) {
 
 
                                 {/* <Link
-                                    href="/tours/hours"
-                                    className={pathname === "/tours/hours" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Hours
-                                </Link> */}
-
-                                {/* <Link
-                                    href="/tours/gallery"
-                                    className={pathname === "/tours/gallery" ? "nav-link active" : "nav-link"}
+                                    href="/operations/gallery"
+                                    className={pathname === "/operations/gallery" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Gallery
                                 </Link> */}
 
                                 {/* <Link
-                                    href="/tours/qr-scan"
-                                    className={pathname === "/tours/qr-scan" ? "nav-link active" : "nav-link"}
+                                    href="/operations/qr-scan"
+                                    className={pathname === "/operations/qr-scan" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     QR scan
                                 </Link> */}
 
                                 {/* <Link
-                                    href="/tours/reviews"
-                                    className={pathname === "/tours/reviews" ? "nav-link active" : "nav-link"}
+                                    href="/operations/reviews"
+                                    className={pathname === "/operations/reviews" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Reviews
                                 </Link> */}
 
                                 {/* <Link
-                                    href="/tours/social"
-                                    className={pathname === "/tours/social" ? "nav-link active" : "nav-link"}
+                                    href="/operations/social"
+                                    className={pathname === "/operations/social" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
                                     Social media

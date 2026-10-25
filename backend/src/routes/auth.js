@@ -247,7 +247,7 @@ async function createOwner(conn, p) {
     const account = await db.createAccount(conn, { name: p.email, showSetupModal: 1 });
     await servicesDb.createService(conn, {
         code: 'MANUAL', title: 'Manual Booking', description: null, image: null, duration: null,
-        durationMinutes: 60, visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
+        durationMinutes: 60, startTime: '08:00', endTime: '20:00', visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
         allowedWeekdays: '[0,1,2,3,4,5,6]', idAccount: account.insertId
     });
     await db.createUser(conn, {

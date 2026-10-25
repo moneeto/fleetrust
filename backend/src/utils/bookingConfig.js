@@ -58,6 +58,31 @@ function formatHour(hour) {
     return String(hour || '').substring(0, 5);
 }
 
+function toMinutes(time) {
+    const match = String(time || '').trim().match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 24 || minutes > 59) return null;
+    if (hours === 24 && minutes !== 0) return null;
+    return hours * 60 + minutes;
+}
+
+// Starts every durationMinutes from startTime while the service still finishes by endTime.
+function serviceSlots(startTime, endTime, durationMinutes) {
+    const start = toMinutes(startTime);
+    const end = toMinutes(endTime);
+    const step = Number(durationMinutes);
+    if (start == null || end == null || !Number.isInteger(step) || step <= 0 || end <= start) return [];
+    const list = [];
+    for (let cursor = start; cursor + step <= end; cursor += step) {
+        const hours = Math.floor(cursor / 60);
+        const minutes = cursor % 60;
+        list.push(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+    }
+    return list;
+}
+
 function findPriceForPassengers(prices, passengers) {
     const pax = Number(passengers);
     const row = (prices || []).find((p) => Number(p.passengers) === pax);
@@ -107,6 +132,7 @@ module.exports = {
     isDateInWindow,
     addDays,
     formatHour,
+    serviceSlots,
     findPriceForPassengers,
     normalizeProduct,
     codeFromTitle,

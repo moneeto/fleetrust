@@ -18,8 +18,12 @@ const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const STEPS = ["Service", "Prices", "Days and hours"];
 
 function toMinutes(time) {
-    const [h, m] = time.split(":").map(Number);
-    return h * 60 + m;
+    const parts = String(time || "").split(":");
+    if (parts.length < 2) return NaN;
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
+    return hours * 60 + minutes;
 }
 
 function toTime(minutes) {
@@ -31,28 +35,21 @@ function hourLabel(time) {
     return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
 
-function clockOptions(minutes) {
-    const start = (9 * 60) % minutes;
-    const list = [];
-    for (let m = start; m < 24 * 60; m += minutes) list.push(toTime(m));
-    return list;
-}
-
 function slots(from, to, minutes) {
     const list = [];
     const start = toMinutes(from);
     const end = toMinutes(to);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return list;
     for (let m = start; minutes > 0 && m + minutes <= end; m += minutes) list.push(toTime(m));
     return list;
 }
 
-function nearest(options, time) {
-    if (!options.length) return time;
-    if (options.includes(time)) return time;
-    const target = toMinutes(time);
-    return options.reduce((best, item) => (
-        Math.abs(toMinutes(item) - target) < Math.abs(toMinutes(best) - target) ? item : best
-    ));
+function scheduleHint(start, end, minutes) {
+    const duration = Number(minutes);
+    if (!Number.isInteger(duration) || duration <= 0) return "Set the service duration in step 1 first.";
+    const list = slots(start, end, duration);
+    if (!list.length) return "This range does not fit one full service. Move the closing time later or shorten the duration.";
+    return `Starts every ${duration} minutes, from ${hourLabel(list[0])} through ${hourLabel(list[list.length - 1])}. Each booking lasts ${duration} minutes.`;
 }
 
 function sameDays(a, b) {
@@ -108,11 +105,11 @@ function daysLabel(value) {
     return [1, 2, 3, 4, 5, 6, 0].filter((day) => days.includes(day)).map((day) => WEEKDAYS[day].slice(0, 3)).join(", ");
 }
 
-function hoursLabel(hours) {
-    const list = (hours || []).map((hour) => String(hour).slice(0, 5)).filter((hour) => hour.includes(":")).sort();
-    if (!list.length) return "—";
-    if (list.length === 1) return hourLabel(list[0]);
-    return `${hourLabel(list[0])} – ${hourLabel(list[list.length - 1])}`;
+function rangeLabel(startTime, endTime) {
+    const start = String(startTime || "").slice(0, 5);
+    const end = String(endTime || "").slice(0, 5);
+    if (!start.includes(":") || !end.includes(":")) return "—";
+    return `${hourLabel(start)} – ${hourLabel(end)}`;
 }
 
 function advanceLabel(days) {
@@ -128,7 +125,7 @@ function serviceFacts(row) {
         ["Duration", durationLabel(row.durationMinutes)],
         ["Price / person", priceRange(row.prices)],
         ["Days", daysLabel(row.allowedWeekdays)],
-        ["Hours", hoursLabel(row.hours)],
+        ["Hours", rangeLabel(row.startTime, row.endTime)],
         ["Advance", advanceLabel(row.minDaysAhead)]
     ];
 }
@@ -144,12 +141,13 @@ const emptyForm = {
     maxDaysAhead: 31,
     allowedWeekdays: [0, 1, 2, 3, 4, 5, 6],
     prices: [{ passengers: "", price: "" }],
-    hours: [],
+    startTime: "09:00",
+    endTime: "17:00",
     addons: []
 };
 
 function toForm(row) {
-    if (!row) return { ...emptyForm, prices: [{ passengers: "", price: "" }], hours: [], addons: [], allowedWeekdays: [0, 1, 2, 3, 4, 5, 6] };
+    if (!row) return { ...emptyForm, prices: [{ passengers: "", price: "" }], addons: [], allowedWeekdays: [0, 1, 2, 3, 4, 5, 6] };
     return {
         idService: row.idService,
         title: row.title || "",
@@ -162,7 +160,8 @@ function toForm(row) {
         maxDaysAhead: row.maxDaysAhead ?? 31,
         allowedWeekdays: parseWeekdays(row.allowedWeekdays),
         prices: row.prices && row.prices.length ? row.prices.map((p) => ({ passengers: p.passengers, price: p.price })) : [{ passengers: "", price: "" }],
-        hours: (row.hours || []).map((h) => String(h).slice(0, 5)),
+        startTime: String(row.startTime || "09:00").slice(0, 5),
+        endTime: String(row.endTime || "17:00").slice(0, 5),
         addons: (row.addons || []).map(Number)
     };
 }
@@ -177,8 +176,6 @@ export default function ServiceList() {
     const [error, setError] = useState(null);
     const [step, setStep] = useState(0);
     const [advanceCustom, setAdvanceCustom] = useState(false);
-    const [rangeFrom, setRangeFrom] = useState("09:00");
-    const [rangeTo, setRangeTo] = useState("17:00");
     const [pendingDelete, setPendingDelete] = useState(null);
     const [result, setResult] = useState(null);
     const [filters, setFilters] = useState({ title: "" });
@@ -224,9 +221,9 @@ export default function ServiceList() {
             toast({ variant: "destructive", title: "Missing data", description: "Title (max 32 characters) and duration are required." });
             return;
         }
-        if (!form.allowedWeekdays.length || !form.hours.length) {
+        if (!form.allowedWeekdays.length || !slots(form.startTime, form.endTime, minutes).length) {
             setStep(2);
-            toast({ variant: "destructive", title: "Missing data", description: "Days of service and hours of service are required." });
+            toast({ variant: "destructive", title: "Missing data", description: "Days of service and a time range that fits the duration are required." });
             return;
         }
         try {
@@ -319,59 +316,16 @@ export default function ServiceList() {
         const next = toForm(row);
         setStep(0);
         setAdvanceCustom(!ADVANCE.some((preset) => preset.days === Number(next.minDaysAhead)));
-        setRangeFrom("09:00");
-        setRangeTo("17:00");
         setForm(next);
         setFormOpen(true);
     }
 
     function openStep(index) {
-        const minutes = Number(form.durationMinutes);
-        if (index === 2 && minutes > 0) {
-            const options = clockOptions(minutes);
-            const from = nearest(options, rangeFrom);
-            const to = nearest(options, rangeTo);
-            setRangeFrom(from);
-            setRangeTo(to);
-            if (form.hours.length === 0) setForm({ ...form, hours: slots(from, to, minutes) });
-        }
         setStep(index);
     }
 
-    function changeRange(from, to) {
-        setRangeFrom(from);
-        setRangeTo(to);
-        const minutes = Number(form.durationMinutes);
-        if (minutes > 0) setForm({ ...form, hours: slots(from, to, minutes) });
-    }
-
     function setDuration(value) {
-        const minutes = Number(value);
-        const next = { ...form, durationMinutes: value };
-        if (Number.isInteger(minutes) && minutes > 0 && (step === 2 || form.hours.length > 0)) {
-            const options = clockOptions(minutes);
-            const from = nearest(options, rangeFrom);
-            const to = nearest(options, rangeTo);
-            setRangeFrom(from);
-            setRangeTo(to);
-            next.hours = slots(from, to, minutes);
-        }
-        setForm(next);
-    }
-
-    function addRange() {
-        const minutes = Number(form.durationMinutes);
-        const from = toMinutes(rangeFrom);
-        const to = toMinutes(rangeTo);
-        const hours = form.hours.slice();
-        for (let m = from; minutes > 0 && m + minutes <= to; m += minutes) {
-            if (!hours.includes(toTime(m))) hours.push(toTime(m));
-        }
-        if (hours.length === form.hours.length) {
-            toast({ variant: "destructive", title: "No hours added", description: "Check the duration and that the range fits at least one service." });
-            return;
-        }
-        setForm({ ...form, hours: hours.sort() });
+        setForm({ ...form, durationMinutes: value });
     }
 
     function toggleAddon(idAddon) {
@@ -506,7 +460,7 @@ export default function ServiceList() {
                                     <FormGroup>
                                         <Label>Duration in minutes</Label>
                                         <Input type="number" min="1" step="1" placeholder="60" style={{ maxWidth: "200px" }} value={form.durationMinutes} onChange={(e) => setDuration(e.target.value)} />
-                                        <small className="text-muted">note: the available hours are generated every <span style={{textDecoration: "underline"}}>this many minutes.</span></small>
+                                        <small className="text-muted">Each booking lasts this long. The next one can start when it ends.</small>
                                     </FormGroup>
                                     
                                     {addons && addons.length > 0 && 
@@ -616,41 +570,13 @@ export default function ServiceList() {
                                         <Label>Hours of service</Label>
                                         <div className={form_.hoursBox}>
                                             <p className="text-muted mb-2">
-                                                {Number(form.durationMinutes) > 0
-                                                    ? `Pick a range. A start time is created every ${form.durationMinutes} minutes.`
-                                                    : "Set the service duration in step 1 first."}
+                                                {scheduleHint(form.startTime, form.endTime, form.durationMinutes)}
                                             </p>
-                                            <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
-                                                <Input type="select" style={{ maxWidth: "150px" }} value={rangeFrom} disabled={!(Number(form.durationMinutes) > 0)} onChange={(e) => changeRange(e.target.value, rangeTo)}>
-                                                    {clockOptions(Number(form.durationMinutes) || 30).map((time) => (
-                                                        <option key={time} value={time}>{hourLabel(time)}</option>
-                                                    ))}
-                                                </Input>
+                                            <div className="d-flex flex-wrap gap-2 align-items-center">
+                                                <Input type="time" style={{ maxWidth: "150px" }} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
                                                 <span>to</span>
-                                                <Input type="select" style={{ maxWidth: "150px" }} value={rangeTo} disabled={!(Number(form.durationMinutes) > 0)} onChange={(e) => changeRange(rangeFrom, e.target.value)}>
-                                                    {clockOptions(Number(form.durationMinutes) || 30).map((time) => (
-                                                        <option key={`to-${time}`} value={time}>{hourLabel(time)}</option>
-                                                    ))}
-                                                </Input>
-                                                <Button color="primary" onClick={addRange}>Add hours</Button>
+                                                <Input type="time" style={{ maxWidth: "150px" }} value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
                                             </div>
-                                            {form.hours.length === 0 ? (
-                                                <p className="text-muted mb-0">No hours added yet.</p>
-                                            ) : (
-                                                <>
-                                                    <div className="d-flex flex-wrap gap-2 mb-3">
-                                                        {form.hours.map((hour) => (
-                                                            <span key={hour} className={form_.hour}>
-                                                                {hourLabel(hour)}
-                                                                <button type="button" className={form_.hourRemove} aria-label={`Remove ${hourLabel(hour)}`} onClick={() => setForm({ ...form, hours: form.hours.filter((item) => item !== hour) })}>
-                                                                    &times;
-                                                                </button>
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                    <Button size="sm" color="danger" outline onClick={() => setForm({ ...form, hours: [] })}>Remove all</Button>
-                                                </>
-                                            )}
                                         </div>
                                     </FormGroup>
                                 </>

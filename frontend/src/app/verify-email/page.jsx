@@ -66,7 +66,7 @@ export default function VerifyEmail() {
     try {
       await ApiComunicator("/auth/verifyEmail", "POST", { email, code });
       router.refresh();
-      router.replace("/tours/calendar");
+      router.replace("/operations/calendar");
     } catch (err) {
       setError(err.message || "Could not verify the email.");
     } finally {

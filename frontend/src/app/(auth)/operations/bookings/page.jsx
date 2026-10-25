@@ -925,7 +925,7 @@ function BookingsContent() {
                             size="lg"
                             className={`mt-3 ${local.startBooking}`}
                             onClick={() => {
-                                router.push("/tours/book-dates");
+                                router.push("/operations/book-dates");
                             }}
                         >
                             Start booking

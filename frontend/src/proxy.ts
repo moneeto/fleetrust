@@ -16,7 +16,7 @@ export function proxy(request: NextRequest) {
 
   // 2. Si HAY token y estás en la raíz o en una ruta pública -> A Tours
   if (token && (pathname === "/" || publicPaths.includes(pathname))) {
-    return NextResponse.redirect(new URL("/tours/calendar", request.url));
+    return NextResponse.redirect(new URL("/operations/calendar", request.url));
   }
 
   return NextResponse.next();
