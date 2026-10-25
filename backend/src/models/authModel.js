@@ -36,7 +36,10 @@ async function getBiometricStatus(conn, p) {
 }
 
 async function getProfile(conn, p) {
-    return query(conn, `SELECT name, surname, email, createdAt, (password IS NOT NULL) AS hasPassword FROM users WHERE idUser = ?`, [p.idUser]);
+    return query(conn, `SELECT u.idUser, u.name, u.surname, u.email, u.createdAt, (u.password IS NOT NULL) AS hasPassword, r.role, r.code
+                FROM users u
+                LEFT JOIN roles r ON r.idRole = u.idRole
+                WHERE u.idUser = ?`, [p.idUser]);
 }
 
 async function updateProfile(conn, p) {
@@ -70,6 +73,14 @@ async function updatePasskeyCounter(conn, p) {
 
 async function getActiveUserInAccount(conn, p) {
     const sql = `SELECT idUser FROM users WHERE idUser = ? AND idAccount = ? AND active = 1`;
+    return query(conn, sql, [p.idUser, p.idAccount]);
+}
+
+async function getActiveUserRole(conn, p) {
+    const sql = `SELECT b.code
+                FROM users a
+                INNER JOIN roles b ON b.idRole = a.idRole
+                WHERE a.idUser = ? AND a.idAccount = ? AND a.active = 1`;
     return query(conn, sql, [p.idUser, p.idAccount]);
 }
 
@@ -163,6 +174,7 @@ module.exports = {
     insertPasskey,
     updatePasskeyCounter,
     getActiveUserInAccount,
+    getActiveUserRole,
     getRoleByCode,
     createAccount,
     getSetupStatus,

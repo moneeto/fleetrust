@@ -1,12 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plane, Wrench } from "lucide-react";
 import LogoutButton from "./components/LogoutButton";
+import { ApiComunicator } from "@/helpers/ApiComunicator";
 
 export default function Sidebar({ open, onClose }) {
     const pathname = usePathname();
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+        ApiComunicator("/auth/profile", "GET")
+            .then((profile) => setIsAdmin(profile.code === "ADM"))
+            .catch(() => setIsAdmin(false));
+    }, []);
 
     return (
         <>
@@ -167,6 +175,15 @@ export default function Sidebar({ open, onClose }) {
                         >
                             Settings
                         </Link>
+                        {isAdmin && (
+                            <Link
+                                href="/settings/users"
+                                className={pathname === "/settings/users" ? "nav-link active" : "nav-link"}
+                                onClick={onClose}
+                            >
+                                Users
+                            </Link>
+                        )}
                         <Link
                             href="/faqs"
                             className={pathname === "/faqs" ? "nav-link active" : "nav-link"}
