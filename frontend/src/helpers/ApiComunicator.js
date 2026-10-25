@@ -1,4 +1,5 @@
 import Config from '../config.js';
+import { apiErrorText } from './apiErrorText.mjs';
 
 export const ApiComunicator = async (urlTail, method, info, signal, isADownload = false) => {
     
@@ -33,12 +34,11 @@ export const ApiComunicator = async (urlTail, method, info, signal, isADownload 
                 return;
             }
             
-            try {
-                const errorBody = await response.clone().json(); 
-                throw errorBody;
-            } catch (e) {
-                throw e; 
-            }
+            let errorBody = null;
+            try { errorBody = await response.clone().json(); } catch { errorBody = null; }
+            const body = errorBody && typeof errorBody === 'object' && !Array.isArray(errorBody) ? errorBody : {};
+            const { sql, sqlMessage, sqlState, errno, ...safe } = body;
+            throw { ...safe, message: apiErrorText(errorBody) };
         }
         
         if (isADownload) {

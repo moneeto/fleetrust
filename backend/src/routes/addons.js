@@ -3,11 +3,12 @@ const router = express.Router();
 const db = require('../models/addonsModel.js')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
+const checkAccount = require('../middleware/checkAccount.js')
 
-router.get('/', withAuth, getAddons);
-router.post('/edit', withAuth, editAddon);
-router.post('/new', withAuth, createAddon);
-router.post('/delete', withAuth, deleteAddon);
+router.get('/', withAuth, checkAccount, getAddons);
+router.post('/edit', withAuth, checkAccount, editAddon);
+router.post('/new', withAuth, checkAccount, createAddon);
+router.post('/delete', withAuth, checkAccount, deleteAddon);
 
 
 async function createAddon(req, res) {
@@ -32,7 +33,9 @@ async function createAddon(req, res) {
                 addon,
                 description,
                 price,
-                active: active ? 1 : 0
+                active: active ? 1 : 0,
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { addon: { addon, description, price, active }, success: true }
@@ -74,7 +77,9 @@ async function editAddon(req, res) {
                 addon,
                 description,
                 price,
-                active: active ? 1 : 0
+                active: active ? 1 : 0,
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { addon: { idAddon, addon, description, price, active }, success: true }
@@ -106,7 +111,7 @@ async function getAddons(req, res) {
             connSuccess = true
 
             const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
-            const addons = await db.getAddons(conn, includeDeleted)
+            const addons = await db.getAddons(conn, includeDeleted, req.idAccount)
 
             response = { addons }
 
@@ -145,7 +150,7 @@ async function deleteAddon(req, res) {
                 throw 'Missing required fields'
             }
 
-            const result = await db.deleteAddon(conn, idAddon)
+            const result = await db.deleteAddon(conn, idAddon, req.idAccount, req.idUser)
 
             if (!result.affectedRows) {
                 throw 'Addon not found'

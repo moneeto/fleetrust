@@ -1,43 +1,66 @@
-async function getServices(conn, includeDeleted) {
+async function getServices(conn, includeDeleted, idAccount) {
     return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM services WHERE deleted = 0 OR ? = 1 ORDER BY title`;
-        conn.query(query, [includeDeleted], (err, results) => {
+        const query = `SELECT * FROM services WHERE idAccount = ? AND (deleted = 0 OR ? = 1) ORDER BY title`;
+        conn.query(query, [idAccount, includeDeleted], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function getServicePrices(conn) {
+async function getServicePrices(conn, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('SELECT idService, passengers, price FROM services_prices ORDER BY passengers', (err, results) => {
+        const query = `SELECT p.idService, p.passengers, p.price
+            FROM services_prices p
+            INNER JOIN services s ON s.idService = p.idService
+            WHERE s.idAccount = ?
+            ORDER BY p.passengers`;
+        conn.query(query, [idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function getServiceHours(conn) {
+async function getServiceHours(conn, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query(`SELECT idService, TIME_FORMAT(hour, '%H:%i') AS hour FROM services_hours ORDER BY hour`, (err, results) => {
+        const query = `SELECT h.idService, TIME_FORMAT(h.hour, '%H:%i') AS hour
+            FROM services_hours h
+            INNER JOIN services s ON s.idService = h.idService
+            WHERE s.idAccount = ?
+            ORDER BY h.hour`;
+        conn.query(query, [idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function getServiceAddons(conn) {
+async function getServiceAddons(conn, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('SELECT idService, idAddon FROM services_addons', (err, results) => {
+        const query = `SELECT sa.idService, sa.idAddon
+            FROM services_addons sa
+            INNER JOIN services s ON s.idService = sa.idService
+            WHERE s.idAccount = ?`;
+        conn.query(query, [idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function getServiceByCode(conn, code) {
+async function getServiceByCode(conn, code, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('SELECT * FROM services WHERE code = ? AND deleted = 0 LIMIT 1', [code], (err, results) => {
+        conn.query('SELECT * FROM services WHERE code = ? AND idAccount = ? AND deleted = 0 LIMIT 1', [code, idAccount], (err, results) => {
+            if (err) return reject(err);
+            resolve(results[0] || null);
+        });
+    });
+}
+
+async function findServiceIdByCode(conn, code, idAccount) {
+    return new Promise((resolve, reject) => {
+        conn.query('SELECT idService FROM services WHERE code = ? AND idAccount = ? LIMIT 1', [code, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results[0] || null);
         });
@@ -49,12 +72,12 @@ async function createService(conn, p) {
         const query = `
         INSERT INTO services (
             code, title, description, image, duration, durationMinutes,
-            visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays, idAccount, createdBy, updatedBy
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
             p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
-            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays
+            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idAccount, p.idUser, p.idUser
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -67,13 +90,13 @@ async function updateService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE services
-        SET code = ?, title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
-            visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?
-        WHERE idService = ?
+        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
+            visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?, updatedBy = ?
+        WHERE idService = ? AND idAccount = ?
         `;
         const qParams = [
-            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
-            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idService
+            p.title, p.description, p.image, p.duration, p.durationMinutes,
+            p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idUser, p.idService, p.idAccount
         ];
         conn.query(query, qParams, (err, results) => {
             if (err) return reject(err);
@@ -82,20 +105,23 @@ async function updateService(conn, p) {
     });
 }
 
-async function deleteServicePrices(conn, idService) {
+async function deleteServicePrices(conn, idService, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('DELETE FROM services_prices WHERE idService = ?', [idService], (err, results) => {
+        const query = `DELETE p FROM services_prices p
+            INNER JOIN services s ON s.idService = p.idService
+            WHERE p.idService = ? AND s.idAccount = ?`;
+        conn.query(query, [idService, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function insertServicePrice(conn, idService, passengers, price) {
+async function insertServicePrice(conn, idService, passengers, price, idUser) {
     return new Promise((resolve, reject) => {
         conn.query(
-            'INSERT INTO services_prices (idService, passengers, price) VALUES (?, ?, ?)',
-            [idService, passengers, price],
+            'INSERT INTO services_prices (idService, passengers, price, createdBy, updatedBy) VALUES (?, ?, ?, ?, ?)',
+            [idService, passengers, price, idUser, idUser],
             (err, results) => {
                 if (err) return reject(err);
                 resolve(results);
@@ -104,9 +130,12 @@ async function insertServicePrice(conn, idService, passengers, price) {
     });
 }
 
-async function deleteServiceHours(conn, idService) {
+async function deleteServiceHours(conn, idService, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('DELETE FROM services_hours WHERE idService = ?', [idService], (err, results) => {
+        const query = `DELETE h FROM services_hours h
+            INNER JOIN services s ON s.idService = h.idService
+            WHERE h.idService = ? AND s.idAccount = ?`;
+        conn.query(query, [idService, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -126,21 +155,25 @@ async function insertServiceHour(conn, idService, hour) {
     });
 }
 
-async function deleteServiceAddons(conn, idService) {
+async function deleteServiceAddons(conn, idService, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query('DELETE FROM services_addons WHERE idService = ?', [idService], (err, results) => {
+        const query = `DELETE sa FROM services_addons sa
+            INNER JOIN services s ON s.idService = sa.idService
+            WHERE sa.idService = ? AND s.idAccount = ?`;
+        conn.query(query, [idService, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 }
 
-async function insertServiceAddon(conn, idService, idAddon) {
+async function insertServiceAddon(conn, idService, idAddon, idAccount) {
     return new Promise((resolve, reject) => {
-        conn.query(
-            'INSERT INTO services_addons (idService, idAddon) VALUES (?, ?)',
-            [idService, idAddon],
-            (err, results) => {
+        const query = `INSERT INTO services_addons (idService, idAddon)
+            SELECT ?, ?
+            WHERE EXISTS (SELECT 1 FROM services WHERE idService = ? AND idAccount = ?)
+            AND EXISTS (SELECT 1 FROM addons WHERE idAddon = ? AND idAccount = ?)`;
+        conn.query(query, [idService, idAddon, idService, idAccount, idAddon, idAccount], (err, results) => {
                 if (err) return reject(err);
                 resolve(results);
             }
@@ -148,9 +181,9 @@ async function insertServiceAddon(conn, idService, idAddon) {
     });
 }
 
-async function deleteService(conn, idService) {
+async function deleteService(conn, idService, idAccount, idUser) {
     return new Promise((resolve, reject) => {
-        conn.query('UPDATE services SET deleted = 1 WHERE idService = ? AND deleted = 0', [idService], (err, results) => {
+        conn.query('UPDATE services SET deleted = 1, updatedBy = ? WHERE idService = ? AND idAccount = ? AND deleted = 0', [idUser, idService, idAccount], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -163,6 +196,7 @@ module.exports = {
     getServiceHours,
     getServiceAddons,
     getServiceByCode,
+    findServiceIdByCode,
     createService,
     updateService,
     deleteServicePrices,

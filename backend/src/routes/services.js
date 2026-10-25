@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/servicesModel.js');
-const { serializeWeekdays } = require('../utils/bookingConfig.js');
+const { serializeWeekdays, codeFromTitle } = require('../utils/bookingConfig.js');
 const { pool } = require('../helpers/conexion-mysql.js');
 const withAuth = require('../middleware/withAuth.js');
+const checkAccount = require('../middleware/checkAccount.js');
 
-router.get('/getServices', withAuth, getServices);
-router.post('/new', withAuth, createService);
-router.post('/edit', withAuth, editService);
-router.post('/delete', withAuth, deleteService);
+router.get('/getServices', withAuth, checkAccount, getServices);
+router.post('/new', withAuth, checkAccount, createService);
+router.post('/edit', withAuth, checkAccount, editService);
+router.post('/delete', withAuth, checkAccount, deleteService);
 
 function num(value, fallback) {
     if (value === '' || value == null) return fallback;
@@ -19,8 +20,7 @@ function payload(body, idService) {
     const visible = body.visibleToClients === true || body.visibleToClients === 1 || body.visibleToClients === '1';
     return {
         idService,
-        code: body.code,
-        title: body.title,
+        title: String(body.title || '').trim(),
         description: body.description || null,
         image: body.image || null,
         duration: body.duration || null,
@@ -63,18 +63,18 @@ function addonRows(body) {
     return list;
 }
 
-async function saveChildren(conn, idService, body) {
-    await db.deleteServicePrices(conn, idService);
-    await db.deleteServiceHours(conn, idService);
-    await db.deleteServiceAddons(conn, idService);
+async function saveChildren(conn, idService, body, idAccount, idUser) {
+    await db.deleteServicePrices(conn, idService, idAccount);
+    await db.deleteServiceHours(conn, idService, idAccount);
+    await db.deleteServiceAddons(conn, idService, idAccount);
     for (const row of priceRows(body)) {
-        await db.insertServicePrice(conn, idService, row.passengers, row.price);
+        await db.insertServicePrice(conn, idService, row.passengers, row.price, idUser);
     }
     for (const hour of hourRows(body)) {
         await db.insertServiceHour(conn, idService, hour);
     }
     for (const idAddon of addonRows(body)) {
-        await db.insertServiceAddon(conn, idService, idAddon);
+        await db.insertServiceAddon(conn, idService, idAddon, idAccount);
     }
 }
 
@@ -124,21 +124,43 @@ function withConn(res, failMessage, fn) {
 async function getServices(req, res) {
     withConn(res, 'An error has occurred while getting the services.', async (conn) => {
         const includeDeleted = req.query.includeDeleted === '1' ? 1 : 0;
-        const services = await db.getServices(conn, includeDeleted);
-        const prices = await db.getServicePrices(conn);
-        const hours = await db.getServiceHours(conn);
-        const addons = await db.getServiceAddons(conn);
+        const services = await db.getServices(conn, includeDeleted, req.idAccount);
+        const prices = await db.getServicePrices(conn, req.idAccount);
+        const hours = await db.getServiceHours(conn, req.idAccount);
+        const addons = await db.getServiceAddons(conn, req.idAccount);
         attachChildren(services, prices, hours, addons);
         return { status: 200, body: { success: true, services } };
     });
 }
 
+function assertService(body, row) {
+    const minutes = Number(body.durationMinutes);
+    if (!row.title) throw 'Title is required';
+    if (row.title.length > 32) throw 'Title must be 32 characters or less';
+    if (!Number.isInteger(minutes) || minutes <= 0) throw 'Service duration is required';
+    if (!Array.isArray(body.allowedWeekdays) || body.allowedWeekdays.length === 0) throw 'Days of service are required';
+    if (hourRows(body).length === 0) throw 'Hours of service are required';
+}
+
+// ponytail: 35 variants per 3-letter prefix (base + 2-9 + A-Z), then it gives up.
+async function uniqueCode(conn, title, idAccount) {
+    const base = codeFromTitle(title);
+    for (const suffix of ['', ...'23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ']) {
+        const code = suffix ? base.slice(0, 3) + suffix : base;
+        if (!await db.findServiceIdByCode(conn, code, idAccount)) return code;
+    }
+    throw 'Could not generate a unique code for this title';
+}
+
 async function createService(req, res) {
     withConn(res, 'Error creating service.', async (conn) => {
         const row = payload(req.body);
-        if (!row.code || !row.title) throw 'Missing required fields';
+        assertService(req.body, row);
+        row.code = await uniqueCode(conn, row.title, req.idAccount);
+        row.idAccount = req.idAccount;
+        row.idUser = req.idUser;
         const result = await db.createService(conn, row);
-        await saveChildren(conn, result.insertId, req.body);
+        await saveChildren(conn, result.insertId, req.body, req.idAccount, req.idUser);
         return { status: 200, body: { success: true, idService: result.insertId } };
     });
 }
@@ -146,10 +168,13 @@ async function createService(req, res) {
 async function editService(req, res) {
     withConn(res, 'Error updating service.', async (conn) => {
         const row = payload(req.body, req.body.idService);
-        if (!row.idService || !row.code || !row.title) throw 'Missing required fields';
+        if (!row.idService) throw 'Missing required fields';
+        assertService(req.body, row);
+        row.idAccount = req.idAccount;
+        row.idUser = req.idUser;
         const result = await db.updateService(conn, row);
         if (!result.affectedRows) throw 'Service not found';
-        await saveChildren(conn, row.idService, req.body);
+        await saveChildren(conn, row.idService, req.body, req.idAccount, req.idUser);
         return { status: 200, body: { success: true } };
     });
 }
@@ -158,7 +183,7 @@ async function deleteService(req, res) {
     withConn(res, 'Error deleting service.', async (conn) => {
         const { idService } = req.body;
         if (!idService) throw 'Missing required fields';
-        const result = await db.deleteService(conn, idService);
+        const result = await db.deleteService(conn, idService, req.idAccount, req.idUser);
         if (!result.affectedRows) throw 'Service not found';
         return { status: 200, body: { success: true } };
     });

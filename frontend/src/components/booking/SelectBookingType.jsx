@@ -8,23 +8,23 @@ const SelectBookingType = ({ onSelect }) => {
     return (
         <div className="d-flex flex-column gap-4 align-items-center">
             
-            <div className="d-flex gap-4">
+            <div className="d-flex gap-3 w-100 justify-content-center">
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="btn btn-outline-primary d-flex flex-column align-items-center justify-content-center gap-2 p-4"
-                    style={{ minWidth: '160px', height: '120px' }} 
+                    className="btn btn-light border-0 shadow-sm rounded-4 text-primary fw-semibold d-flex flex-column align-items-center justify-content-center gap-2 p-4"
+                    style={{ flex: '1 1 0', maxWidth: '170px', height: '130px' }}
                     onClick={() => onSelect('me')}
                 >
                     <User size={32} />
-                    <span>Single</span>
+                    <span>Pilot (single)</span>
                 </motion.button>
                 
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="btn btn-outline-primary d-flex flex-column align-items-center justify-content-center gap-2 p-4"
-                    style={{ minWidth: '160px', height: '120px' }}
+                    className="btn btn-light border-0 shadow-sm rounded-4 text-primary fw-semibold d-flex flex-column align-items-center justify-content-center gap-2 p-4"
+                    style={{ flex: '1 1 0', maxWidth: '170px', height: '130px' }}
                     onClick={() => onSelect('others')}
                 >
                     <Users size={32} />

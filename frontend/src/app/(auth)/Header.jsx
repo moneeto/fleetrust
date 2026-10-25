@@ -14,6 +14,7 @@ const titleMap = {
   "/tours/gallery": "Gallery",
   "/tours/hours": "Hours",
   "/users": "Users",
+  "/settings": "Settings",
   "/tours/qr-scan": "QR Scan",
   "/tours/reviews": "Tours Reviews",
   "/tours/social": "Tours Social media",

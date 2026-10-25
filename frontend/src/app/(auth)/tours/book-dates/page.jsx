@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from "next/navigation";
-import { Modal, ModalBody, Button, FormGroup, Label, Input } from 'reactstrap';
-import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
+import { Button, FormGroup, Label, Input } from 'reactstrap';
+import MessageModal from '@/components/ui/MessageModal';
+import { FaChevronLeft, FaChevronRight, FaInfoCircle } from 'react-icons/fa';
 import moment from 'moment';
 
 import SelectDateTime from '@/components/booking/SelectDateTime';
@@ -16,14 +17,14 @@ import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
 import { defaultPassengerCount } from '@/helpers/bookingConfig';
 
-export default function BookDatesPage() {
+export default function BookDatesPage({ initialDate = "", initialTime = "", onDone } = {}) {
     const router = useRouter();
     const [step, setStep] = useState(0);
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
     const [bookingType, setBookingType] = useState(null);
-    const [date, setDate] = useState('');
-    const [time, setTime] = useState('');
+    const [date, setDate] = useState(initialDate);
+    const [time, setTime] = useState(initialTime);
     const [passengers, setPassengers] = useState(2);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -126,13 +127,8 @@ export default function BookDatesPage() {
                 reservationHolder: {},
                 idAircraft,
                 idPilot: idPilot || null,
+                serviceCode,
             };
-
-            if (bookingType === 'me') {
-                data.routeCode = 'BAS';
-            } else {
-                data.serviceCode = selectedService;
-            }
 
             const res = await ApiComunicator(`/reservations/createReservation`, 'POST', data);
             if (res?.id) setReservationId(res.id);
@@ -191,13 +187,14 @@ export default function BookDatesPage() {
         : ['type', 'service', 'pax', 'resource', 'when'];
     const current = flow[step];
     const isLast = step === flow.length - 1;
-    const titles = { type: 'Book', service: 'Select a service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
+    const titles = { type: 'New Book', service: 'Service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
 
     const clientServices = services.filter(
         (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
     );
 
-    const selectedProduct = clientServices.find((item) => item.code === selectedService);
+    const serviceCode = bookingType === 'me' ? 'MANUAL' : selectedService;
+    const product = services.find((item) => item.code === serviceCode);
 
     const nextDisabled =
         (current === 'service' && !selectedService) ||
@@ -207,7 +204,7 @@ export default function BookDatesPage() {
     const renderOfferCard = (item, selected, onClick) => (
         <div key={item.code} className="col-12" onClick={onClick}>
             <div
-                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'hover-bg-light'}`}
+                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'bg-white shadow-sm'}`}
                 style={{ cursor: 'pointer', border: selected ? undefined : '2px solid transparent' }}
             >
                 <div className="d-flex justify-content-between align-items-center">
@@ -215,7 +212,6 @@ export default function BookDatesPage() {
                         <h6 className="fw-bold mb-1">{item.title}</h6>
                         <p className="text-muted small mb-0">{item.description}</p>
                     </div>
-                    {selected && <FaCheckCircle className="text-primary" size={20} />}
                 </div>
             </div>
         </div>
@@ -245,7 +241,7 @@ export default function BookDatesPage() {
                             transition={{ duration: 0.25 }}
                         >
                             {current === 'type' && (
-                                <div className="py-4">
+                                <div className="py-5">
                                     <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
                                 </div>
                             )}
@@ -271,7 +267,7 @@ export default function BookDatesPage() {
                                         <SelectPassengersNumber
                                             count={passengers}
                                             onCountChange={setPassengers}
-                                            prices={selectedProduct?.prices}
+                                            prices={product?.prices}
                                         />
                                     </div>
                                     <PassengerDetails
@@ -370,8 +366,8 @@ export default function BookDatesPage() {
                                                 onDateChange={setDate}
                                                 onTimeChange={setTime}
                                                 idAircraft={idAircraft}
-                                                serviceCode={bookingType === 'others' ? selectedService : null}
-                                                allowedWeekdays={selectedProduct?.allowedWeekdays}
+                                                serviceCode={serviceCode}
+                                                allowedWeekdays={product?.allowedWeekdays}
                                             />
                                         )}
                                     </div>
@@ -407,7 +403,7 @@ export default function BookDatesPage() {
                                     return (
                                         <Button
                                             color="primary"
-                                            className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                            className="px-4 px-md-5 py-2 rounded-pill fw-bold shadow-sm"
                                             onClick={handleNext}
                                             disabled={nextDisabled || loading}
                                         >
@@ -417,8 +413,8 @@ export default function BookDatesPage() {
                                 }
                                 return (
                                     <Button
-                                        color="success"
-                                        className="px-5 py-2 rounded-pill fw-bold shadow-sm"
+                                        color="primary"
+                                        className="px-4 px-md-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
                                         disabled={loading || (!customLength && (!date || !time))}
                                     >
@@ -451,32 +447,31 @@ export default function BookDatesPage() {
                 </motion.div>
             )}
 
-            <Modal isOpen={showSuccessModal} centered contentClassName="border-0 rounded-4 shadow-lg text-center p-4">
-                <ModalBody>
-                    <div className="mb-4"><FaCheckCircle className="text-success" size={60} /></div>
-                    <h3 className="fw-bold">Reservation Confirmed!</h3>
-                    <p className="text-muted">
-                        Your flight for <strong>{date}</strong> is ready.
-                        {reservationHolder?.email ? (
-                            <> A boarding pass was sent to <strong>{reservationHolder.email}</strong>.</>
-                        ) : null}
-                    </p>
-                    <Button color="success" className="w-100 py-2 rounded-pill fw-bold mt-3" onClick={() => router.push('/tours/bookings')}>Finish</Button>
-                </ModalBody>
-            </Modal>
+            <MessageModal
+                isOpen={showSuccessModal}
+                type="success"
+                title="Reservation confirmed"
+                confirmLabel="Finish"
+                onClose={() => onDone ? onDone() : router.push('/tours/bookings')}
+            >
+                Your flight for {date} is ready.
+                {reservationHolder?.email ? <> A boarding pass was sent to {reservationHolder.email}.</> : null}
+            </MessageModal>
 
-            <Modal isOpen={showErrorModal} centered contentClassName="border-0 rounded-4 shadow-lg p-4" toggle={() => setShowErrorModal(false)}>
-                <ModalBody className="text-center">
-                    <h5 className="fw-bold text-danger mb-3">Scheduling Conflict</h5>
-                    <p className="small text-muted">{overlappingData?.message || 'Selected time is unavailable.'}</p>
-                    <ul className="text-start list-unstyled bg-light p-3 rounded-3 small">
-                        {overlappingData?.overlapping?.map((item, i) => (
-                            <li key={i} className="mb-1">• {item.startDate} to {item.endDate}</li>
-                        ))}
-                    </ul>
-                    <Button color="danger" className="w-100 py-2 rounded-pill mt-3" onClick={() => setShowErrorModal(false)}>Retry</Button>
-                </ModalBody>
-            </Modal>
+            <MessageModal
+                isOpen={showErrorModal}
+                type="error"
+                title="Scheduling conflict"
+                confirmLabel="Retry"
+                onClose={() => setShowErrorModal(false)}
+            >
+                <p className="mb-2">{overlappingData?.message || "Selected time is unavailable."}</p>
+                <ul className="mb-0">
+                    {overlappingData?.overlapping?.map((item, i) => (
+                        <li key={i}>{item.startDate} to {item.endDate}</li>
+                    ))}
+                </ul>
+            </MessageModal>
         </div>
     );
 }

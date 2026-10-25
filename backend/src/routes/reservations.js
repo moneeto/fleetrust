@@ -9,11 +9,11 @@ const servicesDb = require('../models/servicesModel.js')
 const {
     weekdayOfDate,
     formatHour,
-    findPriceForPassengers,
-    isStaffMeBooking
+    findPriceForPassengers
 } = require('../utils/bookingConfig')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
+const checkAccount = require('../middleware/checkAccount.js')
 const moment = require('moment');
 const { generateBoardingPass } = require('../utils/boardingPass.js');
 const { sendBookingDetails } = require('../utils/mailer.js');
@@ -28,35 +28,36 @@ function generateConfirmationHash(length = 10) {
     return out;
 }
 
-router.post('/createReservation', withAuth, createReservation);
-router.post('/confirmBooking', withAuth, confirmBooking);
-router.get('/availableHours', withAuth, getAvailableHours);
-router.get('/reservationsByDate', withAuth, getReservationsByDate);
-router.get('/reservationsByAircraft', withAuth, getReservationsByAircraft);
-router.post('/getReservationById', withAuth, getReservationById);
-router.post('/updateReservation', withAuth, updateReservation);
-router.post('/checkAvailability', withAuth, checkAvailability);
-router.post('/createReservationRange', withAuth, createReservationRange);
-router.post('/deleteReservation', withAuth, deleteReservation);
+router.post('/createReservation', withAuth, checkAccount, createReservation);
+router.post('/confirmBooking', withAuth, checkAccount, confirmBooking);
+router.get('/availableHours', withAuth, checkAccount, getAvailableHours);
+router.get('/reservationsByDate', withAuth, checkAccount, getReservationsByDate);
+router.get('/statuses', withAuth, checkAccount, getStatuses);
+router.get('/reservationsByAircraft', withAuth, checkAccount, getReservationsByAircraft);
+router.post('/getReservationById', withAuth, checkAccount, getReservationById);
+router.post('/updateReservation', withAuth, checkAccount, updateReservation);
+router.post('/checkAvailability', withAuth, checkAccount, checkAvailability);
+router.post('/createReservationRange', withAuth, checkAccount, createReservationRange);
+router.post('/deleteReservation', withAuth, checkAccount, deleteReservation);
 
-async function getBookableHours(conn, { date, idAircraft, experienceCode, routeCode, serviceCode }) {
-    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
-    if ((experienceCode || routeCode || serviceCode) && !product) {
-        throw 'Invalid experience or route code';
+async function getBookableHours(conn, { date, idAircraft, experienceCode, serviceCode, idAccount }) {
+    const product = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, serviceCode, idAccount });
+    if ((experienceCode || serviceCode) && !product) {
+        throw 'Invalid service code';
     }
 
     if (product && !product.allowedWeekdays.includes(weekdayOfDate(date))) {
         return [];
     }
 
-    const occupancyHours = await db.getAvailableHours(conn, { date, idAircraft });
+    const occupancyHours = await db.getAvailableHours(conn, { date, idAircraft, idAccount });
     if (!product) return occupancyHours;
     return bookingConfigDb.filterHoursForProduct(occupancyHours, product);
 }
-router.get('/cancellationReasons', withAuth, getCancellationReasons);
-router.post('/validateQrConfirmation', withAuth, validateQrConfirmation);
-router.post('/qrBoardingPassPdf', withAuth, qrBoardingPassPdf);
-router.post('/completeQrValidation', withAuth, completeQrValidation);
+router.get('/cancellationReasons', withAuth, checkAccount, getCancellationReasons);
+router.post('/validateQrConfirmation', withAuth, checkAccount, validateQrConfirmation);
+router.post('/qrBoardingPassPdf', withAuth, checkAccount, qrBoardingPassPdf);
+router.post('/completeQrValidation', withAuth, checkAccount, completeQrValidation);
 
 function qrReject(message, code, status = 400) {
     const e = new Error(message);
@@ -83,7 +84,7 @@ function assertQrValidationEligible(rows) {
 }
 
 function experienceTitle(reservation) {
-    return reservation.experience || reservation.route || 'Tour';
+    return reservation.experience || 'Tour';
 }
 
 function passengersForBoardingPdf(passengerRows) {
@@ -111,9 +112,9 @@ async function validateQrConfirmation(req, res) {
             connSuccess = true;
             const hash = normalizeConfirmationHash(req.body);
             if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
-            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            const rows = await db.getReservationByConfirmationHash(conn, hash, req.idAccount);
             const reservation = assertQrValidationEligible(rows);
-            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation);
+            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation, req.idAccount);
             response = {
                 success: true,
                 reservation: {
@@ -148,9 +149,9 @@ async function qrBoardingPassPdf(req, res) {
             connSuccess = true;
             const hash = normalizeConfirmationHash(req.body);
             if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
-            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            const rows = await db.getReservationByConfirmationHash(conn, hash, req.idAccount);
             const reservation = assertQrValidationEligible(rows);
-            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation);
+            const passengerRows = await db.getPassengersByReservationId(conn, reservation.idReservation, req.idAccount);
             const passengers = passengersForBoardingPdf(passengerRows);
             if (!passengers.length) {
                 throw qrReject('No passengers found for this reservation.', 'NO_PASSENGERS', 400);
@@ -192,10 +193,10 @@ async function completeQrValidation(req, res) {
             connSuccess = true;
             const hash = normalizeConfirmationHash(req.body);
             if (!hash) throw qrReject('Missing confirmation code.', 'MISSING_HASH', 400);
-            const rows = await db.getReservationByConfirmationHash(conn, hash);
+            const rows = await db.getReservationByConfirmationHash(conn, hash, req.idAccount);
             assertQrValidationEligible(rows);
             const idReservation = rows[0].idReservation;
-            const updateResult = await db.completeQrValidation(conn, idReservation);
+            const updateResult = await db.completeQrValidation(conn, idReservation, req.idAccount, req.idUser);
             if (!updateResult || updateResult.affectedRows === 0) {
                 throw qrReject(
                     'Could not complete check-in. The reservation may have been updated by another session.',
@@ -230,7 +231,7 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
             console.log(req.body);
-            let { experienceCode, routeCode, serviceCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
+            let { experienceCode, serviceCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
             idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
 
             if (!reservationDate || !reservationTime) {
@@ -238,14 +239,13 @@ async function createReservation(req, res) {
             }
 
             const paxCount = Number(passengerCount) || (Array.isArray(passengers) ? passengers.length : 0) || 2;
-            const staffMe = isStaffMeBooking({ experienceCode, routeCode, passengerCount: paxCount });
 
             const availabilityParams = {
                 date: reservationDate,
                 idAircraft: idAircraft && idAircraft !== 'all' ? idAircraft : null,
-                experienceCode: staffMe ? '' : experienceCode,
-                routeCode: staffMe ? '' : routeCode,
-                serviceCode: staffMe ? '' : serviceCode,
+                experienceCode,
+                serviceCode,
+                idAccount: req.idAccount,
             };
             const availableHours = await getBookableHours(conn, availabilityParams)
             const isAvailable = availableHours.some(item => formatHour(item.hour) === reservationTime);
@@ -258,8 +258,15 @@ async function createReservation(req, res) {
 
             if (!idAircraft || idAircraft == "all") {
                 // Get aircraft
-                const aircrafts = await db.getAircrafts(conn, startDate, endDate);
+                const aircrafts = await db.getAircrafts(conn, startDate, endDate, req.idAccount);
                 idAircraft = aircrafts[0].idAircraft;
+            }
+
+            if (idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, 0, req.idAccount);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw `There is already a reservation scheduled for the pilot during this time period. Overlapping reservation: ${pilotOverlaps[0].codeReservation}`;
+                }
             }
 
 
@@ -273,46 +280,22 @@ async function createReservation(req, res) {
             //     passengers: passengerCount
             // })
 
-            // Debemos guardar tanto la ruta como la experiencia si corresponde.
-            if (experienceCode && experienceCode?.length > 0) {
-                routeCode = 'PRE'
-            }
-            if (serviceCode && serviceCode.length > 0) {
-                routeCode = routeCode || serviceCode
-            }
-            if (!routeCode && !serviceCode) throw 'Invalid route code'
-            const route = routeCode ? await db.getRouteByCode(conn, routeCode) : null
-            if (!route && !serviceCode) throw 'No route found'
-
-            let service = null;
+            const code = serviceCode || experienceCode;
+            if (!code) throw 'Invalid service code'
+            const service = await servicesDb.getServiceByCode(conn, code, req.idAccount);
+            if (!service) throw 'Invalid service code';
             let totalValue = 0;
 
-            if (serviceCode && serviceCode.length > 0) {
-                service = await servicesDb.getServiceByCode(conn, serviceCode);
-                if (!service) throw 'Invalid service code';
+            const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, serviceCode, idAccount: req.idAccount });
+            if (!productConfig) throw 'Invalid service code';
+            if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
+                throw 'Selected date is not available for this flight.';
             }
-            if (!service && experienceCode) {
-                service = await servicesDb.getServiceByCode(conn, experienceCode);
-                if (!service) throw 'Invalid experience code';
+            const priced = findPriceForPassengers(productConfig.prices, paxCount);
+            if (priced == null) {
+                throw 'Selected flight is not available for this number of passengers.';
             }
-            if (!service && routeCode) {
-                service = await servicesDb.getServiceByCode(conn, routeCode);
-            }
-
-            if (staffMe) {
-                totalValue = route.value2;
-            } else {
-                const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, routeCode, serviceCode });
-                if (!productConfig) throw experienceCode ? 'Invalid experience code' : 'Invalid route code';
-                if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
-                    throw 'Selected date is not available for this flight.';
-                }
-                const priced = findPriceForPassengers(productConfig.prices, paxCount);
-                if (priced == null) {
-                    throw 'Selected flight is not available for this number of passengers.';
-                }
-                totalValue = priced;
-            }
+            totalValue = priced;
 
             totalValue = new Currency(totalValue).value;
             const deposit = 50;
@@ -323,11 +306,11 @@ async function createReservation(req, res) {
 
             // create reservation with idStatus = 1 (In progress)
             const insertResult = await db.createReservation(conn, {
+                idUser: req.idUser,
                 startDate,
                 endDate,
-                idRoute: route ? route.idRoute : null,
                 idExperience: null,
-                idService: service ? service.idService : null,
+                idService: service.idService,
                 passengerCount: paxCount,
                 idStatus: 1,
                 totalValue,
@@ -335,7 +318,8 @@ async function createReservation(req, res) {
                 remainingBalance,
                 reservationExpiration,
                 idAircraft: idAircraft,
-                idPilot
+                idPilot,
+                idAccount: req.idAccount
             })
             // NOTE: reservation holder update and passenger insertion are handled
             // by the /confirmBooking endpoint to allow creating a draft reservation
@@ -375,14 +359,15 @@ async function confirmBooking(req, res) {
 
 
             console.log(req.body);
-            await db.updateReservationStatus(conn, { idStatus: 3, idReservation: idReservation })
+            const statusResult = await db.updateReservationStatus(conn, { idStatus: 3, idReservation: idReservation, idAccount: req.idAccount, idUser: req.idUser })
+            if (!statusResult.affectedRows) throw 'Reservation not found.'
 
             if (notes && String(notes).trim() != "") {
-                await db.updateReservationNotes(conn, { notes: notes, idReservation: idReservation })
+                await db.updateReservationNotes(conn, { notes: notes, idReservation: idReservation, idAccount: req.idAccount, idUser: req.idUser })
             }
             // Update reservation holder if provided
             if (reservationHolder && Object.keys(reservationHolder).length > 0) {
-                await db.updateReservationHolder(conn, { ...reservationHolder, idReservation });
+                await db.updateReservationHolder(conn, { ...reservationHolder, idReservation, idAccount: req.idAccount, idUser: req.idUser });
             }
 
             // Insert passengers if provided
@@ -400,14 +385,16 @@ async function confirmBooking(req, res) {
             await db.saveConfirmationHash(conn, {
                 idReservation,
                 confirmationHash,
+                idAccount: req.idAccount,
+                idUser: req.idUser,
             });
 
-            const reservationRows = await db.getReservationById(conn, idReservation);
+            const reservationRows = await db.getReservationById(conn, idReservation, req.idAccount);
             const reservation = reservationRows && reservationRows[0];
 
             if (reservation?.idService) {
-                const included = await db.getServiceAddons(conn, reservation.idService);
-                const stored = await db.getReservationAddons(conn, idReservation);
+                const included = await db.getServiceAddons(conn, reservation.idService, req.idAccount);
+                const stored = await db.getReservationAddons(conn, idReservation, req.idAccount);
                 const present = new Set(stored.map((item) => Number(item.idAddon)));
                 for (const item of included) {
                     if (present.has(Number(item.idAddon))) continue;
@@ -419,7 +406,7 @@ async function confirmBooking(req, res) {
                     });
                 }
             }
-            const passengerRows = await db.getPassengersByReservationId(conn, idReservation);
+            const passengerRows = await db.getPassengersByReservationId(conn, idReservation, req.idAccount);
             const holderEmail = reservationHolder?.email || reservation?.email;
 
             if (reservation && holderEmail) {
@@ -483,7 +470,6 @@ async function getAvailableHours(req, res) {
             const date = req.query.date;
             const idAircraft = req.query.idAircraft && req.query.idAircraft != null && req.query.idAircraft != "all" ? req.query.idAircraft : null
             const experienceCode = (req.query.experienceCode || '').toString().trim();
-            const routeCode = (req.query.routeCode || '').toString().trim();
             const serviceCode = (req.query.serviceCode || '').toString().trim();
 
             if (!date) {
@@ -494,8 +480,8 @@ async function getAvailableHours(req, res) {
                 date,
                 idAircraft,
                 experienceCode,
-                routeCode,
-                serviceCode
+                serviceCode,
+                idAccount: req.idAccount
             })
 
             response = { availableHours: availableHours.map(item => formatHour(item.hour)) }
@@ -573,13 +559,22 @@ async function getReservationsByDate(req, res) {
             if (req.query.idService != null && String(req.query.idService).trim() !== '' && req.query.idService !== 'all') {
                 filters.idService = req.query.idService;
             }
-            if (req.query.idRoute != null && String(req.query.idRoute).trim() !== '' && req.query.idRoute !== 'all') {
-                filters.idRoute = req.query.idRoute;
-            }
             if (req.query.idPilot != null && String(req.query.idPilot).trim() !== '' && req.query.idPilot !== 'all') {
                 filters.idPilot = req.query.idPilot;
             }
+            if (req.query.statuses != null) {
+                const ids = String(req.query.statuses)
+                    .split(',')
+                    .map((part) => part.trim())
+                    .filter(Boolean)
+                    .map((part) => Number(part));
+                if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+                    throw 'Invalid statuses.';
+                }
+                filters.statusIds = ids;
+            }
 
+            filters.idAccount = req.idAccount;
             const reservations = await db.getReservationsByDateRange(conn, dateFrom, dateTo, filters)
 
             response = { reservations }
@@ -620,7 +615,7 @@ async function getReservationsByAircraft(req, res) {
             }
 
             //Get aircrafts
-            let aircarfts = await db.getAircrafts(conn);
+            let aircarfts = await db.getAircrafts(conn, null, null, req.idAccount);
 
             for (let i = 0; i < aircarfts.length; i++) {
                 let aircraft = aircarfts[i];
@@ -629,7 +624,7 @@ async function getReservationsByAircraft(req, res) {
             }
 
             // lookup idTourType by code
-            const reservations = await db.getReservationsByDate(conn, date)
+            const reservations = await db.getReservationsByDate(conn, date, req.idAccount)
 
             response = { reservations }
 
@@ -667,10 +662,11 @@ async function getReservationById(req, res) {
             }
 
             // lookup idTourType by code
-            const [reservation] = await db.getReservationById(conn, id)
+            const [reservation] = await db.getReservationById(conn, id, req.idAccount)
+            if (!reservation) throw 'Reservation not found.'
 
-            const passengers = await db.getPassengersByReservationId(conn, id);
-            const addons = await db.reservationAddonsWithIncluded(conn, id, reservation.idService);
+            const passengers = await db.getPassengersByReservationId(conn, id, req.idAccount);
+            const addons = await db.reservationAddonsWithIncluded(conn, id, reservation.idService, req.idAccount);
 
             reservation.passengers = passengers;
             reservation.addons = addons;
@@ -704,7 +700,7 @@ async function updateReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idRoute, idExperience, idAircraft, idPilot } = req.body;
+            const { idReservation, name, lastname, email, phoneNumber, notes, startDate, endDate, idExperience, idAircraft, idPilot } = req.body;
 
             if (!idReservation) {
                 throw 'Missing reservation ID.'
@@ -712,13 +708,22 @@ async function updateReservation(req, res) {
 
             // If startDate or endDate are being updated, validate no overlaps exist
             if (startDate && endDate && idAircraft) {
-                const overlaps = await db.checkReservationOverlap(conn, startDate, endDate, idAircraft, idReservation);
+                const overlaps = await db.checkReservationOverlap(conn, startDate, endDate, idAircraft, idReservation, req.idAccount);
                 if (overlaps && overlaps.length > 0) {
                     throw `There is already a reservation scheduled for the aircraft during this time period. Overlapping reservation: ${overlaps[0].codeReservation}`;
                 }
             }
 
+            if (startDate && endDate && idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, idReservation, req.idAccount);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw `There is already a reservation scheduled for the pilot during this time period. Overlapping reservation: ${pilotOverlaps[0].codeReservation}`;
+                }
+            }
+
             const updateResult = await db.updateReservation(conn, {
+
+                idUser: req.idUser,
                 idReservation,
                 name,
                 lastname,
@@ -727,10 +732,10 @@ async function updateReservation(req, res) {
                 notes,
                 startDate,
                 endDate,
-                idRoute,
                 idExperience,
                 idAircraft,
-                idPilot: idPilot ? idPilot : null
+                idPilot: idPilot ? idPilot : null,
+                idAccount: req.idAccount
             })
 
             response = { success: true, message: 'Reservation updated successfully' }
@@ -769,7 +774,7 @@ async function checkAvailability(req, res) {
             }
 
             // Check for overlapping reservations
-            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
+            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft, req.idAccount);
 
             const hasConflict = overlapping && overlapping.length > 0;
 
@@ -815,21 +820,29 @@ async function createReservationRange(req, res) {
             }
 
             // Verificar solapamiento para el aircraft seleccionado
-            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft);
+            const overlapping = await db.getReservationsInRange(conn, startDate, endDate, idAircraft, req.idAccount);
             if (overlapping && overlapping.length > 0) {
                 throw { overlapping, message: 'There are already reservations in this range.' };
             }
+
+            if (idPilot) {
+                const pilotOverlaps = await db.checkPilotOverlap(conn, startDate, endDate, idPilot, 0, req.idAccount);
+                if (pilotOverlaps && pilotOverlaps.length > 0) {
+                    throw { overlapping: pilotOverlaps, message: 'The pilot already has a reservation in this range.' };
+                }
+            }
             
-            const pilotRoute = await db.getRouteByCode(conn, '000');
-            if (!pilotRoute) throw 'No route found for pilot booking.';
+            const manualService = await servicesDb.getServiceByCode(conn, 'MANUAL', req.idAccount);
+            if (!manualService) throw 'MANUAL service not found.';
 
             // Crear reserva de bloqueo
             const insertResult = await db.createReservation(conn, {
+                idUser: req.idUser,
                 passengers: 0,
                 startDate,
                 endDate,
-                idRoute: pilotRoute.idRoute,
                 idExperience: null,
+                idService: manualService.idService,
                 idStatus: 3, // Confirmed
                 totalValue: 0,
                 deposit: 0,
@@ -837,7 +850,8 @@ async function createReservationRange(req, res) {
                 reservationExpiration: null,
                 idAircraft,
                 idPilot,
-                notes
+                notes,
+                idAccount: req.idAccount
             });
             response = { success: true, id: insertResult.insertId };
             status = 200;
@@ -858,6 +872,32 @@ async function createReservationRange(req, res) {
     });
 }
 
+
+async function getStatuses(req, res) {
+    pool.getConnection(async (errConn, conn) => {
+        let response = {};
+        let status = 400;
+        let connSuccess = false;
+
+        try {
+            if (errConn) throw errConn;
+            connSuccess = true;
+
+            const statuses = await db.getStatuses(conn);
+
+            response = { statuses };
+            status = 200;
+        } catch (e) {
+            let message = "An error has occurred while getting the statuses.";
+            if (typeof e == "string") { message = e }
+            status = 400;
+            response = { message };
+        } finally {
+            if (connSuccess) conn.release();
+            res.status(status).send(response);
+        }
+    });
+}
 
 async function getCancellationReasons(req, res) {
     pool.getConnection(async (errConn, conn) => {
@@ -895,7 +935,7 @@ async function deleteReservation(req, res) {
             if (errConn) throw errConn;
             connSuccess = true;
 
-            if (req.idRole != 1) {
+            if (req.code != "ADM") {
                 throw "Not authorized."
             }
 
@@ -923,7 +963,9 @@ async function deleteReservation(req, res) {
             await db.cancelReservation(conn, {
                 idReservation,
                 idCancellationReason,
-                cancellationDetail: detail
+                cancellationDetail: detail,
+                idAccount: req.idAccount,
+                idUser: req.idUser
             })
 
             response = { success: true, message: 'Reservation deleted successfully' };
