@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/servicesModel.js');
-const { serializeWeekdays, codeFromTitle, serviceSlots } = require('../utils/bookingConfig.js');
+const { serializeWeekdays, codeFromTitle, DEFAULT_WEEKDAYS } = require('../utils/bookingConfig.js');
 const { pool } = require('../helpers/conexion-mysql.js');
 const withAuth = require('../middleware/withAuth.js');
 const checkAccount = require('../middleware/checkAccount.js');
@@ -25,12 +25,10 @@ function payload(body, idService) {
         image: body.image || null,
         duration: body.duration || null,
         durationMinutes: num(body.durationMinutes, null),
-        startTime: body.startTime || null,
-        endTime: body.endTime || null,
         visibleToClients: visible ? 1 : 0,
         minDaysAhead: num(body.minDaysAhead, 1),
         maxDaysAhead: num(body.maxDaysAhead, 31),
-        allowedWeekdays: serializeWeekdays(body.allowedWeekdays)
+        allowedWeekdays: serializeWeekdays(DEFAULT_WEEKDAYS)
     };
 }
 
@@ -66,15 +64,8 @@ async function saveChildren(conn, idService, body, idAccount, idUser) {
     }
 }
 
-function clock(value) {
-    if (!value) return null;
-    return String(value).slice(0, 5);
-}
-
 function attachChildren(services, prices, addons) {
     for (const service of services) {
-        service.startTime = clock(service.startTime);
-        service.endTime = clock(service.endTime);
         service.prices = [];
         service.addons = [];
     }
@@ -127,12 +118,6 @@ function assertService(body, row) {
     if (!row.title) throw 'Title is required';
     if (row.title.length > 32) throw 'Title must be 32 characters or less';
     if (!Number.isInteger(minutes) || minutes <= 0) throw 'Service duration is required';
-    if (!Array.isArray(body.allowedWeekdays) || body.allowedWeekdays.length === 0) throw 'Days of service are required';
-    const start = String(body.startTime || '').trim();
-    const end = String(body.endTime || '').trim();
-    if (!serviceSlots(start, end, minutes).length) throw 'Service hours must fit at least one full service in the range';
-    row.startTime = start.slice(0, 5);
-    row.endTime = end.slice(0, 5);
 }
 
 // ponytail: 35 variants per 3-letter prefix (base + 2-9 + A-Z), then it gives up.

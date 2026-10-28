@@ -4,6 +4,7 @@ const router = express.Router();
 const connection = require('../helpers/conexion-mysql')
 const db = require('../models/authModel.js')
 const servicesDb = require('../models/servicesModel.js')
+const hoursDb = require('../models/businessHoursModel.js')
 const { addLog } = require('../helpers/addLog.js')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -245,9 +246,10 @@ async function createOwner(conn, p) {
     const roles = await db.getRoleByCode(conn, 'ADM');
     if (!roles[0]) throw 'Administrator role is not configured.';
     const account = await db.createAccount(conn, { name: p.email, showSetupModal: 1 });
+    await hoursDb.copyDefaults(conn, account.insertId);
     await servicesDb.createService(conn, {
         code: 'MANUAL', title: 'Manual Booking', description: null, image: null, duration: null,
-        durationMinutes: 60, startTime: '08:00', endTime: '20:00', visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
+        durationMinutes: 60, visibleToClients: 0, minDaysAhead: 0, maxDaysAhead: 365,
         allowedWeekdays: '[0,1,2,3,4,5,6]', idAccount: account.insertId
     });
     await db.createUser(conn, {

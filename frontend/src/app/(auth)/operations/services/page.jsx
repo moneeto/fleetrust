@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { parseWeekdays } from "@/helpers/bookingConfig";
 import { Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Table } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
 import { Check, EditIcon, Filter, TrashIcon } from "lucide-react";
@@ -13,57 +12,7 @@ import Spinner from "@/components/ui/Spinner";
 import styles from "@/components/ui/listing.module.css";
 import form_ from "./services.module.css";
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-const STEPS = ["Service", "Prices", "Days and hours"];
-
-function toMinutes(time) {
-    const parts = String(time || "").split(":");
-    if (parts.length < 2) return NaN;
-    const hours = Number(parts[0]);
-    const minutes = Number(parts[1]);
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
-    return hours * 60 + minutes;
-}
-
-function toTime(minutes) {
-    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
-function hourLabel(time) {
-    const [h, m] = time.split(":").map(Number);
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
-}
-
-function slots(from, to, minutes) {
-    const list = [];
-    const start = toMinutes(from);
-    const end = toMinutes(to);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return list;
-    for (let m = start; minutes > 0 && m + minutes <= end; m += minutes) list.push(toTime(m));
-    return list;
-}
-
-function scheduleHint(start, end, minutes) {
-    const duration = Number(minutes);
-    if (!Number.isInteger(duration) || duration <= 0) return "Set the service duration in step 1 first.";
-    const list = slots(start, end, duration);
-    if (!list.length) return "This range does not fit one full service. Move the closing time later or shorten the duration.";
-    return `Starts every ${duration} minutes, from ${hourLabel(list[0])} through ${hourLabel(list[list.length - 1])}. Each booking lasts ${duration} minutes.`;
-}
-
-function sameDays(a, b) {
-    const left = a.slice().sort();
-    const right = b.slice().sort();
-    return left.length === right.length && left.every((day, index) => day === right[index]);
-}
-
-const DAY_PRESETS = [
-    { label: "Weekdays", days: [1, 2, 3, 4, 5] },
-    { label: "Weekdays + Saturday", days: [1, 2, 3, 4, 5, 6] },
-    { label: "All days", days: [0, 1, 2, 3, 4, 5, 6] },
-    { label: "Weekends", days: [0, 6] }
-];
+const STEPS = ["Service", "Prices", "Advance"];
 
 const ADVANCE = [
     { label: "No advance", days: 0 },
@@ -97,21 +46,6 @@ function priceRange(prices) {
     return low === high ? money(low) : `${money(low)} – ${money(high)}`;
 }
 
-function daysLabel(value) {
-    const days = parseWeekdays(value);
-    if (!days.length) return "—";
-    const preset = DAY_PRESETS.find((item) => sameDays(days, item.days));
-    if (preset) return preset.label;
-    return [1, 2, 3, 4, 5, 6, 0].filter((day) => days.includes(day)).map((day) => WEEKDAYS[day].slice(0, 3)).join(", ");
-}
-
-function rangeLabel(startTime, endTime) {
-    const start = String(startTime || "").slice(0, 5);
-    const end = String(endTime || "").slice(0, 5);
-    if (!start.includes(":") || !end.includes(":")) return "—";
-    return `${hourLabel(start)} – ${hourLabel(end)}`;
-}
-
 function advanceLabel(days) {
     if (days == null || days === "") return "—";
     const n = Number(days);
@@ -124,8 +58,6 @@ function serviceFacts(row) {
     return [
         ["Duration", durationLabel(row.durationMinutes)],
         ["Price / person", priceRange(row.prices)],
-        ["Days", daysLabel(row.allowedWeekdays)],
-        ["Hours", rangeLabel(row.startTime, row.endTime)],
         ["Advance", advanceLabel(row.minDaysAhead)]
     ];
 }
@@ -139,15 +71,12 @@ const emptyForm = {
     visibleToClients: true,
     minDaysAhead: 1,
     maxDaysAhead: 31,
-    allowedWeekdays: [0, 1, 2, 3, 4, 5, 6],
     prices: [{ passengers: "", price: "" }],
-    startTime: "09:00",
-    endTime: "17:00",
     addons: []
 };
 
 function toForm(row) {
-    if (!row) return { ...emptyForm, prices: [{ passengers: "", price: "" }], addons: [], allowedWeekdays: [0, 1, 2, 3, 4, 5, 6] };
+    if (!row) return { ...emptyForm, prices: [{ passengers: "", price: "" }], addons: [] };
     return {
         idService: row.idService,
         title: row.title || "",
@@ -158,10 +87,7 @@ function toForm(row) {
         visibleToClients: row.visibleToClients === 1 || row.visibleToClients === true,
         minDaysAhead: row.minDaysAhead ?? 1,
         maxDaysAhead: row.maxDaysAhead ?? 31,
-        allowedWeekdays: parseWeekdays(row.allowedWeekdays),
         prices: row.prices && row.prices.length ? row.prices.map((p) => ({ passengers: p.passengers, price: p.price })) : [{ passengers: "", price: "" }],
-        startTime: String(row.startTime || "09:00").slice(0, 5),
-        endTime: String(row.endTime || "17:00").slice(0, 5),
         addons: (row.addons || []).map(Number)
     };
 }
@@ -221,17 +147,9 @@ export default function ServiceList() {
             toast({ variant: "destructive", title: "Missing data", description: "Title (max 32 characters) and duration are required." });
             return;
         }
-        if (!form.allowedWeekdays.length || !slots(form.startTime, form.endTime, minutes).length) {
-            setStep(2);
-            toast({ variant: "destructive", title: "Missing data", description: "Days of service and a time range that fits the duration are required." });
-            return;
-        }
         try {
             setLoading(true);
-            const body = {
-                ...form,
-                allowedWeekdays: form.allowedWeekdays
-            };
+            const body = { ...form };
             const path = form.idService ? "/services/edit" : "/services/new";
             await ApiComunicator(path, "POST", body);
             await fetchRows();
@@ -299,13 +217,6 @@ export default function ServiceList() {
             </FormGroup>
         </>
     );
-
-    function toggleDay(day) {
-        const days = form.allowedWeekdays.includes(day)
-            ? form.allowedWeekdays.filter((item) => item !== day)
-            : form.allowedWeekdays.concat(day);
-        setForm({ ...form, allowedWeekdays: days });
-    }
 
     function setPrice(index, field, value) {
         const prices = form.prices.map((row, i) => (i === index ? { ...row, [field]: value } : row));
@@ -506,37 +417,8 @@ export default function ServiceList() {
 
                             {step === 2 && (
                                 <>
-                                    <div className={form_.title}>Days and hours</div>
-                                    <div className={form_.subtitle}>When customers can book this service.</div>
-                                    <FormGroup>
-                                        <Label>Days of service</Label>
-                                        <div className={form_.dayGrid}>
-                                            {WEEKDAYS.map((name, day) => (
-                                                <button
-                                                    type="button"
-                                                    key={name}
-                                                    className={`${form_.day} ${form.allowedWeekdays.includes(day) ? form_.dayOn : ""}`}
-                                                    aria-pressed={form.allowedWeekdays.includes(day)}
-                                                    onClick={() => toggleDay(day)}
-                                                >
-                                                    {name.slice(0, 3)}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <div className={form_.presetRow}>
-                                            {DAY_PRESETS.map((preset) => (
-                                                <button
-                                                    type="button"
-                                                    key={preset.label}
-                                                    className={`${form_.preset} ${sameDays(form.allowedWeekdays, preset.days) ? form_.presetOn : ""}`}
-                                                    onClick={() => setForm({ ...form, allowedWeekdays: preset.days })}
-                                                >
-                                                    {preset.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </FormGroup>
-
+                                    <div className={form_.title}>Advance</div>
+                                    <div className={form_.subtitle}>How early customers can book this service. Opening hours are set in Availability.</div>
                                     <FormGroup>
                                         <Label>Days in advance to book</Label>
                                         <div className={form_.advanceRow}>
@@ -564,20 +446,6 @@ export default function ServiceList() {
                                         {advanceCustom && (
                                             <Input className="mt-2" type="number" min="0" style={{ maxWidth: "160px" }} placeholder="Days" value={form.minDaysAhead} onChange={(e) => setForm({ ...form, minDaysAhead: e.target.value })} />
                                         )}
-                                    </FormGroup>
-
-                                    <FormGroup>
-                                        <Label>Hours of service</Label>
-                                        <div className={form_.hoursBox}>
-                                            <p className="text-muted mb-2">
-                                                {scheduleHint(form.startTime, form.endTime, form.durationMinutes)}
-                                            </p>
-                                            <div className="d-flex flex-wrap gap-2 align-items-center">
-                                                <Input type="time" style={{ maxWidth: "150px" }} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-                                                <span>to</span>
-                                                <Input type="time" style={{ maxWidth: "150px" }} value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
-                                            </div>
-                                        </div>
                                     </FormGroup>
                                 </>
                             )}

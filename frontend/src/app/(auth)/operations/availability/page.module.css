@@ -1,0 +1,140 @@
+.header h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.header p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+}
+
+.list {
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.day {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.day:last-child {
+    border-bottom: 0;
+}
+
+.day:hover {
+    background: #f8fafc;
+}
+
+.switch {
+    margin: 0;
+    padding-top: 0.35rem;
+}
+
+.name {
+    width: 140px;
+    padding-top: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.intervals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.interval {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.interval :global(.form-control) {
+    max-width: 140px;
+    min-height: 38px;
+    border-radius: var(--radius-sm);
+    border-color: #d1d5db;
+    font-size: 0.875rem;
+}
+
+.interval :global(.form-control:focus) {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.interval span {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.remove {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.remove:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.off {
+    flex: 1;
+}
+
+.add {
+    margin-left: auto;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.off {
+    padding-top: 0.3rem;
+}
+
+.actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .day {
+        flex-wrap: wrap;
+        padding: 0.9rem 1rem;
+    }
+
+    .name {
+        width: auto;
+        flex: 1;
+    }
+
+    .intervals,
+    .off {
+        flex-basis: 100%;
+        order: 3;
+    }
+
+    .actions :global(.btn) {
+        width: 100%;
+    }
+}

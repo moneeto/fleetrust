@@ -98,6 +98,44 @@ CREATE TABLE `aircrafts` (
   CONSTRAINT `fk_aircrafts_account` FOREIGN KEY (`idAccount`) REFERENCES `accounts` (`idAccount`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+/*Table structure for table `business_hours` */
+
+DROP TABLE IF EXISTS `business_hours`;
+
+CREATE TABLE `business_hours` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `day` int(2) DEFAULT NULL COMMENT '0=Domingo, 1=Lunes, ..., 6=Sábado',
+  `hourFrom` time DEFAULT NULL,
+  `hourTo` time DEFAULT NULL,
+  `available` tinyint(4) DEFAULT NULL,
+  `idAccount` int(11) DEFAULT NULL,
+  `createdAt` datetime DEFAULT current_timestamp(),
+  `createdBy` int(11) DEFAULT NULL,
+  `updatedAt` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updatedBy` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Table structure for table `business_hours_default` */
+
+DROP TABLE IF EXISTS `business_hours_default`;
+
+CREATE TABLE `business_hours_default` (
+  `day` int(2) DEFAULT NULL COMMENT '0=Domingo, 1=Lunes, ..., 6=Sábado',
+  `hourFrom` time DEFAULT NULL,
+  `hourTo` time DEFAULT NULL,
+  `available` tinyint(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `business_hours_default` (`day`, `hourFrom`, `hourTo`, `available`) VALUES
+(0, '09:00:00', '17:00:00', 1),
+(1, '09:00:00', '17:00:00', 1),
+(2, '09:00:00', '17:00:00', 1),
+(3, '09:00:00', '17:00:00', 1),
+(4, '09:00:00', '17:00:00', 1),
+(5, '09:00:00', '17:00:00', 1),
+(6, '09:00:00', '17:00:00', 1);
+
 /*Table structure for table `cancellation_reasons` */
 
 DROP TABLE IF EXISTS `cancellation_reasons`;
@@ -426,8 +464,6 @@ CREATE TABLE `services` (
   `image` varchar(255) DEFAULT NULL,
   `duration` varchar(100) DEFAULT NULL,
   `durationMinutes` int(11) DEFAULT NULL,
-  `startTime` time DEFAULT NULL,
-  `endTime` time DEFAULT NULL,
   `visibleToClients` tinyint(1) NOT NULL DEFAULT 1,
   `minDaysAhead` int(11) NOT NULL DEFAULT 1,
   `maxDaysAhead` int(11) NOT NULL DEFAULT 31,

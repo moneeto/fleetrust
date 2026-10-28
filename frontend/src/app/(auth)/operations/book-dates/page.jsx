@@ -44,6 +44,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
     const [customLength, setCustomLength] = useState(false);
     const [dateRange, setDateRange] = useState({ from: null, to: null });
     const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
+    const [openDays, setOpenDays] = useState([]);
 
     useEffect(() => {
         if (bookingType === 'others') {
@@ -57,6 +58,12 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         getAircrafts();
         getPilots();
         getServices();
+        ApiComunicator("/business-hours", "GET")
+            .then((res) => {
+                const days = [...new Set((res.hours || []).filter((row) => Number(row.available) === 1).map((row) => Number(row.day)))];
+                setOpenDays(days);
+            })
+            .catch(() => setOpenDays([]));
     }, []);
 
     useEffect(() => {
@@ -367,7 +374,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                                 onTimeChange={setTime}
                                                 idAircraft={idAircraft}
                                                 serviceCode={serviceCode}
-                                                allowedWeekdays={product?.allowedWeekdays}
+                                                allowedWeekdays={openDays}
                                             />
                                         )}
                                     </div>

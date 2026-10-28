@@ -61,6 +61,8 @@ const publicCms = require('./src/routes/publicCms.js');
 const toursGallery = require('./src/routes/toursGallery.js');
 const addons = require('./src/routes/addons.js');
 const pilots = require('./src/routes/pilots.js');
+const users = require('./src/routes/users.js');
+const businessHours = require('./src/routes/businessHours.js');
 app.use('/auth', auth);
 app.use('/reservations', reservations);
 app.use('/aircrafts', aircrafts);
@@ -73,6 +75,8 @@ app.use('/public', publicCms);
 app.use('/toursGallery', toursGallery);
 app.use('/addons', addons);
 app.use('/pilots', pilots);
+app.use('/users', users);
+app.use('/business-hours', businessHours);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {

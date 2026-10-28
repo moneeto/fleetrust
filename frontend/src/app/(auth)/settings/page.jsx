@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Alert, Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from "reactstrap";
 import { Fingerprint, KeyRound, UserRound } from "lucide-react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
@@ -70,13 +71,14 @@ export default function Settings() {
             <div className={styles.avatar}>{initials}</div>
             <h1 className={styles.name}>{profile.name} {profile.surname}</h1>
             <p className={styles.meta}>{profile.email}</p>
+            {profile.role && <p className={styles.meta}>{profile.role}</p>}
             <p className={styles.meta}>Member since {since}</p>
 
             {error && !modal && <Alert color="danger" className="mt-3">{error}</Alert>}
 
             <div className={styles.cards}>
                 <section className={styles.card}>
-                    <span className={styles.icon}><UserRound size={22} /></span>
+                    {/* <span className={styles.icon}><UserRound size={22} /></span> */}
                     <h2>Personal information</h2>
                     <p>Update the name shown on your account.</p>
                     <div className={styles.actions}>
@@ -87,7 +89,7 @@ export default function Settings() {
                 </section>
 
                 <section className={styles.card}>
-                    <span className={styles.icon}><KeyRound size={22} /></span>
+                    {/* <span className={styles.icon}><KeyRound size={22} /></span> */}
                     <h2>Password</h2>
                     <p>Use at least 8 characters.</p>
                     <div className={styles.actions}>
@@ -98,7 +100,7 @@ export default function Settings() {
                 </section>
 
                 <section className={styles.card}>
-                    <span className={styles.icon}><Fingerprint size={22} /></span>
+                    {/* <span className={styles.icon}><Fingerprint size={22} /></span> */}
                     <h2>Biometric / passkey sign in</h2>
                     <p>{passkeys > 0 ? "Enabled. Sign in with your fingerprint, face or device lock." : "Sign in with your fingerprint, face or device lock."}</p>
                     <div className={styles.actions}>
