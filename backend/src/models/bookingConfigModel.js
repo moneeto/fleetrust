@@ -1,4 +1,4 @@
-const { normalizeProduct, serviceSlots } = require('../utils/bookingConfig');
+const { normalizeProduct } = require('../utils/bookingConfig');
 
 function query(conn, sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -24,9 +24,7 @@ async function getServicePrices(conn, ids) {
 async function getServiceConfigByCode(conn, code, idAccount) {
     const rows = await query(
         conn,
-        `SELECT idService, code, minDaysAhead, maxDaysAhead, allowedWeekdays, durationMinutes,
-                TIME_FORMAT(startTime, '%H:%i') AS startTime,
-                TIME_FORMAT(endTime, '%H:%i') AS endTime
+        `SELECT idService, code, minDaysAhead, maxDaysAhead, allowedWeekdays, durationMinutes
          FROM services WHERE code = ? AND idAccount = ? AND deleted = 0 LIMIT 1`,
         [code, idAccount]
     );
@@ -38,7 +36,6 @@ async function getServiceConfigByCode(conn, code, idAccount) {
         passengers: Number(p.passengers),
         price: Number(p.price)
     }));
-    product.hours = serviceSlots(product.startTime, product.endTime, product.durationMinutes);
     product.kind = 'service';
     return normalizeProduct(product);
 }

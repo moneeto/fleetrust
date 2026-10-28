@@ -57,12 +57,12 @@ async function createService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         INSERT INTO services (
-            code, title, description, image, duration, durationMinutes, startTime, endTime,
+            code, title, description, image, duration, durationMinutes,
             visibleToClients, minDaysAhead, maxDaysAhead, allowedWeekdays, idAccount, createdBy, updatedBy
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const qParams = [
-            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes, p.startTime, p.endTime,
+            p.code, p.title, p.description, p.image, p.duration, p.durationMinutes,
             p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idAccount, p.idUser, p.idUser
         ];
         conn.query(query, qParams, (err, results) => {
@@ -76,12 +76,12 @@ async function updateService(conn, p) {
     return new Promise((resolve, reject) => {
         const query = `
         UPDATE services
-        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?, startTime = ?, endTime = ?,
+        SET title = ?, description = ?, image = ?, duration = ?, durationMinutes = ?,
             visibleToClients = ?, minDaysAhead = ?, maxDaysAhead = ?, allowedWeekdays = ?, updatedBy = ?
         WHERE idService = ? AND idAccount = ?
         `;
         const qParams = [
-            p.title, p.description, p.image, p.duration, p.durationMinutes, p.startTime, p.endTime,
+            p.title, p.description, p.image, p.duration, p.durationMinutes,
             p.visibleToClients, p.minDaysAhead, p.maxDaysAhead, p.allowedWeekdays, p.idUser, p.idService, p.idAccount
         ];
         conn.query(query, qParams, (err, results) => {

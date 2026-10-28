@@ -83,6 +83,16 @@ function serviceSlots(startTime, endTime, durationMinutes) {
     return list;
 }
 
+function slotsFromIntervals(intervals, durationMinutes) {
+    const set = new Set();
+    for (const interval of intervals || []) {
+        for (const slot of serviceSlots(interval.hourFrom, interval.hourTo, durationMinutes)) {
+            set.add(slot);
+        }
+    }
+    return [...set].sort();
+}
+
 function findPriceForPassengers(prices, passengers) {
     const pax = Number(passengers);
     const row = (prices || []).find((p) => Number(p.passengers) === pax);
@@ -133,6 +143,7 @@ module.exports = {
     addDays,
     formatHour,
     serviceSlots,
+    slotsFromIntervals,
     findPriceForPassengers,
     normalizeProduct,
     codeFromTitle,

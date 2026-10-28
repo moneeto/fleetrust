@@ -71,6 +71,16 @@ export default function Sidebar({ open, onClose }) {
                                     Services
                                 </Link>
 
+                                {isAdmin && (
+                                    <Link
+                                        href="/operations/availability"
+                                        className={pathname === "/operations/availability" ? "nav-link active" : "nav-link"}
+                                        onClick={onClose}
+                                    >
+                                        Availability
+                                    </Link>
+                                )}
+
                                 <Link
                                     href="/operations/aircrafts"
                                     data-tour="aircrafts"
@@ -96,6 +106,15 @@ export default function Sidebar({ open, onClose }) {
                                 >
                                     Addons
                                 </Link>
+                                {isAdmin && (
+                                    <Link
+                                        href="/settings/users"
+                                        className={pathname === "/settings/users" ? "nav-link active" : "nav-link"}
+                                        onClick={onClose}
+                                    >
+                                        Users
+                                    </Link>
+                                )}
 
 
                                 {/* <Link
@@ -175,15 +194,6 @@ export default function Sidebar({ open, onClose }) {
                         >
                             Settings
                         </Link>
-                        {isAdmin && (
-                            <Link
-                                href="/settings/users"
-                                className={pathname === "/settings/users" ? "nav-link active" : "nav-link"}
-                                onClick={onClose}
-                            >
-                                Users
-                            </Link>
-                        )}
                         <Link
                             href="/faqs"
                             className={pathname === "/faqs" ? "nav-link active" : "nav-link"}

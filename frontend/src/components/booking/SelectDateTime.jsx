@@ -36,8 +36,6 @@ const SelectDateTime = ({ date, time, onDateChange, onTimeChange, idAircraft, ex
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // 👇 Date LOCAL seguro (no UTC)
   const selectedDate = parseLocalDate(date);
   const minDateStr = formatLocalDate(initialDate);
 

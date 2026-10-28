@@ -6,11 +6,12 @@ const db = require('../models/reservationsModel.js')
 const dbAircrafts = require('../models/aircraftsModel.js')
 const bookingConfigDb = require('../models/bookingConfigModel.js')
 const servicesDb = require('../models/servicesModel.js')
+const hoursDb = require('../models/businessHoursModel.js')
 const {
     weekdayOfDate,
     formatHour,
     findPriceForPassengers,
-    serviceSlots
+    slotsFromIntervals
 } = require('../utils/bookingConfig')
 const { pool } = require('../helpers/conexion-mysql.js')
 const withAuth = require('../middleware/withAuth.js')
@@ -47,12 +48,9 @@ async function getBookableHours(conn, { date, idAircraft, experienceCode, servic
         throw 'Invalid service code';
     }
 
-    if (product && !product.allowedWeekdays.includes(weekdayOfDate(date))) {
-        return [];
-    }
-
     if (!product) return [];
-    const slots = serviceSlots(product.startTime, product.endTime, product.durationMinutes);
+    const intervals = await hoursDb.getForDay(conn, idAccount, weekdayOfDate(date), 1);
+    const slots = slotsFromIntervals(intervals, product.durationMinutes);
     return db.getFreeHours(conn, {
         date,
         idAircraft,
@@ -298,9 +296,6 @@ async function createReservation(req, res) {
 
             const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, serviceCode, idAccount: req.idAccount });
             if (!productConfig) throw 'Invalid service code';
-            if (!productConfig.allowedWeekdays.includes(weekdayOfDate(reservationDate))) {
-                throw 'Selected date is not available for this flight.';
-            }
             const priced = findPriceForPassengers(productConfig.prices, paxCount);
             if (priced == null) {
                 throw 'Selected flight is not available for this number of passengers.';
@@ -390,7 +385,7 @@ async function confirmBooking(req, res) {
                 await db.insertPassengers(conn, { passengers: ps })
             }
 
-            // Generate confirmation hash + email boarding pass (same flow as tours landing)
+            // Generate confirmation hash + email boarding pass
             const confirmationHash = generateConfirmationHash(10);
             await db.saveConfirmationHash(conn, {
                 idReservation,
@@ -633,7 +628,6 @@ async function getReservationsByAircraft(req, res) {
                 aircraft.flights = reservations;
             }
 
-            // lookup idTourType by code
             const reservations = await db.getReservationsByDate(conn, date, req.idAccount)
 
             response = { reservations }
