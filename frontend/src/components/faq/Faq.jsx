@@ -16,11 +16,12 @@ export default function Faq() {
     return (
         <div className={styles.list}>
             {faqs.map((f, i) => (
-                <details key={f.question} className={styles.item} open={i === 0}>
+                <details key={f.question} className={styles.item} name="faq" open={i === 0}>
                     <summary className={styles.question}>
-                        <span className={styles.number}>{i + 1}</span>
                         <span className={styles.text}>{f.question}</span>
-                        <ChevronDown size={18} className={styles.chevron} />
+                        <span className={styles.chevron} aria-hidden>
+                            <ChevronDown size={16} strokeWidth={2.25} />
+                        </span>
                     </summary>
                     <p className={styles.answer}>{f.answer}</p>
                 </details>

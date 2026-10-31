@@ -1,44 +1,81 @@
 .page {
+    position: relative;
     min-height: 100dvh;
-    background: var(--color-bg);
+    display: grid;
+    place-items: center;
+    padding: 2.5rem 1.25rem;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(var(--color-primary-rgb), 0.1), transparent 34%),
+        var(--color-bg);
 }
 
-.hero {
-    padding: 3.5rem 1.25rem 5rem;
+.page::before {
+    content: "";
+    position: absolute;
+    width: 34rem;
+    height: 34rem;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.14);
+    box-shadow:
+        0 0 0 3.25rem rgba(var(--color-primary-rgb), 0.045),
+        0 0 0 6.5rem rgba(var(--color-primary-rgb), 0.03);
+    top: 50%;
+    left: 50%;
+    z-index: 0;
+    transform: translate(-50%, -58%);
+    pointer-events: none;
+}
+
+.stage {
+    position: relative;
+    z-index: 1;
+    width: min(640px, 100%);
     text-align: center;
-    color: #fff;
-    background:
-        radial-gradient(circle at 15% 90%, rgba(var(--color-primary-rgb), 0.35), transparent 55%),
-        linear-gradient(160deg, #2b3036, var(--color-sidebar) 60%);
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .brand {
-    margin: 0 0 0.75rem;
-    font-size: 1.6rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+    color: var(--color-text);
 }
 
 .title {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: clamp(1.85rem, 4vw, 2.45rem);
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.035em;
+    line-height: 1.12;
+    color: var(--color-text);
 }
 
 .subtitle {
-    margin: 0.4rem 0 0;
-    color: rgba(255, 255, 255, 0.65);
-}
-
-.body {
-    max-width: 720px;
-    margin: -2.5rem auto 0;
-    padding: 0 1.25rem 3rem;
+    margin: 0.55rem 0 1.75rem;
+    color: var(--color-muted);
 }
 
 .back {
-    display: block;
-    margin-top: 1.5rem;
-    text-align: center;
+    display: inline-block;
+    margin-top: 1.35rem;
+    color: var(--color-primary);
     font-weight: 600;
     text-decoration: none;
+}
+
+.back:hover {
+    text-decoration: underline;
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stage {
+        animation: none;
+    }
 }

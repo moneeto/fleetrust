@@ -1,10 +1,11 @@
 import Faq from "@/components/faq/Faq";
+import styles from "./page.module.css";
 
 export default function Faqs() {
     return (
-        <div style={{ maxWidth: 720 }}>
-            <h1 className="h4 mb-1">FAQ's</h1>
-            <p className="text-muted mb-4">Everything you need to get started.</p>
+        <div className={styles.page}>
+            <h1 className={styles.title}>Frequently asked questions</h1>
+            <p className={styles.subtitle}>Everything you need to get started.</p>
             <Faq />
         </div>
     );
