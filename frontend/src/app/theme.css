@@ -8,7 +8,7 @@
  */
 :root {
     /* Fuentes */
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    --font-body: -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu,
         Cantarell, "Helvetica Neue", Arial, sans-serif;
     --font-brand: var(--font-michroma), "Michroma", sans-serif;
 
