@@ -6,17 +6,18 @@
 
 /* Sidebar */
 .auth-sidebar {
-    width: 200px;
-    background-color: var(--color-sidebar);
+    width: 232px;
+    background: linear-gradient(180deg, var(--color-sidebar), color-mix(in srgb, var(--color-sidebar) 70%, #000));
     color: white;
     display: flex;
     flex-direction: column;
+    padding: 1rem 0.75rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
 
     position: sticky;
     top: 0;
     height: 100vh;
 
-    /* NUEVO */
     flex-shrink: 0;
     transition: transform 0.3s ease;
     z-index: 1000;
@@ -24,42 +25,47 @@
 
 /* Navegación */
 .auth-sidebar .nav-link {
-    color: rgba(255, 255, 255, 0.7);
-    padding: 0.35rem 0.5rem;
+    color: rgba(255, 255, 255, 0.65);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.925rem;
     text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
 }
 
-.auth-sidebar .submenu .nav-link {
-    margin-left: -2rem;
-    padding-left: 2rem;
-    border-left: 2px solid transparent;
-}
-
+/* Título de sección */
 .auth-sidebar .nav-link.fw-semibold {
-    color: #fff;
-    padding-left: 0;
-    padding-right: 0;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 0 0.75rem;
+    margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.auth-sidebar .submenu .nav-link {
+    margin-bottom: 2px;
 }
 
 .auth-sidebar .submenu .nav-link:hover {
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.07);
     text-decoration: none;
 }
 
 .auth-sidebar .submenu .nav-link.active {
     color: #fff;
-    font-weight: 600;
-    border-left: 2px solid #fff;
+    font-weight: 500;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Submenú */
 .auth-sidebar .submenu {
-    background-color: rgba(0, 0, 0, 0.28);
-    margin: 0 -1rem;
-    padding: 0.25rem 1rem 0.25rem 2rem;
+    padding: 0;
+    margin: 0;
 }
 
 .auth-sidebar-bottom {
@@ -68,8 +74,9 @@
 
 /* Footer del sidebar */
 .auth-sidebar-footer {
+    margin-top: 0.75rem;
     padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Main */
@@ -124,7 +131,7 @@
         left: 0;
         top: 0;
 
-        width: 200px;
+        width: 232px;
         height: 100vh;
 
         transform: translateX(-100%);
