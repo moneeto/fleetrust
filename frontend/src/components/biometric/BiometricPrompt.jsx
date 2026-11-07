@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { biometricCancelled, biometricSupported, registerBiometric } from "@/helpers/biometric";
-import MessageModal from "@/components/ui/MessageModal";
+import BiometricModal from "./BiometricModal";
 
 export default function BiometricPrompt() {
     const [open, setOpen] = useState(false);
@@ -30,19 +30,12 @@ export default function BiometricPrompt() {
     }
 
     return (
-        <MessageModal
+        <BiometricModal
             isOpen={open}
-            type="info"
-            title="Biometric login"
-            confirmLabel="Enable"
-            cancelLabel="Skip"
-            confirmColor="primary"
-            disabled={loading}
-            onConfirm={() => run(registerBiometric)}
-            onClose={() => run(() => ApiComunicator("/auth/biometricSkip", "POST", {}))}
-        >
-            <p className="mb-0">Sign in faster with your fingerprint, face or device lock. You can change this later in Settings.</p>
-            {error && <p className="text-danger mt-2 mb-0">{error}</p>}
-        </MessageModal>
+            loading={loading}
+            error={error}
+            onEnable={() => run(registerBiometric)}
+            onSkip={() => run(() => ApiComunicator("/auth/biometricSkip", "POST", {}))}
+        />
     );
 }

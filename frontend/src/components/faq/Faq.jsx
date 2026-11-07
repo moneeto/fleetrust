@@ -10,6 +10,10 @@ const faqs = [
         question: "How to use Fleetrust?",
         answer: "Register your account with Google or email. Once inside, register your services, your aircrafts, your pilots and, optionally, your addons, to start operating and viewing your flights.",
     },
+    {
+        question: "I forgot my password",
+        answer: "On the sign-in page, open Forgot password, enter your email, and follow the link we send. Choose a new password of at least 8 characters and confirm it, then sign in again.",
+    },
 ];
 
 export default function Faq() {

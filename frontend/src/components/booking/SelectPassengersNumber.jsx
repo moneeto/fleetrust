@@ -7,7 +7,7 @@ const SelectPassengersCount = ({ count, onCountChange, prices }) => {
 
   return (
     <div className="d-flex flex-column align-items-center gap-3 text-center">
-      <h5 className="fw-bold mb-0">How many passengers?</h5>
+      <h5 className="fw-bold mb-0">Number of passengers</h5>
       <div className="d-flex justify-content-center flex-wrap gap-3">
         {options.map((n) => (
           <button
