@@ -46,3 +46,13 @@ next-env.d.ts
 # pilot photos
 backend/src/uploads/pilots/*
 !backend/src/uploads/pilots/.gitkeep
+
+# Android signing. The native project ignores its own build output.
+*.keystore
+*.jks
+frontend/android/keystore.properties
+
+# Firebase service account (secret)
+firebase-service-account*.json
+
+*firebase-adminsdk*.json

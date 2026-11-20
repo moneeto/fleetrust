@@ -63,6 +63,8 @@ const addons = require('./src/routes/addons.js');
 const pilots = require('./src/routes/pilots.js');
 const users = require('./src/routes/users.js');
 const businessHours = require('./src/routes/businessHours.js');
+const notifications = require('./src/routes/notifications.js');
+const { startNotificationJobs } = require('./src/notifications');
 app.use('/auth', auth);
 app.use('/reservations', reservations);
 app.use('/aircrafts', aircrafts);
@@ -77,6 +79,7 @@ app.use('/addons', addons);
 app.use('/pilots', pilots);
 app.use('/users', users);
 app.use('/business-hours', businessHours);
+app.use('/notifications', notifications);
 
 // Para cualquier otra ruta, devuelvo 404
 app.use((req, res) => {
@@ -89,6 +92,7 @@ app.set('port', port);
 const server = http.createServer(app);
 
 server.listen(port)
+startNotificationJobs();
 server.on('error', onError);
 server.on('listening', onListening);
 

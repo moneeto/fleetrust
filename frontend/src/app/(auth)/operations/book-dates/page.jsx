@@ -12,7 +12,6 @@ import SelectDateTime from '@/components/booking/SelectDateTime';
 import SelectDateRange from '@/components/booking/SelectDateRange';
 import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
-import SelectBookingType from '@/components/booking/SelectBookingType';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
 import { defaultPassengerCount } from '@/helpers/bookingConfig';
@@ -22,7 +21,8 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
     const [step, setStep] = useState(0);
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
-    const [bookingType, setBookingType] = useState(null);
+    // 'MANUAL' = Pilot (single): bloquea horario del piloto, sin pasajeros
+    const bookingType = selectedService ? (selectedService === 'MANUAL' ? 'me' : 'others') : null;
     const [date, setDate] = useState(initialDate);
     const [time, setTime] = useState(initialTime);
     const [passengers, setPassengers] = useState(2);
@@ -93,29 +93,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         } catch (err) { console.error(err); }
     };
 
-    const resetPilotFlow = () => {
-        setCustomLength(false);
-        setDateRange({ from: null, to: null });
-        setTimeRange({ start: "07:00", end: "07:00" });
-        setDate('');
-        setTime('');
-        setIdAircraft("all");
-        setIdPilot("");
-    };
-
-    const resetOfferSelection = () => {
-        setSelectedService(null);
-    };
-
-    const handleBack = () => {
-        if (step === 1) {
-            setBookingType(null);
-            resetPilotFlow();
-            resetOfferSelection();
-            setPassengers(2);
-        }
-        setStep((prev) => prev - 1);
-    };
+    const handleBack = () => setStep((prev) => prev - 1);
 
     const handleNext = () => {
         setError(null);
@@ -188,49 +166,47 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         reservationHolder.email.trim() !== '' &&
         passengersData.every(p => p.firstName?.trim() !== '');
 
-    // Pantallas del flujo; `current` es la clave de la pantalla activa
-    const flow = bookingType === 'me'
-        ? ['type', 'resource', 'when']
-        : ['type', 'service', 'pax', 'resource', 'when'];
-    const current = flow[step];
-    const isLast = step === flow.length - 1;
-    const titles = { type: 'New Book', service: 'Service', pax: 'Passengers', resource: 'Aircraft & Pilot', when: 'Date & Time' };
+    // Pantallas: 0 vuelo + piloto + fecha/hora, 1 datos, 2 resumen
+    const titles = ['New Book', 'Details', 'Summary'];
+    const isLast = step === 2;
 
     const clientServices = services.filter(
-        (service) => service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
+        (service) => service.code !== 'MANUAL' && service.visibleToClients !== 0 && service.visibleToClients !== false && !service.deleted
     );
 
-    const serviceCode = bookingType === 'me' ? 'MANUAL' : selectedService;
+    const serviceCode = selectedService;
     const product = services.find((item) => item.code === serviceCode);
 
+    const scheduleReady = customLength ? !!(dateRange.from && dateRange.to) : !!(date && time);
     const nextDisabled =
-        (current === 'service' && !selectedService) ||
-        (current === 'pax' && !isDetailsValid) ||
-        (current === 'resource' && !idPilot);
+        (step === 0 && (!selectedService || !idPilot || !scheduleReady)) ||
+        (step === 1 && bookingType === 'others' && !isDetailsValid);
 
-    const renderOfferCard = (item, selected, onClick) => (
-        <div key={item.code} className="col-12" onClick={onClick}>
-            <div
-                className={`p-4 border rounded-4 cursor-pointer transition-all ${selected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'bg-white shadow-sm'}`}
-                style={{ cursor: 'pointer', border: selected ? undefined : '2px solid transparent' }}
-            >
-                <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 className="fw-bold mb-1">{item.title}</h6>
-                        <p className="text-muted small mb-0">{item.description}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+    const fmt = (d) => moment(d).format('MMM D, YYYY');
+    const summaryRows = [
+        ['Flight', bookingType === 'me' ? 'Pilot (single)' : product?.title],
+        ['Aircraft', idAircraft === 'all' ? 'Any Available' : aircrafts.find((a) => String(a.idAircraft) === String(idAircraft))?.aircraft],
+        ['Pilot', pilots.find((p) => String(p.idPilot) === String(idPilot))?.pilotName],
+        ['When', customLength
+            ? `${fmt(dateRange.from)} ${timeRange.start} → ${fmt(dateRange.to)} ${timeRange.end}`
+            : `${fmt(date)} ${time}`],
+        ...(bookingType === 'others' ? [
+            ['Passengers', passengers],
+            ['Reservation holder', `${reservationHolder.firstName} ${reservationHolder.lastName}`.trim()],
+            ['Email', reservationHolder.email],
+            ['Phone', reservationHolder.phone],
+            ['Passenger names', passengersData.map((p) => `${p.firstName || ''} ${p.lastName || ''}`.trim()).filter(Boolean).join(', ')],
+        ] : []),
+        ['Notes', notes],
+    ];
 
     return (
         <div className={styles.page}>
 
             <div className={styles.header}>
-                <h2 className="fw-bold text-dark">{titles[current]}</h2>
+                <h2 className="fw-bold text-dark">{titles[step]}</h2>
                 <div className="d-flex justify-content-center gap-2 mt-3">
-                    {flow.map((_, s) => (
+                    {titles.map((_, s) => (
                         <div key={s} className={`rounded-pill ${step >= s ? 'bg-primary' : 'bg-light'}`}
                             style={{ width: '40px', height: '6px', transition: '0.3s' }} />
                     ))}
@@ -247,117 +223,93 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                             exit={{ opacity: 0, y: -15 }}
                             transition={{ duration: 0.25 }}
                         >
-                            {current === 'type' && (
-                                <div className="py-5">
-                                    <SelectBookingType onSelect={(type) => { setBookingType(type); setStep(1); }} />
-                                </div>
-                            )}
-
-                            {current === 'service' && (
-                                <div className="row g-3">
-                                    {clientServices.map((service) =>
-                                        renderOfferCard(
-                                            service,
-                                            selectedService === service.code,
-                                            () => setSelectedService(service.code)
-                                        )
-                                    )}
-                                    {clientServices.length === 0 && (
-                                        <p className="text-muted text-center">No services available.</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {current === 'pax' && (
+                            {step === 0 && (
                                 <div className={styles.scheduleStack}>
-                                    <div className={styles.settingsPanel}>
-                                        <SelectPassengersNumber
-                                            count={passengers}
-                                            onCountChange={setPassengers}
-                                            prices={product?.prices}
-                                        />
-                                    </div>
-                                    <PassengerDetails
-                                        count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
-                                        reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
-                                    />
-                                </div>
-                            )}
-
-                            {current === 'resource' && (
-                                <div className={`${styles.scheduleStack} ${styles.narrow}`}>
-                                    <div className={styles.settingsPanel}>
-                                        <FormGroup className="mb-3">
-                                            <Label className="small fw-bold" for="selectAircraft">
-                                                Select Aircraft {customLength ? '(*)' : ''}
-                                            </Label>
-                                            <Input
-                                                id="selectAircraft"
-                                                type="select"
-                                                className="form-select rounded-3"
-                                                value={idAircraft}
-                                                onChange={(e) => {
-                                                    setIdAircraft(e.target.value);
-                                                    setDate('');
-                                                    setTime('');
-                                                    setDateRange({ from: null, to: null });
-                                                    setTimeRange({ start: '07:00', end: '07:00' });
-                                                }}
-                                            >
-                                                <option value="all">Any Available</option>
-                                                {aircrafts.map((a) => (
-                                                    <option key={a.idAircraft} value={a.idAircraft}>
-                                                        {a.aircraft}
-                                                    </option>
-                                                ))}
-                                            </Input>
-                                        </FormGroup>
-
-                                        <FormGroup className="mb-3">
-                                            <Label className="small fw-bold" for="selectPilot">
-                                                Select Pilot (*)
-                                            </Label>
-                                            <Input
-                                                id="selectPilot"
-                                                type="select"
-                                                className="form-select rounded-3"
-                                                value={idPilot}
-                                                onChange={(e) => setIdPilot(e.target.value)}
-                                            >
-                                                <option value="">Select a pilot</option>
-                                                {pilots.map((p) => (
-                                                    <option key={p.idPilot} value={p.idPilot}>
-                                                        {p.pilotName}
-                                                    </option>
-                                                ))}
-                                            </Input>
-                                        </FormGroup>
-
-                                        {bookingType === 'me' && (
-                                            <FormGroup check className="mb-0">
+                                    <div className="row g-3">
+                                        <div className="col-12 col-md-4">
+                                            <FormGroup className="mb-0">
+                                                <Label className="small fw-bold" for="selectService">Select Flight (*)</Label>
                                                 <Input
-                                                    type="checkbox"
-                                                    id="toggleRange"
-                                                    checked={customLength}
+                                                    id="selectService"
+                                                    type="select"
+                                                    className="form-select rounded-3"
+                                                    value={selectedService || ''}
                                                     onChange={(e) => {
-                                                        setCustomLength(e.target.checked);
+                                                        setSelectedService(e.target.value || null);
+                                                        // el rango de fechas solo existe para Pilot (single)
+                                                        if (e.target.value !== 'MANUAL') setCustomLength(false);
+                                                    }}
+                                                >
+                                                    <option value="">Select a flight</option>
+                                                    <option value="MANUAL">Pilot (single)</option>
+                                                    {clientServices.map((service) => (
+                                                        <option key={service.code} value={service.code}>{service.title}</option>
+                                                    ))}
+                                                </Input>
+                                            </FormGroup>
+                                        </div>
+                                        <div className="col-12 col-md-4">
+                                            <FormGroup className="mb-0">
+                                                <Label className="small fw-bold" for="selectAircraft">
+                                                    Select Aircraft {customLength ? '(*)' : ''}
+                                                </Label>
+                                                <Input
+                                                    id="selectAircraft"
+                                                    type="select"
+                                                    className="form-select rounded-3"
+                                                    value={idAircraft}
+                                                    onChange={(e) => {
+                                                        setIdAircraft(e.target.value);
                                                         setDate('');
                                                         setTime('');
                                                         setDateRange({ from: null, to: null });
                                                         setTimeRange({ start: '07:00', end: '07:00' });
                                                     }}
-                                                />
-                                                <Label check for="toggleRange" className="small">
-                                                    Select date range
-                                                </Label>
+                                                >
+                                                    <option value="all">Any Available</option>
+                                                    {aircrafts.map((a) => (
+                                                        <option key={a.idAircraft} value={a.idAircraft}>{a.aircraft}</option>
+                                                    ))}
+                                                </Input>
                                             </FormGroup>
-                                        )}
+                                        </div>
+                                        <div className="col-12 col-md-4">
+                                            <FormGroup className="mb-0">
+                                                <Label className="small fw-bold" for="selectPilot">Select Pilot (*)</Label>
+                                                <Input
+                                                    id="selectPilot"
+                                                    type="select"
+                                                    className="form-select rounded-3"
+                                                    value={idPilot}
+                                                    onChange={(e) => setIdPilot(e.target.value)}
+                                                >
+                                                    <option value="">Select a pilot</option>
+                                                    {pilots.map((p) => (
+                                                        <option key={p.idPilot} value={p.idPilot}>{p.pilotName}</option>
+                                                    ))}
+                                                </Input>
+                                            </FormGroup>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
 
-                            {current === 'when' && (
-                                <div className={styles.scheduleStack}>
+                                    {bookingType === 'me' && (
+                                        <FormGroup check className="mb-0">
+                                            <Input
+                                                type="checkbox"
+                                                id="toggleRange"
+                                                checked={customLength}
+                                                onChange={(e) => {
+                                                    setCustomLength(e.target.checked);
+                                                    setDate('');
+                                                    setTime('');
+                                                    setDateRange({ from: null, to: null });
+                                                    setTimeRange({ start: '07:00', end: '07:00' });
+                                                }}
+                                            />
+                                            <Label check for="toggleRange" className="small">Select date range</Label>
+                                        </FormGroup>
+                                    )}
+
                                     <div className={styles.scheduleMain}>
                                         {customLength ? (
                                             <SelectDateRange
@@ -378,7 +330,26 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                             />
                                         )}
                                     </div>
+                                </div>
+                            )}
 
+                            {step === 1 && (
+                                <div className={styles.scheduleStack}>
+                                    {bookingType === 'others' && (
+                                        <>
+                                            <div className={styles.settingsPanel}>
+                                                <SelectPassengersNumber
+                                                    count={passengers}
+                                                    onCountChange={setPassengers}
+                                                    prices={product?.prices}
+                                                />
+                                            </div>
+                                            <PassengerDetails
+                                                count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
+                                                reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
+                                            />
+                                        </>
+                                    )}
                                     <div className={styles.settingsPanel}>
                                         <FormGroup className="mb-0">
                                             <Label className="small fw-bold">Notes (optional)</Label>
@@ -388,21 +359,33 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                                 rows={3}
                                                 value={notes}
                                                 onChange={(e) => setNotes(e.target.value)}
-                                                placeholder=""
                                             />
                                         </FormGroup>
                                     </div>
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className={styles.narrow}>
+                                    {summaryRows.filter(([, v]) => v).map(([k, v]) => (
+                                        <div key={k} className="d-flex justify-content-between gap-3 py-2 border-bottom">
+                                            <span className="text-muted small fw-bold">{k}</span>
+                                            <span className="text-end">{v}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </motion.div>
                     </AnimatePresence>
                 </div>
 
-                {step > 0 && (
+                {(
                     <div className={styles.navBar}>
-                        <Button color="link" className="text-decoration-none text-muted fw-bold" onClick={handleBack} disabled={loading}>
-                            <FaChevronLeft className="me-2" /> Back
-                        </Button>
+                        {step > 0 ? (
+                            <Button color="link" className="text-decoration-none text-muted fw-bold" onClick={handleBack} disabled={loading}>
+                                <FaChevronLeft className="me-2" /> Back
+                            </Button>
+                        ) : <span />}
 
                         <div className="d-flex gap-3">
                             {(() => {
@@ -423,9 +406,9 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                                         color="primary"
                                         className="px-4 px-md-5 py-2 rounded-pill fw-bold shadow-sm"
                                         onClick={customLength ? handleSubmitRange : confirmBooking}
-                                        disabled={loading || (!customLength && (!date || !time))}
+                                        disabled={loading}
                                     >
-                                        {loading ? 'Processing...' : 'Complete Booking'}
+                                        {loading ? 'Processing...' : 'Confirm'}
                                     </Button>
                                 );
                             })()}

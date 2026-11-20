@@ -29,6 +29,8 @@ CREATE TABLE `accounts` (
   `createdBy` int(11) DEFAULT NULL,
   `updatedBy` int(11) DEFAULT NULL,
   `show_setup_modal` tinyint(1) NOT NULL DEFAULT 0,
+  `dailySummaryHour` tinyint(2) NOT NULL DEFAULT 8,
+  `lastDailySummaryDate` date DEFAULT NULL,
   PRIMARY KEY (`idAccount`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -145,6 +147,23 @@ CREATE TABLE `cancellation_reasons` (
   `cancellationReason` varchar(255) NOT NULL,
   PRIMARY KEY (`idCancellationReason`),
   UNIQUE KEY `cancellationReasons_cancellationReason_IDX` (`cancellationReason`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Table structure for table `device_tokens` */
+
+DROP TABLE IF EXISTS `device_tokens`;
+
+CREATE TABLE `device_tokens` (
+  `idDeviceToken` int(11) NOT NULL AUTO_INCREMENT,
+  `idUser` int(11) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `platform` varchar(16) NOT NULL DEFAULT 'android',
+  `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
+  `updatedAt` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`idDeviceToken`),
+  UNIQUE KEY `uniq_device_tokens_token` (`token`),
+  KEY `idx_device_tokens_user` (`idUser`),
+  CONSTRAINT `fk_device_tokens_user` FOREIGN KEY (`idUser`) REFERENCES `users` (`idUser`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 /*Table structure for table `discrepancies_files` */
@@ -393,6 +412,7 @@ CREATE TABLE `reservations` (
   `cancellationDetail` varchar(255) DEFAULT NULL,
   `idPilot` int(11) DEFAULT NULL,
   `idService` int(11) DEFAULT NULL,
+  `reminderSentAt` datetime DEFAULT NULL,
   `idAccount` int(11) NOT NULL,
   `createdBy` int(11) DEFAULT NULL,
   `updatedBy` int(11) DEFAULT NULL,
@@ -403,6 +423,7 @@ CREATE TABLE `reservations` (
   KEY `idAircraft` (`idAircraft`),
   KEY `reservations_pilots_FK` (`idPilot`),
   KEY `idx_reservations_account` (`idAccount`),
+  KEY `idx_reservations_reminder` (`idStatus`,`startDate`),
   CONSTRAINT `fk_reservations_account` FOREIGN KEY (`idAccount`) REFERENCES `accounts` (`idAccount`),
   CONSTRAINT `reservations_ibfk_2` FOREIGN KEY (`idStatus`) REFERENCES `status` (`idStatus`),
   CONSTRAINT `reservations_ibfk_4` FOREIGN KEY (`idAircraft`) REFERENCES `aircrafts` (`idAircraft`),
@@ -535,6 +556,7 @@ CREATE TABLE `users` (
   `idAccount` int(11) NOT NULL,
   `googleId` varchar(255) DEFAULT NULL,
   `askBiometric` tinyint(1) NOT NULL DEFAULT 0,
+  `notificationsEnabled` tinyint(1) NOT NULL DEFAULT 1,
   `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
   `updatedAt` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `createdBy` int(11) DEFAULT NULL,

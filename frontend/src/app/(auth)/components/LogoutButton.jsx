@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
+import { removeDeviceToken } from "@/helpers/pushNotifications";
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,7 @@ export default function LogoutButton() {
     if (loading) return;
     setLoading(true);
     try {
+        await removeDeviceToken();
         await ApiComunicator("/auth/logout")
         router.replace('/login');
     } catch (err) {

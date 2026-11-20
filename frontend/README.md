@@ -18,6 +18,31 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 Demo login: `jpalmeyro` / `123`.
 
+## APK de Android
+
+La app abre `http://localhost:3000`. Next tiene que estar en el puerto 3000 y la API en el 8101. El APK no hace falta regenerarlo si solo cambió el código web.
+
+1. Generar el APK, desde `frontend/` (hace falta JDK 21 y el Android SDK en `~/Android/Sdk`):
+
+```bash
+npm run cap:apk
+```
+
+Queda en `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+2. En PowerShell, con el teléfono conectado por depuración inalámbrica:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb devices
+& $adb reverse tcp:3000 tcp:3000
+& $adb reverse tcp:8101 tcp:8101
+& $adb reverse --list
+& $adb install -r "\\wsl.localhost\Ubuntu\home\moneeto\frassi_enlatado\frontend\android\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+`devices` tiene que mostrar el teléfono como `device`. `--list` tiene que mostrar los dos puertos. Si la lista queda vacía, la sesión de adb se cortó: repetí `devices` y los dos `reverse`.
+
 You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

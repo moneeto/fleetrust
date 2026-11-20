@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 
-const templatePath = path.resolve(__dirname, '../../../frontend/public/images/ticketplantilla.jpeg');
-const ticketTemplate = fs.readFileSync(templatePath, 'base64');
+// const templatePath = path.resolve(__dirname, '../../../frontend/public/images/ticketplantilla.jpeg');
+// const ticketTemplate = fs.readFileSync(templatePath, 'base64');
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -98,7 +98,6 @@ async function generateBoardingPass(codeReservation, passengers, startDate, titl
             height: 1024px;
             position: relative;
             overflow: hidden;
-            background-image: url("data:image/jpeg;base64,${ticketTemplate}");
             background-repeat: no-repeat;
             background-size: 1536px 1024px;
             page-break-after: always;

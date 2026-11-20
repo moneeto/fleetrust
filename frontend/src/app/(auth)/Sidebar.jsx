@@ -71,6 +71,35 @@ export default function Sidebar({ open, onClose }) {
                                     Services
                                 </Link>
 
+
+                                <Link
+                                    href="/operations/aircrafts"
+                                    data-tour="aircrafts"
+                                    className={pathname === "/operations/aircrafts" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                    >
+                                    Aircrafts
+                                </Link>
+
+                                <Link
+                                    href="/operations/pilots"
+                                    data-tour="pilots"
+                                    className={pathname === "/operations/pilots" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                    >
+                                    Pilots
+                                </Link>
+                                <Link
+                                    href="/operations/addons"
+                                    data-tour="addons"
+                                    className={pathname === "/operations/addons" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
+                                    >
+                                    Addons
+                                </Link>
+                                
+                                {/* ------------- ADMIN -------------*/}
+                                
                                 {isAdmin && (
                                     <Link
                                         href="/operations/availability"
@@ -80,37 +109,11 @@ export default function Sidebar({ open, onClose }) {
                                         Availability
                                     </Link>
                                 )}
-
-                                <Link
-                                    href="/operations/aircrafts"
-                                    data-tour="aircrafts"
-                                    className={pathname === "/operations/aircrafts" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Aircrafts
-                                </Link>
-
-                                <Link
-                                    href="/operations/pilots"
-                                    data-tour="pilots"
-                                    className={pathname === "/operations/pilots" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Pilots
-                                </Link>
-                                <Link
-                                    href="/operations/addons"
-                                    data-tour="addons"
-                                    className={pathname === "/operations/addons" ? "nav-link active" : "nav-link"}
-                                    onClick={onClose}
-                                >
-                                    Addons
-                                </Link>
                                 {isAdmin && (
                                     <Link
-                                        href="/settings/users"
-                                        className={pathname === "/settings/users" ? "nav-link active" : "nav-link"}
-                                        onClick={onClose}
+                                    href="/settings/users"
+                                    className={pathname === "/settings/users" ? "nav-link active" : "nav-link"}
+                                    onClick={onClose}
                                     >
                                         Users
                                     </Link>
@@ -122,7 +125,7 @@ export default function Sidebar({ open, onClose }) {
                                     className={pathname === "/operations/gallery" ? "nav-link active" : "nav-link"}
                                     onClick={onClose}
                                 >
-                                    Gallery
+                                Gallery
                                 </Link> */}
 
                                 {/* <Link

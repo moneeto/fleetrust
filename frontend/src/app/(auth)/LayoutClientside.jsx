@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import SetupTour from "@/components/setup_onboarding/SetupTour";
 import BiometricPrompt from "@/components/biometric/BiometricPrompt";
+import PushNotifications from "@/components/notifications/PushNotifications";
 
 export default function LayoutClientside({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -35,6 +36,7 @@ export default function LayoutClientside({ children }) {
 
                 <SetupTour />
                 <BiometricPrompt />
+                <PushNotifications />
 
             </div>
         </div>

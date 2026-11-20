@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Alert, Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from "reactstrap";
+import { Alert, Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import Spinner from "@/components/ui/Spinner";
 import { Fingerprint, KeyRound, UserRound } from "lucide-react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
 import { biometricCancelled, registerBiometric } from "@/helpers/biometric";
@@ -14,6 +15,7 @@ export default function Settings() {
     const { toast } = useToast();
     const [profile, setProfile] = useState(null);
     const [passkeys, setPasskeys] = useState(0);
+    const [notifications, setNotifications] = useState(null);
     const [modal, setModal] = useState(""); // "", "info" or "password"
     const [form, setForm] = useState({});
     const [saving, setSaving] = useState(false);
@@ -22,6 +24,7 @@ export default function Settings() {
     const load = () => {
         ApiComunicator("/auth/profile", "GET").then(setProfile).catch((err) => setError(err.message));
         ApiComunicator("/auth/biometricStatus", "GET").then((s) => setPasskeys(Number(s.passkeys))).catch(() => {});
+        ApiComunicator("/notifications/settings", "GET").then(setNotifications).catch(() => {});
     };
 
     useEffect(load, []);
@@ -114,6 +117,40 @@ export default function Settings() {
                         )}
                     </div>
                 </section>
+
+                {notifications && (
+                    <section className={styles.card}>
+                        <h2>Notifications</h2>
+                        <p>New bookings, cancellations, flight reminders and the daily summary.</p>
+                        <FormGroup switch className="mb-3">
+                            <Input
+                                type="switch"
+                                role="switch"
+                                id="notificationsEnabled"
+                                checked={notifications.notificationsEnabled}
+                                disabled={saving}
+                                onChange={(e) => run(() => ApiComunicator("/notifications/settings", "POST", { notificationsEnabled: e.target.checked }), "Notification settings saved.")}
+                            />
+                            <Label check for="notificationsEnabled">Receive notifications</Label>
+                        </FormGroup>
+                        {notifications.canEditDailySummaryHour && (
+                            <FormGroup className="mb-0">
+                                <Label for="dailySummaryHour">Daily summary time</Label>
+                                <Input
+                                    id="dailySummaryHour"
+                                    type="select"
+                                    value={notifications.dailySummaryHour}
+                                    disabled={saving}
+                                    onChange={(e) => run(() => ApiComunicator("/notifications/settings", "POST", { dailySummaryHour: Number(e.target.value) }), "Notification settings saved.")}
+                                >
+                                    {Array.from({ length: 24 }, (_, hour) => (
+                                        <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                        )}
+                    </section>
+                )}
             </div>
 
             <p className={styles.help}>

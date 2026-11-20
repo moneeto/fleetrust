@@ -19,6 +19,7 @@ const checkAccount = require('../middleware/checkAccount.js')
 const moment = require('moment');
 const { generateBoardingPass } = require('../utils/boardingPass.js');
 const { sendBookingDetails } = require('../utils/mailer.js');
+const { notifyNewBooking, notifyCancellation } = require('../notifications');
 
 function generateConfirmationHash(length = 10) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -296,11 +297,14 @@ async function createReservation(req, res) {
 
             const productConfig = await bookingConfigDb.resolveProductConfig(conn, { experienceCode, serviceCode, idAccount: req.idAccount });
             if (!productConfig) throw 'Invalid service code';
-            const priced = findPriceForPassengers(productConfig.prices, paxCount);
-            if (priced == null) {
-                throw 'Selected flight is not available for this number of passengers.';
+            // MANUAL es el vuelo del piloto solo: no tiene pasajeros ni tarifa por pasajero
+            if (serviceCode !== 'MANUAL') {
+                const priced = findPriceForPassengers(productConfig.prices, paxCount);
+                if (priced == null) {
+                    throw 'Selected flight is not available for this number of passengers.';
+                }
+                totalValue = priced;
             }
-            totalValue = priced;
 
             totalValue = new Currency(totalValue).value;
             const deposit = 50;
@@ -442,6 +446,8 @@ async function confirmBooking(req, res) {
                     console.log('Error sending booking confirmation email:', mailErr);
                 }
             }
+
+            if (reservation) notifyNewBooking(reservation, req.idUser);
 
             response = { success: true }
             status = 200
@@ -857,6 +863,9 @@ async function createReservationRange(req, res) {
                 notes,
                 idAccount: req.idAccount
             });
+            const [block] = await db.getReservationById(conn, insertResult.insertId, req.idAccount);
+            if (block) notifyNewBooking(block, req.idUser);
+
             response = { success: true, id: insertResult.insertId };
             status = 200;
 
@@ -964,6 +973,8 @@ async function deleteReservation(req, res) {
                 detail = cancellationDetail
             }
 
+            const [reservation] = await db.getReservationById(conn, idReservation, req.idAccount);
+
             await db.cancelReservation(conn, {
                 idReservation,
                 idCancellationReason,
@@ -971,6 +982,8 @@ async function deleteReservation(req, res) {
                 idAccount: req.idAccount,
                 idUser: req.idUser
             })
+
+            if (reservation) notifyCancellation(reservation, req.idUser);
 
             response = { success: true, message: 'Reservation deleted successfully' };
             status = 200;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiComunicator } from "@/helpers/ApiComunicator";
-import { Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Table } from "reactstrap";
+import { Alert, Button, Form, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Table } from "reactstrap";
 import { useToast } from "@/components/ui/use-toast";
 import { Check, EditIcon, Filter, TrashIcon } from "lucide-react";
 import useIsMobile from "@/hooks/useIsMobile";
@@ -69,7 +69,7 @@ const emptyForm = {
     duration: "",
     durationMinutes: "",
     visibleToClients: true,
-    minDaysAhead: 1,
+    minDaysAhead: 0,
     maxDaysAhead: 31,
     prices: [{ passengers: "", price: "" }],
     addons: []
@@ -102,6 +102,7 @@ export default function ServiceList() {
     const [error, setError] = useState(null);
     const [step, setStep] = useState(0);
     const [advanceCustom, setAdvanceCustom] = useState(false);
+    const [formError, setFormError] = useState("");
     const [pendingDelete, setPendingDelete] = useState(null);
     const [result, setResult] = useState(null);
     const [filters, setFilters] = useState({ title: "" });
@@ -144,9 +145,10 @@ export default function ServiceList() {
         const minutes = Number(form.durationMinutes);
         if (!title || title.length > 32 || !Number.isInteger(minutes) || minutes <= 0) {
             setStep(0);
-            toast({ variant: "destructive", title: "Missing data", description: "Title (max 32 characters) and duration are required." });
+            setFormError("Title (max 32 characters) and duration in minutes are required.");
             return;
         }
+        setFormError("");
         try {
             setLoading(true);
             const body = { ...form };
@@ -226,6 +228,7 @@ export default function ServiceList() {
     function openForm(row) {
         const next = toForm(row);
         setStep(0);
+        setFormError("");
         setAdvanceCustom(!ADVANCE.some((preset) => preset.days === Number(next.minDaysAhead)));
         setForm(next);
         setFormOpen(true);
@@ -360,6 +363,7 @@ export default function ServiceList() {
                                 <>
                                     <div className={form_.title}>Service details</div>
                                     <div className={form_.subtitle}>General settings of the service.</div>
+                                    {formError && <Alert color="danger" className="py-2">{formError}</Alert>}
                                     <FormGroup>
                                         <Label>Title</Label>
                                         <Input maxLength={32} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -370,7 +374,7 @@ export default function ServiceList() {
                                     </FormGroup>
                                     <FormGroup>
                                         <Label>Duration in minutes</Label>
-                                        <Input type="number" min="1" step="1" placeholder="60" style={{ maxWidth: "200px" }} value={form.durationMinutes} onChange={(e) => setDuration(e.target.value)} />
+                                        <Input type="number" min="1" step="1" placeholder="60" invalid={!!formError && !(Number(form.durationMinutes) > 0)} style={{ maxWidth: "200px" }} value={form.durationMinutes} onChange={(e) => setDuration(e.target.value)} />
                                         <small className="text-muted">Each booking lasts this long. The next one can start when it ends.</small>
                                     </FormGroup>
                                     
@@ -402,8 +406,8 @@ export default function ServiceList() {
                                     {/* <p className={form_.hint}>For an internal service, such as a manual booking or holding the aircraft for maintenance, you can leave the price empty.</p> */}
                                     {form.prices.map((row, index) => (
                                         <div className={form_.priceRow} key={index}>
-                                            <Input type="number" min="1" placeholder="Passengers" value={row.passengers} onChange={(e) => setPrice(index, "passengers", e.target.value)} />
-                                            <Input type="number" min="0" placeholder="Price" value={row.price} onChange={(e) => setPrice(index, "price", e.target.value)} />
+                                            <Input type="number" min="1" placeholder="1" value={row.passengers} onChange={(e) => setPrice(index, "passengers", e.target.value)} />
+                                            <Input type="number" min="0" placeholder="100" value={row.price} onChange={(e) => setPrice(index, "price", e.target.value)} />
                                             <Button color="danger" outline disabled={form.prices.length === 1} onClick={() => setForm({ ...form, prices: form.prices.filter((_, i) => i !== index) })}>
                                                 <TrashIcon size={16} />
                                             </Button>
@@ -437,14 +441,14 @@ export default function ServiceList() {
                                             ))}
                                             <button
                                                 type="button"
-                                                className={`${form_.preset} ${advanceCustom ? form_.presetOn : ""}`}
+                                                className={`${form_.preset} ${form_.presetCustom} ${advanceCustom ? form_.presetOn : ""}`}
                                                 onClick={() => setAdvanceCustom(true)}
                                             >
                                                 Custom
                                             </button>
                                         </div>
                                         {advanceCustom && (
-                                            <Input className="mt-2" type="number" min="0" style={{ maxWidth: "160px" }} placeholder="Days" value={form.minDaysAhead} onChange={(e) => setForm({ ...form, minDaysAhead: e.target.value })} />
+                                            <Input className="mt-2 w-100" type="number" min="0" placeholder="Days" value={form.minDaysAhead} onChange={(e) => setForm({ ...form, minDaysAhead: e.target.value })} />
                                         )}
                                     </FormGroup>
                                 </>

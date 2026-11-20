@@ -245,6 +245,10 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    .presetCustom {
+        grid-column: 1 / -1;
+    }
+
     /* keep only the active step name so three steps fit on a phone */
     .step:not(.stepActive) .label {
         display: none;

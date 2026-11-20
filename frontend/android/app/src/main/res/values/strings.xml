@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fleetrust</string>
+    <string name="title_activity_main">Fleetrust</string>
+    <string name="package_name">com.fleetrust.app</string>
+    <string name="custom_url_scheme">com.fleetrust.app</string>
+</resources>
