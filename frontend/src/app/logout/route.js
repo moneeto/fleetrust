@@ -6,10 +6,8 @@ export async function POST(request) {
     await ApiComunicator("/auth/logout", "GET");
 
     // fallback por si la API no borra
-    const url = new URL(request.url);
-    const origin = url.origin;
     const res = NextResponse.redirect(
-        new URL("/login", origin)
+        new URL("/login", process.env.FRONTEND_URL)
     );
 
     res.cookies.set("token", "", {
