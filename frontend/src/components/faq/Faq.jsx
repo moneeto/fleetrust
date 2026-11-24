@@ -14,6 +14,15 @@ const faqs = [
         question: "I forgot my password",
         answer: "On the sign-in page, open Forgot password, enter your email, and follow the link we send. Choose a new password of at least 8 characters and confirm it, then sign in again.",
     },
+    {
+        question: "How to get Fleetrust in iOS",
+        answer: "Install Fleetrust on your iPhone from Safari. It adds an app icon to your Home Screen. Tap any screenshot to enlarge it.",
+        steps: [
+            { text: "Open fleetrust.app in Safari and tap the \u2022\u2022\u2022 button at the bottom right.", img: "step-1.png" },
+            { text: "Tap Share.", img: "step-2.png" },
+            { text: "Scroll down and tap Add to Home Screen, then tap Add.", img: "step-3.png" },
+        ],
+    },
 ];
 
 export default function Faq() {
@@ -28,6 +37,18 @@ export default function Faq() {
                         </span>
                     </summary>
                     <p className={styles.answer}>{f.answer}</p>
+                    {f.steps && (
+                        <ol className={styles.steps}>
+                            {f.steps.map((s) => (
+                                <li key={s.img} className={styles.step}>
+                                    <span>{s.text}</span>
+                                    <a href={`/images/ios-install/${s.img}`} target="_blank" rel="noopener noreferrer">
+                                        <img src={`/images/ios-install/${s.img}`} alt={s.text} loading="lazy" />
+                                    </a>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
                 </details>
             ))}
         </div>

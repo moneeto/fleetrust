@@ -17,10 +17,11 @@ function sameDay(a, b) {
 function monthGrid(date) {
     const first = new Date(date.getFullYear(), date.getMonth(), 1);
     const start = new Date(first);
-    start.setDate(1 - ((first.getDay() + 6) % 7));
+    // calendarkit-pro builds the month grid starting on Sunday (getMonthGrid default); mirror it exactly.
+    start.setDate(1 - first.getDay());
     const last = new Date(date.getFullYear(), date.getMonth() + 1, 0);
     const end = new Date(last);
-    end.setDate(last.getDate() + (6 - ((last.getDay() + 6) % 7)));
+    end.setDate(last.getDate() + (6 - last.getDay()));
     const days = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
     return days;
@@ -145,6 +146,11 @@ export default function Calendar() {
                 if (id && el.dataset.rid !== id) el.dataset.rid = id;
             });
             if (view !== "month") return;
+            // The library labels the month header Mon..Sun but lays the cells out Sun..Sat.
+            const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            root.querySelectorAll(".grid-cols-7.sticky > div").forEach((el, i) => {
+                if (names[i] && el.textContent !== names[i]) el.textContent = names[i];
+            });
             const days = monthGrid(cursor);
             root.querySelectorAll(".h-\\[130px\\]").forEach((cell, index) => {
                 const day = days[index];
@@ -439,6 +445,8 @@ export default function Calendar() {
                     .calendar-root .min-w-\\[800px\\] { min-width: 0; }
                     .calendar-root .w-9.h-9 { width: 1.75rem; height: 1.75rem; }
                     .calendar-root .h-\\[130px\\].p-2 { padding: 0.25rem !important; }
+                    /* The drag ghost is a fixed 150px and the library clamps it to the window edges, so a wide ghost can't reach Sat/Sun. Keep it about one column wide. */
+                    .calendar-root .cursor-grabbing { width: 3.5rem !important; }
                   }
                 `}</style>
                 <Scheduler
