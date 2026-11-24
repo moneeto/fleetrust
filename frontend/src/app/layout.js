@@ -8,6 +8,21 @@ const michroma = Michroma({ weight: "400", subsets: ["latin"], variable: "--font
 export const metadata = {
   title: "Fleetrust",
   description: "",
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Fleetrust",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#212529",
 };
 
 

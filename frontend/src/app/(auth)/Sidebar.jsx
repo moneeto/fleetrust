@@ -25,7 +25,7 @@ export default function Sidebar({ open, onClose }) {
                 />
             )}
 
-            <aside className={`auth-sidebar p-3 ${open ? "open" : ""}`}>
+            <aside className={`auth-sidebar ${open ? "open" : ""}`}>
 
                 <div>
                     <p className="brand sidebar-brand">Fleetrust</p>

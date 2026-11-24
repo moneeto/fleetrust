@@ -27,6 +27,6 @@ export const config = {
     /*
      * Match todas las rutas excepto las estáticas y API
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|images).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|icons|images).*)",
   ],
 };

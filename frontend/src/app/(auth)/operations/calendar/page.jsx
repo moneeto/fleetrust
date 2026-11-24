@@ -365,7 +365,7 @@ export default function Calendar() {
     return (
         <div>
             {error && <p className="text-sm text-red-600 px-3 mb-2">{error}</p>}
-            <div className="calendar-root" style={{ height: "calc(100vh - 8.5rem)", minHeight: 560 }}>
+            <div className="calendar-root" style={{ height: "calc(100dvh - 8.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))", minHeight: 560 }}>
                 <style>{`
                   .calendar-root .glass,
                   .calendar-root .rounded-lg.truncate { border: 0 !important; box-shadow: none !important; user-select: none; }
