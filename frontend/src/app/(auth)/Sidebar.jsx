@@ -204,7 +204,13 @@ export default function Sidebar({ open, onClose }) {
                         >
                             FAQ's
                         </Link>
-                    </nav>
+                        <Link
+                            href="/policy"
+                            className="nav-link"
+                            onClick={onClose}
+                        >
+                            Privacy Policy
+                        </Link>                    </nav>
                     <div className="auth-sidebar-footer">
                         <LogoutButton />
                     </div>

@@ -7,7 +7,7 @@ export function proxy(request: NextRequest) {
 
   const publicPaths = ["/login", "/register", "/verify-email", "/forgot-password", "/reset-password"];
 
-  if (pathname === "/faq") return NextResponse.next();
+  if (pathname === "/faq" || pathname === "/policy") return NextResponse.next();
 
   // 1. Si NO hay token y no estás en una ruta pública -> Al Login
   if (!token && !publicPaths.includes(pathname)) {

@@ -12,6 +12,7 @@ import styles from "../login/login.module.css";
 
 export default function Register() {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -52,12 +53,19 @@ export default function Register() {
               <Label for="email">Email</Label>
             </FormGroup>
             <PasswordInput id="password" name="password" value={form.password} onChange={handleChange} disabled={loading} autoComplete="new-password" className="mb-4" minLength={8} required />
+            <FormGroup check className="mb-3">
+              <Input id="acceptPrivacy" type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} disabled={loading} required />
+              <Label check for="acceptPrivacy">
+                I have read and accept the <Link href="/policy" target="_blank">Privacy Policy</Link>, including my responsibilities and the limitation of liability of Fleetrust and Loderole.
+              </Label>
+            </FormGroup>
             {error && <Alert color="danger" className="py-2">{error}</Alert>}
-            <Button type="submit" color="primary" className={`w-100 ${styles.submit}`} disabled={loading}>
+            <Button type="submit" color="primary" className={`w-100 ${styles.submit}`} disabled={loading || !accepted}>
               {loading ? <><Spinner size="sm" className="me-2" />Creating...</> : "Create account"}
             </Button>
           </Form>
           <SocialLogin />
+          <p className={styles.links}>By continuing with Google you also accept our <Link href="/policy" target="_blank">Privacy Policy</Link>.</p>
           <p className={styles.links}>Already have an account? <Link href="/login">Sign in</Link></p>
         </div>
       </div>

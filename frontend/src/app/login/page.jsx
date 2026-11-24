@@ -122,8 +122,7 @@ export default function Login() {
                 Don't have an account? <Link href="/register">Create one</Link>
               </p>
               <p className={styles.links}>
-                <Link href="/faq">FAQ's</Link>
-              </p>
+                <Link href="/faq">FAQ's</Link> · <Link href="/policy">Privacy Policy</Link>              </p>
         </div>
       </div>
     </div>
