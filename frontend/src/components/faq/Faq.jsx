@@ -16,7 +16,7 @@ const faqs = [
     },
     {
         question: "How to get Fleetrust in iOS",
-        answer: "Install Fleetrust on your iPhone from Safari. It adds an app icon to your Home Screen. Tap any screenshot to enlarge it.",
+        answer: "Install Fleetrust on your iPhone from Safari. It adds an app icon to your Home Screen.",
         steps: [
             { text: "Open fleetrust.app in Safari and tap the \u2022\u2022\u2022 button at the bottom right.", img: "step-1.png" },
             { text: "Tap Share.", img: "step-2.png" },
