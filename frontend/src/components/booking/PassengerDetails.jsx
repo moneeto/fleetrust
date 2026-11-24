@@ -1,62 +1,82 @@
 'use client';
 
 import React from 'react';
-import styles from './PassengerDetails.module.css';
+import { Table } from 'reactstrap';
+import styles from '@/components/ui/listing.module.css';
 
-const Field = ({ col = 6, label, type = 'text', placeholder, value, onChange }) => (
-    <div className={`col-12 col-md-${col}`}>
-        {label && <label className="small fw-bold text-muted text-uppercase mb-1 d-block">{label}</label>}
+const COLUMNS = [
+    ['firstName', 'First name', 'text'],
+    ['lastName', 'Last name', 'text'],
+    ['email', 'Email', 'email'],
+    ['phone', 'Phone', 'tel'],
+    ['weight', 'Weight', 'number'],
+    ['birthdate', 'Birth date', 'date'],
+    ['document', 'Document', 'text']
+];
+
+// Una fila por asiento. people[0] es el reservation holder.
+// Tabla en desktop y tarjetas en mobile, igual que el resto de los listados (se renderizan las dos, CSS muestra una).
+const PassengerDetails = ({ capacity, people, setPeople }) => {
+    const setField = (i, field) => (e) => setPeople((prev) => {
+        const next = Array.from({ length: capacity }, (_, k) => prev[k] || {});
+        next[i] = { ...next[i], [field]: e.target.value };
+        return next;
+    });
+
+    const seats = Array.from({ length: capacity }, (_, i) => i);
+    // El color va en las celdas/tarjeta: el fondo de la <tr> queda tapado por el de cada <td>
+    const tint = (i) => (i === 0 ? { background: '#e8f1ff' } : undefined);
+    const input = (i, [field, label, type]) => (
         <input
             type={type}
-            className="form-control rounded-3"
-            placeholder={placeholder}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
+            aria-label={`${label} ${i + 1}`}
+            className="form-control form-control-sm"
+            style={{ minWidth: 110 }}
+            value={people[i]?.[field] || ''}
+            onChange={setField(i, field)}
+            {...(type === 'number' ? { min: 0, step: '0.1' } : {})}
         />
-    </div>
-);
-
-const PassengerDetails = ({ count, passengersData, setPassengersData, reservationHolder, setReservationHolder }) => {
-    const setHolder = (field) => (value) => setReservationHolder((prev) => ({ ...prev, [field]: value }));
-
-    const setPassenger = (i, field) => (value) => {
-        const updated = [...passengersData];
-        updated[i] = { ...updated[i], [field]: value };
-        setPassengersData(updated);
-    };
+    );
 
     return (
-        <div className="d-flex flex-column gap-4">
-            <section className={styles.section}>
-                <h5 className={styles.title}>
-                    Reservation holder
-                    <span className={styles.hint}>First name and email required</span>
-                </h5>
-                <div className="row g-3">
-                    <Field label="First name" placeholder="John" value={reservationHolder?.firstName} onChange={setHolder('firstName')} />
-                    <Field label="Last name" placeholder="Doe" value={reservationHolder?.lastName} onChange={setHolder('lastName')} />
-                    <Field label="Email" type="email" placeholder="john.doe@example.com" value={reservationHolder?.email} onChange={setHolder('email')} />
-                    <Field label="Phone" type="tel" placeholder="+1 (555) 123-4567" value={reservationHolder?.phone} onChange={setHolder('phone')} />
-                </div>
-            </section>
+        <div>
+            <p className="small fw-bold">Passengers list</p>
+            <div className={`${styles.tableCard} ${styles.desktopOnly}`}>
+                <Table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            {COLUMNS.map(([field, label]) => <th key={field}>{label}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {seats.map((i) => (
+                            <tr key={i}>
+                                <td className={i === 0 ? 'fw-bold' : ''} style={tint(i)}>{i === 0 ? 'Holder' : ''}</td>
+                                {COLUMNS.map((col) => <td key={col[0]} style={tint(i)}>{input(i, col)}</td>)}
+                            </tr>
+                        ))}
+                    </tbody>
+                </Table>
+            </div>
 
-            <section className={styles.section}>
-                <h5 className={styles.title}>
-                    Passengers
-                    <span className={styles.hint}>First name required</span>
-                </h5>
-                <div className="d-flex flex-column gap-3">
-                    {Array.from({ length: count }).map((_, i) => (
-                        <div key={i} className={styles.passengerRow}>
-                            <div className="fw-bold small mb-2">Passenger {i + 1}</div>
-                            <div className="row g-3">
-                                <Field label="First name" value={passengersData[i]?.firstName} onChange={setPassenger(i, 'firstName')} />
-                                <Field label="Last name" value={passengersData[i]?.lastName} onChange={setPassenger(i, 'lastName')} />
-                            </div>
+            <div className={`${styles.cardsList} ${styles.mobileOnly}`}>
+                {seats.map((i) => (
+                    <div key={i} className={styles.card} style={tint(i)}>
+                        <div className={styles.cardHead}>
+                            <h3 className={styles.cardTitle}>{i === 0 ? 'Holder' : `Passenger ${i + 1}`}</h3>
                         </div>
-                    ))}
-                </div>
-            </section>
+                        <div className={styles.cardMeta} style={{ marginBottom: 0 }}>
+                            {COLUMNS.map((col) => (
+                                <div key={col[0]} className={col[0] === 'email' ? styles.cardMetaFull : ''}>
+                                    <span className={styles.cardMetaLabel}>{col[1]}</span>
+                                    {input(i, col)}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

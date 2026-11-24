@@ -128,7 +128,7 @@ async function validateQrConfirmation(req, res) {
                     codeReservation: reservation.codeReservation,
                     startDate: reservation.startDate,
                     title: experienceTitle(reservation),
-                    holderName: [reservation.name, reservation.lastname].filter(Boolean).join(' ').trim() || null,
+                    holderName: passengerRows.filter((row) => row.holder).map((row) => [row.name, row.lastname].filter(Boolean).join(' ')).join('') || null,
                     passengerCount: reservation.passengers,
                     passengers: passengersForQrPreview(passengerRows)
                 }
@@ -237,7 +237,7 @@ async function createReservation(req, res) {
             if (errConn) throw errConn
             connSuccess = true
             console.log(req.body);
-            let { experienceCode, serviceCode, reservationDate, reservationTime, passengerCount, passengers, notes, reservationHolder, idAircraft, idPilot } = req.body;
+            let { experienceCode, serviceCode, reservationDate, reservationTime, passengerCount, passengers, notes, idAircraft, idPilot } = req.body;
             idPilot = idPilot && idPilot !== 'all' && !isNaN(Number(idPilot)) ? Number(idPilot) : null;
 
             if (!reservationDate || !reservationTime) {
@@ -257,8 +257,6 @@ async function createReservation(req, res) {
             const isAvailable = availableHours.some(item => formatHour(item.hour) === reservationTime);
             if (!isAvailable) throw 'No availability for the selected date and time. Please choose another option.'
 
-            const name = reservationHolder.firstName && reservationHolder.firstName != null ? reservationHolder.firstName : req.name;
-            const lastname = reservationHolder.lastName && reservationHolder.lastName != null ? reservationHolder.lastName : req.surname;
             const code = serviceCode || experienceCode;
             if (!code) throw 'Invalid service code'
             const service = await servicesDb.getServiceByCode(conn, code, req.idAccount);
@@ -362,10 +360,15 @@ async function confirmBooking(req, res) {
             if (errConn) throw errConn
             connSuccess = true
 
-            const { idReservation, passengers, reservationHolder, notes } = req.body;
+            const { idReservation, passengers, notes } = req.body;
 
             if (!idReservation) throw 'Missing reservation ID.'
 
+            // passengers[0] is the reservation holder. A pilot-only booking sends none.
+            if (passengers?.length) {
+                if (!passengers.every((p) => p.firstName?.trim())) throw 'Every passenger needs a first name.';
+                if (!passengers[0].email?.trim() || !passengers[0].phone?.trim()) throw 'The reservation holder needs an email and a phone.';
+            }
 
             console.log(req.body);
             const statusResult = await db.updateReservationStatus(conn, { idStatus: 3, idReservation: idReservation, idAccount: req.idAccount, idUser: req.idUser })
@@ -374,19 +377,8 @@ async function confirmBooking(req, res) {
             if (notes && String(notes).trim() != "") {
                 await db.updateReservationNotes(conn, { notes: notes, idReservation: idReservation, idAccount: req.idAccount, idUser: req.idUser })
             }
-            // Update reservation holder if provided
-            if (reservationHolder && Object.keys(reservationHolder).length > 0) {
-                await db.updateReservationHolder(conn, { ...reservationHolder, idReservation, idAccount: req.idAccount, idUser: req.idUser });
-            }
-
-            // Insert passengers if provided
-            if (passengers && passengers.length > 0) {
-                let ps = []
-                for (let i = 0; i < passengers.length; i++) {
-                    let passenger = passengers[i];
-                    ps.push([passenger.firstName, passenger.lastName, idReservation]);
-                }
-                await db.insertPassengers(conn, { passengers: ps })
+            if (passengers?.length) {
+                await db.savePassengers(conn, { idReservation, people: passengers, idAccount: req.idAccount, idUser: req.idUser });
             }
 
             // Generate confirmation hash + email boarding pass
@@ -416,21 +408,10 @@ async function confirmBooking(req, res) {
                 }
             }
             const passengerRows = await db.getPassengersByReservationId(conn, idReservation, req.idAccount);
-            const holderEmail = reservationHolder?.email || reservation?.email;
+            const holderEmail = passengerRows.find((row) => row.holder)?.email;
 
             if (reservation && holderEmail) {
-                let mailPassengers = passengersForBoardingPdf(passengerRows);
-                if (!mailPassengers.length && reservationHolder?.firstName) {
-                    mailPassengers = [{
-                        name: reservationHolder.firstName,
-                        lastname: reservationHolder.lastName || '',
-                    }];
-                } else if (!mailPassengers.length && reservation.name) {
-                    mailPassengers = [{
-                        name: reservation.name,
-                        lastname: reservation.lastname || '',
-                    }];
-                }
+                const mailPassengers = passengersForBoardingPdf(passengerRows);
 
                 try {
                     await sendBookingDetails({
@@ -735,10 +716,6 @@ async function updateReservation(req, res) {
 
                 idUser: req.idUser,
                 idReservation,
-                name,
-                lastname,
-                email,
-                phoneNumber,
                 notes,
                 startDate,
                 endDate,
@@ -747,6 +724,7 @@ async function updateReservation(req, res) {
                 idPilot: idPilot ? idPilot : null,
                 idAccount: req.idAccount
             })
+            if (name?.trim()) await db.updateHolder(conn, { name: name.trim(), lastname, email, phoneNumber, idReservation, idAccount: req.idAccount, idUser: req.idUser });
 
             response = { success: true, message: 'Reservation updated successfully' }
             status = 200

@@ -43,6 +43,33 @@ $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 
 `devices` tiene que mostrar el teléfono como `device`. `--list` tiene que mostrar los dos puertos. Si la lista queda vacía, la sesión de adb se cortó: repetí `devices` y los dos `reverse`.
 
+## AAB para Play Store
+
+El AAB abre el sitio publicado, no el localhost. Se genera desde `frontend/`. El keystore y `android/keystore.properties` no se suben al repo: hacé una copia del keystore fuera de la máquina.
+
+1. Una sola vez, crear la clave de firma:
+
+```bash
+keytool -genkeypair -v -keystore fleetrust-upload.keystore -alias fleetrust -keyalg RSA -keysize 2048 -validity 10000
+```
+
+2. Crear `android/keystore.properties`. `storeFile` es relativo a `android/app/`:
+
+```properties
+storePassword=...
+keyPassword=...
+keyAlias=fleetrust
+storeFile=../../fleetrust-upload.keystore
+```
+
+3. Generar el paquete. `CAP_SERVER_URL` solo vale para ese comando:
+
+```bash
+CAP_SERVER_URL=https://fleetrust.app npm run cap:aab
+```
+
+Cada corrida sube el `versionCode`. El archivo queda en `android/app/build/outputs/bundle/release/app-release.aab`. Ese es el que se sube a Play Console, en Prueba interna.
+
 You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

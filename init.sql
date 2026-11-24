@@ -316,12 +316,37 @@ DROP TABLE IF EXISTS `passengers`;
 
 CREATE TABLE `passengers` (
   `idPassenger` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `lastname` varchar(255) NOT NULL,
   `idReservation` int(11) NOT NULL,
+  `idPerson` int(11) NOT NULL,
+  `holder` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`idPassenger`),
-  KEY `passengers_ibfk_1` (`idReservation`),
-  CONSTRAINT `passengers_ibfk_1` FOREIGN KEY (`idReservation`) REFERENCES `reservations` (`idReservation`)
+  UNIQUE KEY `uq_passengers_person` (`idReservation`,`idPerson`),
+  KEY `passengers_person_fk` (`idPerson`),
+  CONSTRAINT `passengers_ibfk_1` FOREIGN KEY (`idReservation`) REFERENCES `reservations` (`idReservation`),
+  CONSTRAINT `passengers_person_fk` FOREIGN KEY (`idPerson`) REFERENCES `persons` (`idPerson`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Table structure for table `persons` */
+
+DROP TABLE IF EXISTS `persons`;
+
+CREATE TABLE `persons` (
+  `idPerson` int(11) NOT NULL AUTO_INCREMENT,
+  `idAccount` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `lastname` varchar(255) NOT NULL DEFAULT '',
+  `email` varchar(255) DEFAULT NULL,
+  `phoneNumber` varchar(255) DEFAULT NULL,
+  `weight` decimal(5,1) DEFAULT NULL,
+  `birthdate` date DEFAULT NULL,
+  `document` varchar(64) DEFAULT NULL,
+  `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
+  `updatedAt` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `createdBy` int(11) DEFAULT NULL,
+  `updatedBy` int(11) DEFAULT NULL,
+  PRIMARY KEY (`idPerson`),
+  KEY `idx_persons_account_email` (`idAccount`,`email`),
+  CONSTRAINT `fk_persons_account` FOREIGN KEY (`idAccount`) REFERENCES `accounts` (`idAccount`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 /*Table structure for table `passkeys` */
@@ -387,11 +412,7 @@ CREATE TABLE `reservations` (
   `idReservation` int(11) NOT NULL AUTO_INCREMENT,
   `codeReservation` bigint(20) DEFAULT NULL,
   `passengers` int(11) DEFAULT NULL,
-  `name` varchar(255) DEFAULT NULL,
-  `lastname` varchar(255) DEFAULT NULL,
   `idExperience` int(11) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `phoneNumber` varchar(255) DEFAULT NULL,
   `deposit` decimal(10,2) DEFAULT NULL,
   `remainingBalance` decimal(10,2) DEFAULT NULL,
   `totalValue` decimal(10,2) DEFAULT NULL,

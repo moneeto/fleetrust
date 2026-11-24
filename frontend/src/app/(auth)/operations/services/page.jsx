@@ -32,17 +32,11 @@ function durationLabel(minutes) {
     return `${n} min`;
 }
 
-function priceRange(prices) {
-    const each = [];
-    for (const row of prices || []) {
-        const passengers = Number(row.passengers);
-        const price = Number(row.price);
-        if (!(passengers > 0) || !Number.isFinite(price)) continue;
-        each.push(Math.round((price / passengers) * 100) / 100);
-    }
-    if (!each.length) return "—";
-    const low = Math.min(...each);
-    const high = Math.max(...each);
+function priceRange(row) {
+    if (row.minPrice == null || row.minPrice === "" || row.maxPrice == null || row.maxPrice === "") return "—";
+    const low = Number(row.minPrice);
+    const high = Number(row.maxPrice);
+    if (!Number.isFinite(low) || !Number.isFinite(high)) return "—";
     return low === high ? money(low) : `${money(low)} – ${money(high)}`;
 }
 
@@ -57,7 +51,7 @@ function advanceLabel(days) {
 function serviceFacts(row) {
     return [
         ["Duration", durationLabel(row.durationMinutes)],
-        ["Price / person", priceRange(row.prices)],
+        ["Price", priceRange(row)],
         ["Advance", advanceLabel(row.minDaysAhead)]
     ];
 }

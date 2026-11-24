@@ -10,11 +10,9 @@ import moment from 'moment';
 
 import SelectDateTime from '@/components/booking/SelectDateTime';
 import SelectDateRange from '@/components/booking/SelectDateRange';
-import SelectPassengersNumber from '@/components/booking/SelectPassengersNumber';
 import PassengerDetails from '@/components/booking/PassengerDetails';
 import { ApiComunicator } from '@/helpers/ApiComunicator';
 import styles from './page.module.css';
-import { defaultPassengerCount } from '@/helpers/bookingConfig';
 
 export default function BookDatesPage({ initialDate = "", initialTime = "", onDone } = {}) {
     const router = useRouter();
@@ -25,17 +23,13 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
     const bookingType = selectedService ? (selectedService === 'MANUAL' ? 'me' : 'others') : null;
     const [date, setDate] = useState(initialDate);
     const [time, setTime] = useState(initialTime);
-    const [passengers, setPassengers] = useState(2);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [overlappingData, setOverlappingData] = useState(null);
-    const [passengersData, setPassengersData] = useState([]);
+    const [people, setPeople] = useState([]);
     const [notes, setNotes] = useState('');
-    const [reservationHolder, setReservationHolder] = useState({
-        firstName: '', lastName: '', email: '', phone: ''
-    });
     const [aircrafts, setAircrafts] = useState([]);
     const [pilots, setPilots] = useState([]);
     const [idAircraft, setIdAircraft] = useState("all");
@@ -45,14 +39,6 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
     const [dateRange, setDateRange] = useState({ from: null, to: null });
     const [timeRange, setTimeRange] = useState({ start: "07:00", end: "07:00" });
     const [openDays, setOpenDays] = useState([]);
-
-    useEffect(() => {
-        if (bookingType === 'others') {
-            setPassengersData(prev =>
-                Array.from({ length: passengers }, (_, i) => prev[i] || { firstName: '', lastName: '' })
-            );
-        }
-    }, [passengers, bookingType]);
 
     useEffect(() => {
         getAircrafts();
@@ -65,12 +51,6 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
             })
             .catch(() => setOpenDays([]));
     }, []);
-
-    useEffect(() => {
-        const product = services.find((item) => item.code === selectedService);
-        if (!product) return;
-        setPassengers(defaultPassengerCount(product));
-    }, [selectedService, services]);
 
     const getServices = async () => {
         try {
@@ -106,10 +86,9 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
             const data = {
                 reservationDate: date,
                 reservationTime: time,
-                passengerCount: bookingType === 'me' ? 1 : passengers,
+                passengerCount: bookingType === 'me' ? 1 : guests.length,
                 passengers: [],
                 notes,
-                reservationHolder: {},
                 idAircraft,
                 idPilot: idPilot || null,
                 serviceCode,
@@ -135,8 +114,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
             }
             const data = {
                 idReservation: targetId,
-                passengers: bookingType === 'me' ? [] : passengersData,
-                reservationHolder,
+                passengers: bookingType === 'me' ? [] : guests,
                 notes
             };
             const res = await ApiComunicator(`/reservations/confirmBooking`, 'POST', data);
@@ -162,9 +140,17 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
         } finally { setLoading(false); }
     };
 
-    const isDetailsValid = reservationHolder.firstName.trim() !== '' &&
-        reservationHolder.email.trim() !== '' &&
-        passengersData.every(p => p.firstName?.trim() !== '');
+    // Capacidad: la del avion elegido o, con "Any Available", la mayor entre los disponibles
+    const capacity = Math.max(1, ...aircrafts
+        .filter((a) => idAircraft === 'all' ? a.available : String(a.idAircraft) === String(idAircraft))
+        .map((a) => Number(a.capacity)));
+    // Filas usadas: las que tienen algun dato, sin pasar la capacidad. La primera es el holder.
+    const guests = people.slice(0, capacity)
+        .map((p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) => [k, String(v).trim()])))
+        .filter((p) => Object.values(p).some(Boolean));
+    const holder = people[0] || {};
+    const isDetailsValid = ['firstName', 'email', 'phone'].every((k) => holder[k]?.trim()) &&
+        guests.every((p) => p.firstName);
 
     // Pantallas: 0 vuelo + piloto + fecha/hora, 1 datos, 2 resumen
     const titles = ['New Book', 'Details', 'Summary'];
@@ -191,11 +177,11 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
             ? `${fmt(dateRange.from)} ${timeRange.start} → ${fmt(dateRange.to)} ${timeRange.end}`
             : `${fmt(date)} ${time}`],
         ...(bookingType === 'others' ? [
-            ['Passengers', passengers],
-            ['Reservation holder', `${reservationHolder.firstName} ${reservationHolder.lastName}`.trim()],
-            ['Email', reservationHolder.email],
-            ['Phone', reservationHolder.phone],
-            ['Passenger names', passengersData.map((p) => `${p.firstName || ''} ${p.lastName || ''}`.trim()).filter(Boolean).join(', ')],
+            ['Passengers', guests.length],
+            ['Reservation holder', `${holder.firstName || ''} ${holder.lastName || ''}`.trim()],
+            ['Email', holder.email],
+            ['Phone', holder.phone],
+            ['Passenger names', guests.map((p) => `${p.firstName || ''} ${p.lastName || ''}`.trim()).join(', ')],
         ] : []),
         ['Notes', notes],
     ];
@@ -336,19 +322,10 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                             {step === 1 && (
                                 <div className={styles.scheduleStack}>
                                     {bookingType === 'others' && (
-                                        <>
-                                            <div className={styles.settingsPanel}>
-                                                <SelectPassengersNumber
-                                                    count={passengers}
-                                                    onCountChange={setPassengers}
-                                                    prices={product?.prices}
-                                                />
-                                            </div>
-                                            <PassengerDetails
-                                                count={passengers} passengersData={passengersData} setPassengersData={setPassengersData}
-                                                reservationHolder={reservationHolder} setReservationHolder={setReservationHolder}
-                                            />
-                                        </>
+                                        <PassengerDetails
+                                            capacity={capacity}
+                                            people={people} setPeople={setPeople}
+                                        />
                                     )}
                                     <div className={styles.settingsPanel}>
                                         <FormGroup className="mb-0">
@@ -445,7 +422,7 @@ export default function BookDatesPage({ initialDate = "", initialTime = "", onDo
                 onClose={() => onDone ? onDone() : router.push('/operations/bookings')}
             >
                 Your flight for {date} is ready.
-                {reservationHolder?.email ? <> A boarding pass was sent to {reservationHolder.email}.</> : null}
+                {holder.email ? <> A boarding pass was sent to {holder.email}.</> : null}
             </MessageModal>
 
             <MessageModal

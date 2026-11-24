@@ -10,15 +10,3 @@ export function parseWeekdays(value) {
   }
   return [0, 1, 2, 3, 4, 5, 6];
 }
-
-export function allowedPassengerCounts(product) {
-  return (product?.prices || [])
-    .map((p) => Number(p.passengers))
-    .filter((n) => Number.isFinite(n) && n > 0)
-    .sort((a, b) => a - b);
-}
-
-export function defaultPassengerCount(product) {
-  const counts = allowedPassengerCounts(product);
-  return counts[0] || 2;
-}

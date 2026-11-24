@@ -1,3 +1,12 @@
+// The holder is the passenger flagged holder = 1. Listings get name/lastname/email/phoneNumber from it.
+const HOLDER_COLUMNS = 'h.name, h.lastname, h.email, h.phoneNumber';
+const HOLDER_JOIN = `LEFT JOIN passengers hp ON hp.idReservation = a.idReservation AND hp.holder = 1
+        LEFT JOIN persons h ON h.idPerson = hp.idPerson`;
+
+const query = (conn, sql, params) => new Promise((resolve, reject) => {
+    conn.query(sql, params, (err, results) => (err ? reject(err) : resolve(results)));
+});
+
 // Returns reservations that overlap with a given date range for a specific aircraft
 async function getReservationsInRange(conn, startDate, endDate, idAircraft, idAccount) {
     return new Promise((resolve, reject) => {
@@ -102,10 +111,11 @@ async function getFreeHours(conn, p) {
 async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) {
     return new Promise((resolve, reject) => {
         let query = `
-        SELECT a.*, s.title AS experience, s.title AS service, s.code AS serviceCode, d.aircraft, d.registrationNumber
+        SELECT a.*, ${HOLDER_COLUMNS}, s.title AS experience, s.title AS service, s.code AS serviceCode, d.aircraft, d.registrationNumber
         FROM reservations a
         LEFT JOIN services s ON a.idService = s.idService
         LEFT JOIN aircrafts d ON a.idAircraft = d.idAircraft
+        ${HOLDER_JOIN}
         WHERE a.idAccount = ?
         AND DATE(a.endDate) >= ?
         AND DATE(a.startDate) <= ?
@@ -133,8 +143,8 @@ async function getReservationsByDateRange(conn, dateFrom, dateTo, filters = {}) 
         if (filters.client) {
             const term = `%${String(filters.client).trim()}%`;
             query += ` AND (
-                a.name LIKE ? OR a.lastname LIKE ?
-                OR CONCAT(COALESCE(a.name,''), ' ', COALESCE(a.lastname,'')) LIKE ?
+                h.name LIKE ? OR h.lastname LIKE ?
+                OR CONCAT(COALESCE(h.name,''), ' ', COALESCE(h.lastname,'')) LIKE ?
             )`;
             qParams.push(term, term, term);
         }
@@ -167,11 +177,12 @@ async function getReservationsByDate(conn, date, idAccount) {
 async function getReservationById(conn, id, idAccount) {
     return new Promise((resolve, reject) => {
         const query = `
-        SELECT a.*, s.title AS experience, s.title AS service, s.code AS serviceCode, c.aircraft, c.registrationNumber, e.pilotName
+        SELECT a.*, ${HOLDER_COLUMNS}, s.title AS experience, s.title AS service, s.code AS serviceCode, c.aircraft, c.registrationNumber, e.pilotName
         from reservations a
         LEFT JOIN aircrafts c on a.idAircraft = c.idAircraft
         LEFT JOIN services s ON a.idService = s.idService
         LEFT JOIN pilots e ON a.idPilot = e.idPilot
+        ${HOLDER_JOIN}
         WHERE a.idReservation = ? AND a.idAccount = ?
         `;
         const qParams = [id, idAccount];
@@ -216,47 +227,45 @@ async function completeQrValidation(conn, idReservation, idAccount, idUser) {
     });
 }
 
-async function updateReservationHolder(conn, p) {
-    return new Promise((resolve, reject) => {
-        let query = `
-        UPDATE reservations SET name = ?, lastname = ?, email=?, phoneNumber=?, updatedBy = ? WHERE idReservation = ? AND idAccount = ?
-        `;
-
-        let params = [p.firstName, p.lastName, p.email, p.phone, p.idUser, p.idReservation, p.idAccount];
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    })
-}
-async function insertPassengers(conn, p) {
-    return new Promise((resolve, reject) => {
-        let query = `
-        INSERT INTO passengers (name, lastName, idReservation) VALUES ?
-        `;
-        let params = [p.passengers];
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    })
+// Saves the reservation's people: people[0] is the holder. A person is reused when the account already
+// has one with the same email (a repeated email inside the same reservation creates a new person).
+async function savePassengers(conn, p) {
+    await deleteReservationPassengers(conn, p.idReservation);
+    const used = new Set();
+    for (const [i, x] of p.people.entries()) {
+        const email = x.email?.trim() || null;
+        const data = [x.firstName.trim(), x.lastName?.trim() || '', email, x.phone?.trim() || null, x.weight || null, x.birthdate || null, x.document?.trim() || null];
+        const [found] = email ? await query(conn, 'SELECT idPerson FROM persons WHERE idAccount = ? AND email = ? LIMIT 1', [p.idAccount, email]) : [];
+        let idPerson = found && !used.has(found.idPerson) ? found.idPerson : null;
+        if (idPerson) {
+            await query(conn, `UPDATE persons SET name = ?, lastname = ?, email = ?, phoneNumber = COALESCE(?, phoneNumber), weight = COALESCE(?, weight),
+                birthdate = COALESCE(?, birthdate), document = COALESCE(?, document), updatedBy = ? WHERE idPerson = ?`, [...data, p.idUser, idPerson]);
+        } else {
+            idPerson = (await query(conn, `INSERT INTO persons (name, lastname, email, phoneNumber, weight, birthdate, document, idAccount, createdBy, updatedBy)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [...data, p.idAccount, p.idUser, p.idUser])).insertId;
+        }
+        used.add(idPerson);
+        await query(conn, 'INSERT INTO passengers (idReservation, idPerson, holder) VALUES (?, ?, ?)', [p.idReservation, idPerson, i === 0 ? 1 : 0]);
+    }
 }
 
+// Edits the holder's own data (reservation edit modal).
+async function updateHolder(conn, p) {
+    return query(conn, `UPDATE persons pe JOIN passengers ps ON ps.idPerson = pe.idPerson AND ps.holder = 1
+        SET pe.name = ?, pe.lastname = ?, pe.email = ?, pe.phoneNumber = ?, pe.updatedBy = ?
+        WHERE ps.idReservation = ? AND pe.idAccount = ?`,
+        [p.name, p.lastname || '', p.email || null, p.phoneNumber || null, p.idUser, p.idReservation, p.idAccount]);
+}
+
+// Passengers with their person data, holder first. name/lastname keep the keys the consumers already read.
 async function getPassengersByReservationId(conn, idReservation, idAccount) {
-    return new Promise((resolve, reject) => {
-        let query = `
-            SELECT p.*
-            FROM passengers p
-            INNER JOIN reservations r ON r.idReservation = p.idReservation
-            WHERE p.idReservation = ? AND r.idAccount = ?
-
-        `;
-        let params = [idReservation, idAccount];
-        conn.query(query, params, (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    })
+    return query(conn, `SELECT p.idPassenger, p.idReservation, p.idPerson, p.holder,
+            pe.name, pe.lastname, pe.email, pe.phoneNumber, pe.weight, pe.birthdate, pe.document
+        FROM passengers p
+        INNER JOIN persons pe ON pe.idPerson = p.idPerson
+        INNER JOIN reservations r ON r.idReservation = p.idReservation
+        WHERE p.idReservation = ? AND r.idAccount = ?
+        ORDER BY p.holder DESC, p.idPassenger`, [idReservation, idAccount]);
 }
 
 async function getReservationAddons(conn, idReservation, idAccount) {
@@ -319,10 +328,6 @@ async function updateReservation(conn, params) {
     return new Promise((resolve, reject) => {
         let query = `
         UPDATE reservations SET 
-            name = ?, 
-            lastname = ?, 
-            email = ?, 
-            phoneNumber = ?, 
             notes = ?, 
             startDate = ?, 
             endDate = ?, 
@@ -334,10 +339,6 @@ async function updateReservation(conn, params) {
         `;
 
         let queryParams = [
-            params.name,
-            params.lastname,
-            params.email,
-            params.phoneNumber,
             params.notes,
             params.startDate,
             params.endDate,
@@ -540,8 +541,8 @@ module.exports = {
     getReservationById,
     getReservationByConfirmationHash,
     completeQrValidation,
-    updateReservationHolder,
-    insertPassengers,
+    savePassengers,
+    updateHolder,
     getPassengersByReservationId,
     getReservationAddons,
     getServiceAddons,

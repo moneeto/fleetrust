@@ -1,6 +1,14 @@
 async function getServices(conn, includeDeleted, idAccount) {
     return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM services WHERE idAccount = ? AND (deleted = 0 OR ? = 1) ORDER BY title`;
+        const query = `SELECT s.*, r.minPrice, r.maxPrice
+            FROM services s
+            LEFT JOIN (
+                SELECT idService, MIN(price) AS minPrice, MAX(price) AS maxPrice
+                FROM services_prices
+                GROUP BY idService
+            ) r ON r.idService = s.idService
+            WHERE s.idAccount = ? AND (s.deleted = 0 OR ? = 1)
+            ORDER BY s.title`;
         conn.query(query, [idAccount, includeDeleted], (err, results) => {
             if (err) return reject(err);
             resolve(results);

@@ -271,7 +271,7 @@ export default function BookingDetailModal({ idReservation, onClose, onChanged, 
                                     {reservation?.passengers?.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
                                             {reservation.passengers.map((passenger, index) => (
-                                                (passenger.name || passenger.lastname) && (
+                                                !passenger.holder && (passenger.name || passenger.lastname) && (
                                                     <div key={'pssgr-' + index}>
                                                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#999', textTransform: 'uppercase', marginBottom: '4px' }}>
                                                             Passenger #{index + 1}
